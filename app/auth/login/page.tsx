@@ -16,11 +16,11 @@ export default function Login(){
       const body= action==='register'? {email,password,role:'PATIENT'} : {email,password};
       const r=await callApi(action==='register'?'/auth/register':'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok){ setErr(r.status===401?'Identifiants incorrects.':`Erreur ${r.status}.`); return; }
-      const d=await r.json(); if(d?.access_token){ setToken(d.access_token); localStorage.setItem('token',d.access_token); remember?localStorage.setItem('login_email',email):localStorage.removeItem('login_email'); router.replace('/doctors'); } else setErr('Réponse inattendue du serveur.');
+      const d=await r.json(); if(d?.access_token){ setToken(d.access_token); localStorage.setItem('token',d.access_token); remember?localStorage.setItem('login_email',email):localStorage.removeItem('login_email'); router.replace('/'); } else setErr('Réponse inattendue du serveur.');
     }catch(e:any){ setErr(e?.message||'Erreur réseau'); } finally{ setLoading(false); }
   }
   return (<div className="auth-wrap"><section className="auth-card">
-    <header className="auth-head"><div className="auth-logo">🩺</div><div><h1 className="auth-title">Connexion</h1><p className="auth-sub">Accédez à votre espace patient</p></div></header>
+    <header className="auth-head"><div className="auth-logo">🩺</div><div><h1 className="auth-title">Connexion </h1><p className="auth-sub">Accédez à votre espace patient</p></div></header>
     <div className="form">
       <div><label htmlFor="email" className="small" style={{fontWeight:700,color:'#111827'}}>Email</label><input id="email" className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} aria-invalid={emailInvalid} placeholder="vous@exemple.com"/></div>
       <div><label htmlFor="pwd" className="small" style={{fontWeight:700,color:'#111827'}}>Mot de passe</label><div className="pwd-row"><input id="pwd" className="input" type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/><button type="button" className="btn outline" onClick={()=>setShowPwd(s=>!s)}>{showPwd?'Masquer':'Afficher'}</button></div></div>
