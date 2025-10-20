@@ -1,29 +1,60 @@
-# ---------- deps ----------
+# # --- build ---
+# FROM node:20-alpine AS build
+# WORKDIR /app
+
+# # 1) deps
+# COPY package*.json ./
+# RUN npm ci || npm install
+
+# # 2) sources
+# COPY . .
+
+# # 3) s'assurer que "public" existe (même vide)
+# RUN mkdir -p /app/public
+
+# # 4) build Next.js (produit .next ; si output=standalone => .next/standalone)
+# RUN npm run build
+
+# # --- runner ---
+# FROM node:20-alpine AS runner
+# WORKDIR /app
+# ENV NODE_ENV=production
+# ENV PORT=3000
+
+# # 5) copier le serveur standalone et les assets
+# COPY --from=build /app/.next/standalone ./
+# COPY --from=build /app/.next/static ./.next/static
+# COPY --from=build /app/public ./public 
+
+# EXPOSE 3000
+# CMD ["node", "server.js"]
+# --- deps ---
+# --- deps ---
 FROM node:20-alpine AS deps
 WORKDIR /app
-# If you have a lockfile, copy it too:
-# COPY package.json package-lock.json ./
-COPY package.json ./
-RUN npm install
+# copie le lock s'il existe (sinon ignore)
+COPY package.json package-lock.json* ./
+# si lockfile => npm ci ; sinon => npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-# ---------- build ----------
+# --- build ---
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# sanity check to fail early if "next" is missing
-RUN node -e "console.log('next:', require('next/package.json').version)"
+RUN mkdir -p /app/public
 RUN npm run build
 
-# ---------- runtime (standalone) ----------
+# --- run (standalone recommandé avec next.config.js: { output: 'standalone' }) ---
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-# Next standalone bundle + static assets
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 
-ENV PORT=3000
 EXPOSE 3000
 CMD ["node", "server.js"]
