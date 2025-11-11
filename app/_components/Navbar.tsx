@@ -81,7 +81,7 @@ export default function Navbar() {
           {links.map((l) => (
             <button
               key={l.href}
-              onClick={() => router.push(l.href)}
+              onClick={() => router.push(l.href as any)}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -150,8 +150,8 @@ export default function Navbar() {
                   <DropdownItem onClick={() => { router.push('/account'); setOpen(false); }}>
                     Mon compte
                   </DropdownItem>
-                  <DropdownItem onClick={() => { router.push('/documents'); setOpen(false); }}>
-                    Mes documents
+                  <DropdownItem onClick={() => {  setOpen(false); }}>
+                    Mes documents (a venir)
                   </DropdownItem>
                   <div style={{ height: 1, background: '#eee' }} />
                   <DropdownItem

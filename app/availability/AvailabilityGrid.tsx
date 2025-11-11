@@ -27,10 +27,11 @@ type Props = {
   weekOffset: number;
   onPrevWeek: () => void;
   onNextWeek: () => void;
-  minHour?: number;
-  maxHour?: number;
+  minHour: number;
+  maxHour: number;
   onToggle: (slot: Slot) => void | Promise<void>;
   onDelete: (slot: Slot) => void | Promise<void>;
+  onCapacityChange?: (slot: Slot, capacity: number) => void | Promise<void>; // 👈 ajouté
 };
 
 // 👉 calcule le lundi de la semaine avec offset
