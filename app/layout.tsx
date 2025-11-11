@@ -1,25 +1,24 @@
 import './globals.css';
+import { AuthProvider } from './_providers/AuthProvider';
 import type { Metadata } from 'next';
+import Navbar from './_components/Navbar';
 
 export const metadata: Metadata = {
   title: 'web-doctor',
   description: 'Health platform — web-doctor',
 };
 
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
       <body>
-        <header className="site">
-          <div className="container bar">
-            <strong className="brand">Plateforme Santé — web-Doctor</strong>
-            <nav style={{ display:'flex', gap:8, marginLeft:'auto' }}>
-              <a href="/">Accueil</a>
-              <a href="/auth/login">Connexion</a>
-            </nav>
-          </div>
-        </header>
-        <main className="container">{children}</main>
+        <AuthProvider>
+          <Navbar />
+          <main style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
