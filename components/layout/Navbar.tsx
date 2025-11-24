@@ -122,7 +122,7 @@ export default function Navbar() {
                   <Link href="/account">Mon compte</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/">Mes documents</Link>
+                  <Link href="/">Home</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/appointments">Mes rendez-vous</Link>

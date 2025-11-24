@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+
 import AvailabilityControls from './AvailabilityControls';
 import AvailabilityGrid from './AvailabilityGrid';
 import styles from './Availability.module.css';
 
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// même shape qu'avant
 export type Slot = {
   id: string;
   ownerId: string;
@@ -123,48 +128,47 @@ export default function AvailabilityPage() {
   }, []);
 
   return (
-  <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-    <div className={styles.header}>
-      <div>
-        <h1 className={styles.title}>Mes disponibilités</h1>
-        <p className={styles.subtitle}>Configurez vos créneaux…</p>
-      </div>
-    </div>
-
-      {err && (
-        <div className="banner error mb-2">
-          {err}
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+      {/* Header */}
+      <div className={styles.header}>
+        <div>
+          <h1 className={styles.title}>Mes disponibilités</h1>
+          <p className={styles.subtitle}>
+            Générer vos créneaux puis ajustez-les dans le planning hebdomadaire.
+          </p>
         </div>
+      </div>
+
+      {/* Alerts */}
+      {err && (
+        <Alert variant="destructive">
+          <AlertDescription>{err}</AlertDescription>
+        </Alert>
       )}
       {info && (
-        <div className="banner success mb-2">
-          {info}
-        </div>
+        <Alert>
+          <AlertDescription>{info}</AlertDescription>
+        </Alert>
       )}
 
-      <AvailabilityControls onGenerate={bulkCreate} />
+      {/* Bloc génération automatique */}
+      <Card className="p-4">
+        <AvailabilityControls onGenerate={bulkCreate} />
+      </Card>
 
+      {/* Planning */}
       {loading ? (
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          Chargement…
-        </div>
+        <Card className="p-4">Chargement…</Card>
       ) : (
         <AvailabilityGrid
           slots={slots}
           weekOffset={weekOffset}
           minHour={7}
           maxHour={18}
-          onPrevWeek={() => {
-            // on n’autorise pas de revenir avant la semaine 0
-            setWeekOffset((w) => Math.max(0, w - 1));
-          }}
+          onPrevWeek={() => setWeekOffset((w) => Math.max(0, w - 1))}
           onNextWeek={() => {
-            // on ne va à droite que s’il existe au moins un slot sur la semaine suivante
             const base = startOfWeekWithOffset(weekOffset + 1);
-            const hasFuture = slots.some((s) => {
-              const d = new Date(s.start);
-              return d >= base;
-            });
+            const hasFuture = slots.some((s) => new Date(s.start) >= base);
             if (hasFuture) setWeekOffset((w) => w + 1);
           }}
           onToggle={async (slot) => {

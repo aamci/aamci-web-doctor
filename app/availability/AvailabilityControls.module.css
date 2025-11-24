@@ -1,114 +1,54 @@
-/* app/availability/AvailabilityControls.module.css */
-
-.wrapper {
-  display: grid;
-  gap: 14px;
+.root {
+  @apply space-y-4;
 }
 
-.title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
+.sectionTitle {
+  @apply text-sm font-semibold text-slate-900;
 }
 
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.error {
+  @apply rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700;
 }
 
+.gridControl {
+  @apply grid gap-4 md:grid-cols-3;
+}
 .field {
-  display: grid;
-  gap: 4px;
+  @apply flex flex-col gap-1;
 }
 
 .label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #4b5563;
+  @apply text-xs font-medium text-slate-600;
 }
 
-.input {
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  font-size: 13px;
-  min-width: 110px;
-}
-
-.inputSmall {
-  width: 90px;
-}
-
-.inputWeeks {
-  width: 100px;
-}
-
-.hint {
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 2px;
+.help {
+  @apply mt-1 text-xs text-slate-400;
 }
 
 .daysRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  @apply flex flex-wrap gap-2;
 }
 
 .dayChip {
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  font-size: 12px;
-  background: #ffffff;
-  color: #111827;
-  cursor: pointer;
+  @apply rounded-full px-3 text-xs font-medium;
 }
 
-.dayChipActive {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
-}
-
-.exclusionsWrapper {
-  display: grid;
-  gap: 6px;
+.exclusions {
+  @apply space-y-2;
 }
 
 .exclusionRow {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
+  @apply flex items-center gap-2;
 }
 
-.exclusionInput {
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  font-size: 13px;
+.removeBtn {
+  @apply h-8 w-8 rounded-full bg-rose-50 text-base text-rose-500 hover:bg-rose-100;
 }
 
-.exclusionRemove {
-  border: none;
-  background: #fee2e2;
-  color: #b91c1c;
-  border-radius: 999px;
-  padding: 0 8px;
-  font-size: 14px;
-  cursor: pointer;
+.addExclusion {
+  @apply px-0 text-xs text-blue-600 hover:text-blue-700;
 }
 
-.exclusionAdd {
-  margin-top: 6px;
-  border: none;
-  background: transparent;
-  color: #2563eb;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.actionsRow {
-  margin-top: 4px;
+.footer {
+  @apply flex items-center gap-2 pt-1;
 }

@@ -1,17 +1,11 @@
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  @apply flex items-center justify-between gap-3;
 }
 
 .title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #0f172a;
+  @apply text-lg font-semibold text-slate-900;
 }
 
 .subtitle {
-  font-size: 0.875rem;
-  color: #6b7280;
+  @apply text-sm text-slate-500;
 }
