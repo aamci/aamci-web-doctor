@@ -1,13 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import styles from './AvailabilityControls.module.css';
 
 type Props = {
-  onGenerate: (slots: Array<{ start: string; end: string; capacity?: number; status?: string }>) => Promise<void> | void;
+  onGenerate: (
+    slots: Array<{ start: string; end: string; capacity?: number; status?: string }>
+  ) => Promise<void> | void;
 };
 
 export default function AvailabilityControls({ onGenerate }: Props) {
-  const [genDate, setGenDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [genDate, setGenDate] = useState(
+    () => new Date().toISOString().slice(0, 10),
+  );
   const [dayStart, setDayStart] = useState('07:00');
   const [dayEnd, setDayEnd] = useState('18:00');
   const [slotDuration, setSlotDuration] = useState(30);
@@ -25,7 +30,7 @@ export default function AvailabilityControls({ onGenerate }: Props) {
     startStr: string,
     endStr: string,
     durationMin: number,
-    excl: Array<{ start: string; end: string }>
+    excl: Array<{ start: string; end: string }>,
   ) {
     const slots: Array<{ start: string; end: string }> = [];
 
@@ -38,7 +43,11 @@ export default function AvailabilityControls({ onGenerate }: Props) {
     const dayEnd = new Date(baseDate);
     dayEnd.setHours(endH, endM, 0, 0);
 
-    for (let d = new Date(dayStart); d < dayEnd; d = new Date(d.getTime() + durationMin * 60 * 1000)) {
+    for (
+      let d = new Date(dayStart);
+      d < dayEnd;
+      d = new Date(d.getTime() + durationMin * 60 * 1000)
+    ) {
       const slotStart = new Date(d);
       const slotEnd = new Date(d.getTime() + durationMin * 60 * 1000);
       if (slotEnd > dayEnd) break;
@@ -64,15 +73,23 @@ export default function AvailabilityControls({ onGenerate }: Props) {
   }
 
   async function handleGenerate() {
-    setLoading(true);
     setErr(null);
-      if (slotDuration < 15 || slotDuration > 45) {
-        setErr('La durée doit être comprise entre 15 et 45 minutes.');
-        return;
-     }
+
+    // 🔧 corrige le bug: si on retourne ici, on ne doit pas rester en "loading"
+    if (slotDuration < 15 || slotDuration > 45) {
+      setErr('La durée doit être comprise entre 15 et 45 minutes.');
+      return;
+    }
+
+    setLoading(true);
     try {
       const baseDate = new Date(genDate);
-      const allSlots: Array<{ start: string; end: string; capacity?: number; status?: string }> = [];
+      const allSlots: Array<{
+        start: string;
+        end: string;
+        capacity?: number;
+        status?: string;
+      }> = [];
       const totalWeeks = Math.min(Math.max(weeksCount, 1), 12);
 
       for (let w = 0; w < totalWeeks; w++) {
@@ -87,13 +104,19 @@ export default function AvailabilityControls({ onGenerate }: Props) {
           const myDay = jsDay === 0 ? 7 : jsDay;
           if (!workDays.includes(myDay)) continue;
 
-          const daySlots = buildDaySlots(day, dayStart, dayEnd, slotDuration, exclusions);
+          const daySlots = buildDaySlots(
+            day,
+            dayStart,
+            dayEnd,
+            slotDuration,
+            exclusions,
+          );
           allSlots.push(
             ...daySlots.map((s) => ({
               ...s,
               capacity,
               status: 'ACTIVE',
-            }))
+            })),
           );
         }
       }
@@ -107,131 +130,187 @@ export default function AvailabilityControls({ onGenerate }: Props) {
   }
 
   return (
-    <div className="card" style={{ display: 'grid', gap: 14 }}>
-      <h3>Générer automatiquement</h3>
-      {err && <div className="banner error">{err}</div>}
+    <div className="card">
+      <div className={styles.wrapper}>
+        <h3 className={styles.title}>Générer automatiquement</h3>
+        {err && <div className="banner error">{err}</div>}
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <label className="small">À partir du</label>
-          <input type="date" value={genDate} onChange={(e) => setGenDate(e.target.value)} />
-        </div>
-        <div>
-          <label className="small">Début</label>
-          <input type="time" value={dayStart} onChange={(e) => setDayStart(e.target.value)} />
-        </div>
-        <div>
-          <label className="small">Fin</label>
-          <input type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} />
-        </div>
-        <div>
-        <label className="small">Durée (min)</label>
-        <input
-            type="number"
-            min={15}
-            max={45}
-            step={5}
-            value={slotDuration}
-            onChange={(e) => {
-            const v = Number(e.target.value);
-            if (v < 15) setSlotDuration(15);
-            else if (v > 45) setSlotDuration(45);
-            else setSlotDuration(v);
-            }}
-            style={{ width: 90 }}
-        />
-        <div className="small" style={{ color: '#777' }}>
-            entre 15 et 45 minutes
-        </div>
-        </div>
-        <div>
-          <label className="small">Capacité</label>
-          <input
-            type="number"
-            min={1}
-            value={capacity}
-            onChange={(e) => setCapacity(Number(e.target.value || 1))}
-            style={{ width: 90 }}
-          />
-        </div>
-        <div>
-          <label className="small">Semaines</label>
-          <input
-            type="number"
-            min={1}
-            max={12}
-            value={weeksCount}
-            onChange={(e) => setWeeksCount(Number(e.target.value || 1))}
-            style={{ width: 100 }}
-          />
-          <div className="small" style={{ color: '#777' }}>
-            max 12 (≈3 mois)
+        {/* Ligne principale des paramètres */}
+        <div className={styles.row}>
+          <div className={styles.field}>
+            <label className={styles.label}>À partir du</label>
+            <input
+              type="date"
+              value={genDate}
+              onChange={(e) => setGenDate(e.target.value)}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Début</label>
+            <input
+              type="time"
+              value={dayStart}
+              onChange={(e) => setDayStart(e.target.value)}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Fin</label>
+            <input
+              type="time"
+              value={dayEnd}
+              onChange={(e) => setDayEnd(e.target.value)}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Durée (min)</label>
+            <input
+              type="number"
+              min={15}
+              max={45}
+              step={5}
+              value={slotDuration}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v < 15) setSlotDuration(15);
+                else if (v > 45) setSlotDuration(45);
+                else setSlotDuration(v);
+              }}
+              className={`${styles.input} ${styles.inputSmall}`}
+            />
+            <div className={styles.hint}>entre 15 et 45 minutes</div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Capacité</label>
+            <input
+              type="number"
+              min={1}
+              value={capacity}
+              onChange={(e) =>
+                setCapacity(Number(e.target.value || 1))
+              }
+              className={`${styles.input} ${styles.inputSmall}`}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Semaines</label>
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={weeksCount}
+              onChange={(e) =>
+                setWeeksCount(Number(e.target.value || 1))
+              }
+              className={`${styles.input} ${styles.inputWeeks}`}
+            />
+            <div className={styles.hint}>max 12 (≈3 mois)</div>
           </div>
         </div>
-      </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[
-          { d: 1, label: 'Lun' },
-          { d: 2, label: 'Mar' },
-          { d: 3, label: 'Mer' },
-          { d: 4, label: 'Jeu' },
-          { d: 5, label: 'Ven' },
-          { d: 6, label: 'Sam' },
-          { d: 7, label: 'Dim' },
-        ].map((day) => (
+        {/* Jours travaillés */}
+        <div className={styles.daysRow}>
+          {[
+            { d: 1, label: 'Lun' },
+            { d: 2, label: 'Mar' },
+            { d: 3, label: 'Mer' },
+            { d: 4, label: 'Jeu' },
+            { d: 5, label: 'Ven' },
+            { d: 6, label: 'Sam' },
+            { d: 7, label: 'Dim' },
+          ].map((day) => {
+            const active = workDays.includes(day.d);
+            return (
+              <button
+                key={day.d}
+                type="button"
+                onClick={() =>
+                  setWorkDays((prev) =>
+                    prev.includes(day.d)
+                      ? prev.filter((x) => x !== day.d)
+                      : [...prev, day.d],
+                  )
+                }
+                className={
+                  active
+                    ? `${styles.dayChip} ${styles.dayChipActive}`
+                    : styles.dayChip
+                }
+              >
+                {day.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Exclusions */}
+        <div className={styles.exclusionsWrapper}>
+          <label className={styles.label}>Plages à exclure</label>
+          {exclusions.map((ex, idx) => (
+            <div key={idx} className={styles.exclusionRow}>
+              <input
+                type="time"
+                value={ex.start}
+                onChange={(e) => {
+                  const copy = [...exclusions];
+                  copy[idx] = { ...copy[idx], start: e.target.value };
+                  setExclusions(copy);
+                }}
+                className={styles.exclusionInput}
+              />
+              <input
+                type="time"
+                value={ex.end}
+                onChange={(e) => {
+                  const copy = [...exclusions];
+                  copy[idx] = { ...copy[idx], end: e.target.value };
+                  setExclusions(copy);
+                }}
+                className={styles.exclusionInput}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setExclusions(exclusions.filter((_, i) => i !== idx))
+                }
+                className={styles.exclusionRemove}
+              >
+                ×
+              </button>
+            </div>
+          ))}
           <button
-            key={day.d}
             type="button"
             onClick={() =>
-              setWorkDays((prev) => (prev.includes(day.d) ? prev.filter((x) => x !== day.d) : [...prev, day.d]))
+              setExclusions([
+                ...exclusions,
+                { start: '13:00', end: '14:00' },
+              ])
             }
-            style={{
-              padding: '4px 10px',
-              borderRadius: 999,
-              border: '1px solid #ddd',
-              background: workDays.includes(day.d) ? '#0f62fe' : '#fff',
-              color: workDays.includes(day.d) ? '#fff' : '#222',
-            }}
+            className={styles.exclusionAdd}
           >
-            {day.label}
+            + Ajouter une exclusion
           </button>
-        ))}
-      </div>
+        </div>
 
-      <div>
-        <label className="small">Plages à exclure</label>
-        {exclusions.map((ex, idx) => (
-          <div key={idx} style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            <input
-              type="time"
-              value={ex.start}
-              onChange={(e) => {
-                const copy = [...exclusions];
-                copy[idx] = { ...copy[idx], start: e.target.value };
-                setExclusions(copy);
-              }}
-            />
-            <input
-              type="time"
-              value={ex.end}
-              onChange={(e) => {
-                const copy = [...exclusions];
-                copy[idx] = { ...copy[idx], end: e.target.value };
-                setExclusions(copy);
-              }}
-            />
-            <button onClick={() => setExclusions(exclusions.filter((_, i) => i !== idx))}>×</button>
-          </div>
-        ))}
-        <button onClick={() => setExclusions([...exclusions, { start: '13:00', end: '14:00' }])} style={{ marginTop: 6 }}>
-          + Ajouter une exclusion
-        </button>
+        {/* Bouton de génération */}
+        <div className={styles.actionsRow}>
+          <button
+            className="btn primary"
+            onClick={handleGenerate}
+            disabled={loading}
+          >
+            {loading ? 'Génération…' : 'Générer les créneaux'}
+          </button>
+        </div>
       </div>
-
-      <button className="btn primary" onClick={handleGenerate} disabled={loading}>
-        {loading ? 'Génération…' : 'Générer les créneaux'}
-      </button>
     </div>
   );
 }

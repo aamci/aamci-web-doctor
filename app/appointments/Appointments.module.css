@@ -1,0 +1,149 @@
+/* app/appointments/Appointments.module.css */
+
+.wrapper {
+  padding: 24px 0;
+  display: grid;
+  gap: 16px;
+}
+
+.headerTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.theadRow {
+  background: #f9fafb;
+}
+
+.th {
+  text-align: left;
+  padding: 8px 6px;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.td {
+  padding: 8px 6px;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.patientCell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.patientName {
+  font-weight: 500;
+  font-size: 13px;
+  color: #111827;
+}
+
+.patientEmail {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.avatarMini {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.avatarFallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.actionsCell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btnTiny {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.btnDanger {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.btnGhost {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #f3f4f6;
+}
+
+.rescheduleRow {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rescheduleInput {
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 12px;
+}
+
+.statusPill {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.statusPending {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.statusConfirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.statusCancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.statusNoShow {
+  background: #e2e8f0;
+  color: #475569;
+}

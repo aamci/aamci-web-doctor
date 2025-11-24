@@ -1,13 +1,12 @@
 import './globals.css';
-import { AuthProvider } from './_providers/AuthProvider';
 import type { Metadata } from 'next';
-import Navbar from './_components/Navbar';
+import { AuthProvider } from './_providers/AuthProvider';
+import Navbar from '@/app/_components/Navbar';
 
 export const metadata: Metadata = {
   title: 'web-doctor',
   description: 'Health platform — web-doctor',
 };
-
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

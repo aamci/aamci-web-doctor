@@ -1,6 +1,6 @@
 // app/_components/Navbar.tsx
 'use client';
-
+import Link from 'next/link'; 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
@@ -133,36 +133,41 @@ export default function Navbar() {
                 <span style={{ fontSize: 10 }}>▼</span>
               </button>
               {open && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '110%',
-                    background: '#fff',
-                    border: '1px solid rgba(0,0,0,0.05)',
-                    borderRadius: 8,
-                    minWidth: 180,
-                    boxShadow: '0 10px 28px rgba(15,23,42,0.12)',
-                    overflow: 'hidden',
-                    zIndex: 50,
-                  }}
-                >
-                  <DropdownItem onClick={() => { router.push('/account'); setOpen(false); }}>
+                <div className="card" style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:240, display:'grid', gap:6, padding:8 }}>
+                  <Link
+                    href="/account"
+                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
+                    className="item"
+                  >
                     Mon compte
-                  </DropdownItem>
-                  <DropdownItem onClick={() => {  setOpen(false); }}>
-                    Mes documents (a venir)
-                  </DropdownItem>
-                  <div style={{ height: 1, background: '#eee' }} />
-                  <DropdownItem
-                    onClick={() => {
-                      logout();
-                      setOpen(false);
-                      router.replace('/auth/login');
-                    }}
+                  </Link>
+
+                  <Link
+                    href="/"
+                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
+                    className="item"
+                  >
+                    Mes documents
+                  </Link>
+
+                  <Link
+                    href="/appointments"
+                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
+                    className="item"
+                  >
+                    Mes rendez-vous
+                  </Link>
+
+                  <hr style={{margin:'6px 0'}}/>
+
+                  <button
+                    type="button"
+                    onClick={(e)=>{ e.stopPropagation(); logout(); }}
+                    className="item"
+                    style={{ textAlign:'left', color:'#b91c1c' }}
                   >
                     Déconnexion
-                  </DropdownItem>
+                  </button>
                 </div>
               )}
             </div>

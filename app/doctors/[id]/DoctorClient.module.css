@@ -1,0 +1,66 @@
+/* app/doctors/[id]/DoctorClient.module.css */
+
+.wrapper {
+  display: grid;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.backLink {
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.headerCard {
+  display: grid;
+  gap: 8px;
+}
+
+.doctorName {
+  margin: 4px 0 2px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.doctorMeta {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+.doctorIntro {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.slotsCard {
+  display: grid;
+  gap: 8px;
+}
+
+.slotsHeader {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.slotsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.slotButton {
+  /* on s’appuie sur .btn.outline globale, donc pas besoin de redéfinir tout */
+}
+
+.loading {
+  padding: 24px 0;
+  font-size: 14px;
+}
+
+.error {
+  margin-top: 12px;
+}

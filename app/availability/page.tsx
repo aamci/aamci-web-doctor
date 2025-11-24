@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AvailabilityControls from './AvailabilityControls';
 import AvailabilityGrid from './AvailabilityGrid';
+import styles from './Availability.module.css';
 
-type Slot = {
+export type Slot = {
   id: string;
   ownerId: string;
   ownerType: string;
-  start: string;
-  end: string;
+  start: string;  // ISO
+  end: string;    // ISO
   capacity: number;
   status: 'ACTIVE' | 'INACTIVE';
 };
@@ -27,32 +28,48 @@ function getApiBase(): string | null {
   }
 }
 
+async function authedFetch(path: string, init?: RequestInit) {
+  const base = getApiBase();
+  const url = base ? `${base}${path}` : `/api-proxy${path}`;
+
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!token) throw new Error('Non authentifié');
+
+  const headers: Record<string, string> = {
+    ...(init?.headers as any),
+    Authorization: `Bearer ${token}`,
+  };
+  if (init?.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const r = await fetch(url, { ...init, headers, cache: 'no-store' });
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    throw new Error(`HTTP ${r.status}${t ? ` — ${t}` : ''}`);
+  }
+  return r;
+}
+
+// début de semaine (lundi) avec offset en semaines
+function startOfWeekWithOffset(offset: number) {
+  const today = new Date();
+  const day = today.getDay(); // 0 = dimanche
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(today.getDate() + diffToMonday + offset * 7);
+  return monday;
+}
+
 export default function AvailabilityPage() {
   const router = useRouter();
-  const apiBase = useMemo(() => getApiBase(), []);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
-
-  function buildUrl(path: string) {
-    return apiBase ? `${apiBase}${path}` : `/api-proxy${path}`;
-  }
-
-  async function authedFetch(path: string, init?: RequestInit) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) throw new Error('Non authentifié');
-    const headers: Record<string, string> = { ...(init?.headers as any) };
-    headers['Authorization'] = `Bearer ${token}`;
-    if (init?.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-    const r = await fetch(buildUrl(path), { ...init, headers, cache: 'no-store' });
-    if (!r.ok) {
-      const t = await r.text().catch(() => '');
-      throw new Error(`HTTP ${r.status}${t ? ` — ${t}` : ''}`);
-    }
-    return r;
-  }
 
   async function load() {
     setLoading(true);
@@ -72,8 +89,9 @@ export default function AvailabilityPage() {
     }
   }
 
-  // appelé par le composant de contrôle quand on génère en bulk
-  async function bulkCreate(slotsPayload: Array<{ start: string; end: string; capacity?: number; status?: string }>) {
+  async function bulkCreate(
+    slotsPayload: Array<{ start: string; end: string; capacity?: number; status?: string }>,
+  ) {
     await authedFetch('/slots/bulk', {
       method: 'POST',
       body: JSON.stringify({ slots: slotsPayload }),
@@ -82,7 +100,6 @@ export default function AvailabilityPage() {
     setInfo('Créneaux générés ✅');
   }
 
-  // appelé pour update/supprimer
   async function updateSlot(id: string, body: any) {
     await authedFetch(`/slots/${id}`, {
       method: 'PUT',
@@ -101,41 +118,59 @@ export default function AvailabilityPage() {
       router.replace('/auth/login');
       return;
     }
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
- return (
-    <div style={{ display: 'grid', gap: 16, padding: '24px 0' }}>
-      <h1>Mes disponibilités</h1>
-      {err && <div className="banner error">{err}</div>}
-      {info && <div className="banner success">{info}</div>}
+  return (
+  <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+    <div className={styles.header}>
+      <div>
+        <h1 className={styles.title}>Mes disponibilités</h1>
+        <p className={styles.subtitle}>Configurez vos créneaux…</p>
+      </div>
+    </div>
+
+      {err && (
+        <div className="banner error mb-2">
+          {err}
+        </div>
+      )}
+      {info && (
+        <div className="banner success mb-2">
+          {info}
+        </div>
+      )}
 
       <AvailabilityControls onGenerate={bulkCreate} />
 
       {loading ? (
-        <div className="card">Chargement…</div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          Chargement…
+        </div>
       ) : (
         <AvailabilityGrid
           slots={slots}
           weekOffset={weekOffset}
+          minHour={7}
+          maxHour={18}
           onPrevWeek={() => {
-                // ✅ on autorise le retour tant qu'on n'est pas à la semaine 0
-                setWeekOffset((w) => Math.max(0, w - 1));
-            }}
+            // on n’autorise pas de revenir avant la semaine 0
+            setWeekOffset((w) => Math.max(0, w - 1));
+          }}
           onNextWeek={() => {
-            // on ne va à droite que si on a des slots après
+            // on ne va à droite que s’il existe au moins un slot sur la semaine suivante
+            const base = startOfWeekWithOffset(weekOffset + 1);
             const hasFuture = slots.some((s) => {
               const d = new Date(s.start);
-              const base = startOfWeekWithOffset(weekOffset + 1);
               return d >= base;
             });
             if (hasFuture) setWeekOffset((w) => w + 1);
           }}
-          minHour={7}
-          maxHour={18}
           onToggle={async (slot) => {
-            await updateSlot(slot.id, { status: slot.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' });
+            await updateSlot(slot.id, {
+              status: slot.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+            });
           }}
           onCapacityChange={async (slot, cap) => {
             await updateSlot(slot.id, { capacity: cap });
@@ -147,16 +182,4 @@ export default function AvailabilityPage() {
       )}
     </div>
   );
-}
-
-// petit helper en bas du fichier (ou dans un utils)
-function startOfWeekWithOffset(offset: number) {
-  const today = new Date();
-  // on force lundi comme début
-  const day = today.getDay(); // 0=dim
-  const diffToMonday = (day === 0 ? -6 : 1 - day); // pour arriver au lundi
-  const monday = new Date(today);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(today.getDate() + diffToMonday + offset * 7);
-  return monday;
 }

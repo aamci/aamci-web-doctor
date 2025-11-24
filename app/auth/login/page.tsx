@@ -1,7 +1,9 @@
+// app/auth/login/page.tsx (par ex, côté doctor)
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../_providers/AuthProvider'; // 👈 assure-toi du bon chemin
+import { useAuth } from '../../_providers/AuthProvider';
+import styles from './Login.module.css';
 
 function getApiBase(): string | null {
   let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
@@ -21,9 +23,19 @@ async function callApi(p: string, i?: RequestInit) {
   return fetch(u, i);
 }
 
+function decodeJwt(token: string): any | null {
+  try {
+    const payload = token.split('.')[1];
+    const json = atob(payload);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export default function Login() {
   const router = useRouter();
-  const { login: setAuthToken } = useAuth(); // 👈 on récupère la fonction du contexte
+  const { login: setAuthToken } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +56,7 @@ export default function Login() {
     [email],
   );
 
-  async function handle(action: 'login' | 'register') {
+  async function handleLogin() {
     setErr(null);
     setLoading(true);
     try {
@@ -57,18 +69,11 @@ export default function Login() {
         return;
       }
 
-      const body = action === 'register'
-        ? { email, password, role: 'PATIENT' }
-        : { email, password };
-
-      const r = await callApi(
-        action === 'register' ? '/auth/register' : '/auth/login',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-      );
+      const r = await callApi('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
       if (!r.ok) {
         setErr(r.status === 401 ? 'Identifiants incorrects.' : `Erreur ${r.status}.`);
@@ -78,20 +83,22 @@ export default function Login() {
       const d = await r.json();
 
       if (d?.access_token) {
-        // 1) on garde ton ancien comportement
         setToken(d.access_token);
         localStorage.setItem('token', d.access_token);
         remember
           ? localStorage.setItem('login_email', email)
           : localStorage.removeItem('login_email');
 
-        // 2) 👇 très important : on met à jour le contexte
-        //    ça permet à la Navbar de se re-render sans refresh
         setAuthToken(d.access_token);
 
-        // 3) si le token contient le rôle, le provider le lira
-        //    ici on peut juste renvoyer à l’accueil
-        router.replace('/');
+        const payload = decodeJwt(d.access_token);
+        const role = payload?.role as string | undefined;
+
+        if (role === 'DOCTOR') {
+          router.replace('/availability');
+        } else {
+          router.replace('/');
+        }
       } else {
         setErr('Réponse inattendue du serveur.');
       }
@@ -102,104 +109,94 @@ export default function Login() {
     }
   }
 
-  return (
-    <div className="auth-wrap">
-      <section className="auth-card">
-        <header className="auth-head">
-          <div className="auth-logo">🩺</div>
-          <div>
-            <h1 className="auth-title">Connexion </h1>
-            <p className="auth-sub">Accédez à votre espace patient</p>
-          </div>
-        </header>
-        <div className="form">
-          <div>
-            <label htmlFor="email" className="small" style={{ fontWeight: 700, color: '#111827' }}>
-              Email
-            </label>
-            <input
-              id="email"
-              className="input"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              aria-invalid={emailInvalid}
-              placeholder="vous@exemple.com"
-            />
-          </div>
-          <div>
-            <label htmlFor="pwd" className="small" style={{ fontWeight: 700, color: '#111827' }}>
-              Mot de passe
-            </label>
-            <div className="pwd-row">
-              <input
-                id="pwd"
-                className="input"
-                type={showPwd ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                className="btn outline"
-                onClick={() => setShowPwd(s => !s)}
-              >
-                {showPwd ? 'Masquer' : 'Afficher'}
-              </button>
-            </div>
-          </div>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <label className="row" style={{ gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={e => setRemember(e.target.checked)}
-              />
-              <span className="small">Se souvenir de moi</span>
-            </label>
-            <a className="link small" href="#">
-              Mot de passe oublié ?
-            </a>
-          </div>
-          {err && <div className="banner error">{err}</div>}
-          {token && <div className="banner success">Connecté ✔</div>}
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button
-              className="btn primary"
-              disabled={loading}
-              onClick={() => handle('login')}
-            >
-              {loading ? 'Connexion…' : 'Se connecter'}
-            </button>
-            <button
-              className="btn ghost"
-              disabled={loading}
-              onClick={() => handle('register')}
-            >
-              Créer un compte
-            </button>
-          </div>
-          <div className="row" style={{ justifyContent: 'center', color: 'var(--muted)' }}>
-            — ou —
-          </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button className="btn outline" disabled>
-              Continuer avec Google (bientôt)
-            </button>
-            <button className="btn outline" disabled>
-              Continuer avec Apple (bientôt)
-            </button>
-          </div>
-          <p className="small">
-            En vous connectant, vous acceptez nos <a className="link" href="#">Conditions</a> et notre{' '}
-            <a className="link" href="#">Politique de confidentialité</a>.
-          </p>
-          <a className="btn secondary" href="/protected">
-            Aller à la page protégée
-          </a>
+return (
+  <div className={styles.page}>
+    <section className={styles.card}>
+      <header className={styles.header}>
+        <div className={styles.logo}>🩺</div>
+        <div>
+          <h1 className={styles.title}>Connexion médecin</h1>
+          <p className={styles.sub}>Accédez à votre espace sécurisé</p>
         </div>
-      </section>
-    </div>
-  );
+      </header>
+
+      <form
+        className={styles.form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleLogin();
+        }}
+      >
+        <div className={styles.field}>
+          <label htmlFor="email" className={styles.label}>
+            Email professionnel
+          </label>
+          <input
+            id="email"
+            className={styles.input}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={emailInvalid}
+            placeholder="vous@clinique.fr"
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="pwd" className={styles.label}>
+            Mot de passe
+          </label>
+          <div className={styles.pwdRow}>
+            <input
+              id="pwd"
+              className={styles.input}
+              type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+            {/* garde ta classe .btn existante si tu veux, ou remplace par Tailwind/shadcn */}
+            <button
+              type="button"
+              className="btn outline small"
+              onClick={() => setShowPwd((s) => !s)}
+            >
+              {showPwd ? 'Masquer' : 'Afficher'}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.inlineBetween}>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            <span>Se souvenir de moi</span>
+          </label>
+          <button type="button" className={styles.linkBtn}>
+            Mot de passe oublié ?
+          </button>
+        </div>
+
+        {/* ici tu peux garder tes .banner existantes en global */}
+        {err && <div className="banner error">{err}</div>}
+        {token && <div className="banner success">Connecté ✔</div>}
+
+        <button
+          type="submit"
+          className="btn primary full"
+          disabled={loading}
+        >
+          {loading ? 'Connexion…' : 'Se connecter'}
+        </button>
+
+        <p className={styles.help}>
+          Compte médecin fourni par l’administrateur de la plateforme.
+        </p>
+      </form>
+    </section>
+  </div>
+);
 }

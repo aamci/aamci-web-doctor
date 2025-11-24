@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import styles from './AvailabilityGrid.module.css';
 
 type Appointment = {
   id: string;
-  type?: string; // "PREMIERE_CONSULTATION" | "SUIVI" | "URGENCE" ...
+  type?: string;
   patient?: {
     id: string;
     email?: string;
@@ -13,12 +14,12 @@ type Appointment = {
   };
 };
 
-type Slot = {
+export type Slot = {
   id: string;
   start: string;
   end: string;
   status: 'ACTIVE' | 'INACTIVE';
-  capacity?: number; // optionnel maintenant
+  capacity?: number;
   appointments?: Appointment[];
 };
 
@@ -31,10 +32,9 @@ type Props = {
   maxHour: number;
   onToggle: (slot: Slot) => void | Promise<void>;
   onDelete: (slot: Slot) => void | Promise<void>;
-  onCapacityChange?: (slot: Slot, capacity: number) => void | Promise<void>; // 👈 ajouté
+  onCapacityChange?: (slot: Slot, capacity: number) => void | Promise<void>;
 };
 
-// 👉 calcule le lundi de la semaine avec offset
 function getWeekStart(offset: number): Date {
   const today = new Date();
   const day = today.getDay(); // 0=dim
@@ -45,7 +45,6 @@ function getWeekStart(offset: number): Date {
   return monday;
 }
 
-// construit les 7 jours de la semaine demandée
 function getWeekDays(weekOffset: number): Date[] {
   const monday = getWeekStart(weekOffset);
   return Array.from({ length: 7 }).map((_, i) => {
@@ -55,7 +54,6 @@ function getWeekDays(weekOffset: number): Date[] {
   });
 }
 
-// construit les lignes horaires entre minHour et maxHour
 function buildTimeSlots(minHour = 7, maxHour = 18, stepMinutes = 30): string[] {
   const times: string[] = [];
   const base = new Date();
@@ -63,7 +61,11 @@ function buildTimeSlots(minHour = 7, maxHour = 18, stepMinutes = 30): string[] {
   const end = new Date();
   end.setHours(maxHour, 0, 0, 0);
 
-  for (let d = new Date(base); d < end; d = new Date(d.getTime() + stepMinutes * 60000)) {
+  for (
+    let d = new Date(base);
+    d < end;
+    d = new Date(d.getTime() + stepMinutes * 60000)
+  ) {
     const hh = d.getHours().toString().padStart(2, '0');
     const mm = d.getMinutes().toString().padStart(2, '0');
     times.push(`${hh}:${mm}`);
@@ -71,7 +73,6 @@ function buildTimeSlots(minHour = 7, maxHour = 18, stepMinutes = 30): string[] {
   return times;
 }
 
-// cherche s'il existe un slot à cette date + heure
 function findSlotAt(slots: Slot[], day: Date, time: string): Slot | null {
   return (
     slots.find((s) => {
@@ -90,7 +91,6 @@ function findSlotAt(slots: Slot[], day: Date, time: string): Slot | null {
   );
 }
 
-// petite fonction pour rendre le type lisible
 function humanizeAppointmentType(t?: string) {
   if (!t) return 'Rendez-vous';
   const v = t.toUpperCase();
@@ -114,8 +114,6 @@ export default function AvailabilityGrid({
 
   const days = getWeekDays(weekOffset);
   const times = buildTimeSlots(minHour, maxHour, 30);
-
-  // on affiche seulement les 3 premières heures si pas "showAll"
   const visibleTimes = showAllTimes ? times : times.slice(0, 6);
 
   const canGoPrev = weekOffset > 0;
@@ -123,26 +121,36 @@ export default function AvailabilityGrid({
   const canGoNext = slots.some((s) => new Date(s.start) >= nextWeekMonday);
 
   return (
-    <div className="card" style={{ overflowX: 'auto', padding: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onPrevWeek} disabled={!canGoPrev} style={{ padding: '4px 8px' }}>
+    <div className={`card ${styles.gridWrapper}`}>
+      <div className={styles.headerRow}>
+        <div className={styles.navButtons}>
+          <button
+            onClick={onPrevWeek}
+            disabled={!canGoPrev}
+            className={styles.navButton}
+          >
             ◀
           </button>
-          <button onClick={onNextWeek} disabled={!canGoNext} style={{ padding: '4px 8px' }}>
+          <button
+            onClick={onNextWeek}
+            disabled={!canGoNext}
+            className={styles.navButton}
+          >
             ▶
           </button>
         </div>
-        <div style={{ fontSize: 12, color: '#666' }}>
-          Semaine du {days[0].toLocaleDateString('fr-FR')} au {days[6].toLocaleDateString('fr-FR')}
+        <div className={styles.weekLabel}>
+          Semaine du {days[0].toLocaleDateString('fr-FR')} au{' '}
+          {days[6].toLocaleDateString('fr-FR')}
         </div>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+
+      <table className={styles.table}>
         <thead>
           <tr>
-            <th style={{ width: 70, textAlign: 'left', padding: '6px 4px', fontSize: 12 }}>Heure</th>
+            <th className={styles.thTime}>Heure</th>
             {days.map((d, idx) => (
-              <th key={idx} style={{ padding: '6px 4px', textAlign: 'center', fontSize: 12 }}>
+              <th key={idx} className={styles.thDay}>
                 {d.toLocaleDateString('fr-FR', {
                   weekday: 'short',
                   day: '2-digit',
@@ -155,7 +163,7 @@ export default function AvailabilityGrid({
         <tbody>
           {visibleTimes.map((time) => (
             <tr key={time}>
-              <td style={{ padding: '4px 4px', fontWeight: 500, fontSize: 12 }}>{time}</td>
+              <td className={styles.timeCell}>{time}</td>
               {days.map((day, idx) => {
                 const slot = findSlotAt(slots, day, time);
                 const hasAppt = slot?.appointments && slot.appointments.length > 0;
@@ -164,69 +172,56 @@ export default function AvailabilityGrid({
                   appt?.patient?.fullName || appt?.patient?.email || 'Patient';
                 const avatar = appt?.patient?.avatarUrl || null;
 
+                const baseClass = `${styles.slotCellBase} ${
+                  slot
+                    ? hasAppt
+                      ? styles.slotReserved
+                      : slot.status === 'ACTIVE'
+                      ? styles.slotActive
+                      : styles.slotInactive
+                    : ''
+                }`;
+
                 return (
-                  <td
-                    key={idx}
-                    style={{
-                      border: '1px solid #eee',
-                      padding: 4,
-                      textAlign: 'center',
-                      background: slot
-                        ? hasAppt
-                          ? '#fff7ec' // fond différent quand pris
-                          : slot.status === 'ACTIVE'
-                          ? '#e9f8ee'
-                          : '#fafafa'
-                        : 'transparent',
-                    }}
-                  >
+                  <td key={idx} className={baseClass}>
                     {slot ? (
                       hasAppt ? (
-                        // cellule "réservée"
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <div className={styles.slotContent}>
+                          <div className={styles.patientRow}>
                             <AvatarMini src={avatar} name={patientName} />
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontSize: 11, fontWeight: 600 }}>{patientName}</div>
-                              <div style={{ fontSize: 10, color: '#555' }}>
+                            <div className={styles.patientInfo}>
+                              <div className={styles.patientName}>
+                                {patientName}
+                              </div>
+                              <div className={styles.patientType}>
                                 {humanizeAppointmentType(appt?.type)}
                               </div>
                             </div>
                           </div>
                           <button
                             onClick={() => onDelete(slot)}
-                            style={{
-                              fontSize: 10,
-                              background: '#f6d6d6',
-                              border: 'none',
-                              borderRadius: 4,
-                              padding: '2px 6px',
-                              cursor: 'pointer',
-                            }}
+                            className={styles.btnTinyDanger}
                           >
                             Annuler
                           </button>
                         </div>
                       ) : (
-                        // cellule dispo
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600 }}>
-                            {slot.status === 'ACTIVE' ? 'Disponible' : 'Inactif'}
+                        <div className={styles.slotContent}>
+                          <span className={styles.patientName}>
+                            {slot.status === 'ACTIVE'
+                              ? 'Disponible'
+                              : 'Inactif'}
                           </span>
                           <button
-                            style={{ fontSize: 10, padding: '2px 4px' }}
+                            className={styles.btnTiny}
                             onClick={() => onToggle(slot)}
                           >
-                            {slot.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}
+                            {slot.status === 'ACTIVE'
+                              ? 'Désactiver'
+                              : 'Activer'}
                           </button>
                           <button
-                            style={{
-                              fontSize: 10,
-                              padding: '2px 4px',
-                              background: '#f6d6d6',
-                              border: 'none',
-                              borderRadius: 4,
-                            }}
+                            className={styles.btnTinyDanger}
                             onClick={() => onDelete(slot)}
                           >
                             Suppr.
@@ -234,7 +229,7 @@ export default function AvailabilityGrid({
                         </div>
                       )
                     ) : (
-                      <span style={{ fontSize: 10, color: '#bbb' }}>—</span>
+                      <span className={styles.slotEmpty}>—</span>
                     )}
                   </td>
                 );
@@ -243,16 +238,23 @@ export default function AvailabilityGrid({
           ))}
         </tbody>
       </table>
+
       {!showAllTimes && times.length > visibleTimes.length && (
-        <div style={{ marginTop: 8 }}>
-          <button onClick={() => setShowAllTimes(true)} style={{ fontSize: 12 }}>
+        <div className={styles.moreWrapper}>
+          <button
+            onClick={() => setShowAllTimes(true)}
+            className={styles.moreButton}
+          >
             Voir plus d’horaires
           </button>
         </div>
       )}
       {showAllTimes && (
-        <div style={{ marginTop: 8 }}>
-          <button onClick={() => setShowAllTimes(false)} style={{ fontSize: 12 }}>
+        <div className={styles.moreWrapper}>
+          <button
+            onClick={() => setShowAllTimes(false)}
+            className={styles.moreButton}
+          >
             Réduire
           </button>
         </div>
@@ -261,7 +263,6 @@ export default function AvailabilityGrid({
   );
 }
 
-// petit avatar fallback
 function AvatarMini({ src, name }: { src: string | null; name: string }) {
   const initials = name
     .split(' ')
@@ -269,29 +270,17 @@ function AvatarMini({ src, name }: { src: string | null; name: string }) {
     .slice(0, 2)
     .join('');
   if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
         src={src}
         alt={name}
-        style={{ width: 28, height: 28, borderRadius: '999px', objectFit: 'cover' }}
+        className={styles.avatarMini}
       />
     );
   }
   return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: '999px',
-        background: '#dfe3e8',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 10,
-        fontWeight: 600,
-        color: '#333',
-      }}
-    >
+    <div className={styles.avatarMiniFallback}>
       {initials || 'U'}
     </div>
   );

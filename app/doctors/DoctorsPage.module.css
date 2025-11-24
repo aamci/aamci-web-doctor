@@ -1,0 +1,68 @@
+/* app/doctors/DoctorsPage.module.css */
+
+.wrapper {
+  display: grid;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.searchForm {
+  display: grid;
+  grid-template-columns: 1fr 200px 120px;
+  gap: 10px;
+  align-items: center;
+}
+
+.searchInput {
+  /* on s’appuie sur ta classe globale .input pour le style */
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cardDoctor {
+  display: grid;
+  gap: 8px;
+}
+
+.doctorName {
+  font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+}
+
+.doctorMeta {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.cardFooter {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.emptyCard {
+  font-size: 13px;
+  color: #6b7280;
+}
