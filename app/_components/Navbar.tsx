@@ -31,6 +31,7 @@ export default function Navbar() {
   const linksForPatient = [
     { href: '/', label: 'Accueil' },
     { href: '/doctors', label: 'Trouver un médecin' },
+    { href: '/facilities', label: 'Établissements' },
     { href: '/appointments', label: 'Mes rendez-vous' },
   ];
 

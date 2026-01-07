@@ -1,21 +1,26 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from './_providers/AuthProvider';
-import Navbar from '@/app/_components/Navbar';
+import DoctorSidebar from '@/app/_components/DoctorSidebar';
 
 export const metadata: Metadata = {
-  title: 'web-doctor',
-  description: 'Health platform — web-doctor',
+  title: 'Health Platform - Médecin',
+  description: 'Plateforme de santé pour professionnels',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>
+      <body className="bg-gray-50">
         <AuthProvider>
-          <Navbar />
-          <main style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
-            {children}
+          {/* Sidebar fixe à gauche */}
+          <DoctorSidebar />
+
+          {/* Contenu principal avec marge à gauche pour le sidebar */}
+          <main className="ml-20 min-h-screen">
+            <div className="max-w-7xl mx-auto p-8">
+              {children}
+            </div>
           </main>
         </AuthProvider>
       </body>

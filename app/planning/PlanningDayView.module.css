@@ -1,0 +1,199 @@
+.dayView {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  color: white;
+}
+
+.dateInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dayNumber {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 2rem;
+  font-weight: 700;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.dateDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dayName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.monthYear {
+  font-size: 1rem;
+  opacity: 0.9;
+  text-transform: capitalize;
+}
+
+.slotCount {
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  backdrop-filter: blur(10px);
+}
+
+.timeGrid {
+  max-height: calc(100vh - 350px);
+  overflow-y: auto;
+}
+
+.timeSlot {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  border-bottom: 1px solid #f3f4f6;
+  min-height: 100px;
+  transition: background-color 0.2s;
+}
+
+.timeSlot:hover {
+  background: #f9fafb;
+}
+
+.hourLabel {
+  padding: 1rem;
+  text-align: right;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 600;
+  border-right: 2px solid #e5e7eb;
+}
+
+.slotContainer {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.emptySlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 68px;
+}
+
+.slotCard {
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.slotCard:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.slotHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slotTime {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.statusBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.slotBody {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.capacity {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.capacity strong {
+  color: #1f2937;
+}
+
+.patientInfo {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.patientInfo strong {
+  color: #1f2937;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+  }
+
+  .dayNumber {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.5rem;
+  }
+
+  .dayName {
+    font-size: 1.25rem;
+  }
+
+  .monthYear {
+    font-size: 0.875rem;
+  }
+
+  .timeSlot {
+    grid-template-columns: 70px 1fr;
+    min-height: 80px;
+  }
+
+  .hourLabel {
+    font-size: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .slotContainer {
+    padding: 0.75rem;
+  }
+
+  .slotCard {
+    padding: 0.75rem;
+  }
+}

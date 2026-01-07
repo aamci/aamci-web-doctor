@@ -1,101 +1,115 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import jwtDecode from 'jwt-decode'; // ✅ version CJS, pas d'accolades
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 type Role = 'PATIENT' | 'DOCTOR' | 'PHARMACY' | 'HOSPITAL' | 'ADMIN';
-
-type Decoded = {
-  sub: string;
-  email: string;
-  role?: Role;
-  avatarUrl?: string;
-  fullName?: string;
-};
 
 type AuthUser = {
   id: string;
   email: string;
   role?: Role;
-  avatarUrl?: string | null;
   fullName?: string | null;
+  avatarUrl?: string | null;
 };
 
-type AuthContextType = {
+type AuthContextValue = {
   user: AuthUser | null;
-  token: string | null;
-  login: (token: string) => void;
-  logout: () => void;
-  updateUser: (partial: Partial<AuthUser>) => void; // ✅ nouveau
+  loading: boolean;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (data: Partial<AuthUser>) => void;
 };
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('token');
-    if (stored) {
-      try {
-        const decoded = jwtDecode<Decoded>(stored);
-        setToken(stored);
-        setUser({
-          id: decoded.sub,
-          email: decoded.email,
-          role: decoded.role,
-          avatarUrl: decoded.avatarUrl ?? null,
-          fullName: decoded.fullName ?? null,
-        });
-      } catch {
-        localStorage.removeItem('token');
-      }
-    }
-  }, []);
-
-  function login(newToken: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', newToken);
-    }
-    try {
-      const decoded = jwtDecode<Decoded>(newToken);
-      setToken(newToken);
-      setUser({
-        id: decoded.sub,
-        email: decoded.email,
-        role: decoded.role,
-        avatarUrl: decoded.avatarUrl ?? null,
-        fullName: decoded.fullName ?? null,
-      });
-    } catch {
-      // ignore
-    }
-  }
-
-  function logout() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-    setToken(null);
-    setUser(null);
-  }
-
-  // ✅ pour mettre à jour depuis /account
-  function updateUser(partial: Partial<AuthUser>) {
-    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
+function getApiBase(): string {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  // Si vide, utilise le proxy Next.js (/api -> localhost:3001)
+  return base;
 }
 
-export function useAuth() {
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user from backend on mount (cookie is sent automatically)
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const fetchUser = async () => {
+    try {
+      const apiBase = getApiBase();
+      const url = apiBase ? `${apiBase}/auth/me` : '/api/auth/me';
+      const res = await fetch(url, {
+        credentials: 'include', // Send cookies with request
+      });
+
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(userData);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async () => {
+    // Refetch user after login (cookie is already set by backend)
+    await fetchUser();
+  };
+
+  const logout = async () => {
+    try {
+      const apiBase = getApiBase();
+      const url = apiBase ? `${apiBase}/auth/logout` : '/api/auth/logout';
+      await fetch(url, {
+        method: 'POST',
+        credentials: 'include', // Send cookies with request
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setUser(null);
+    }
+  };
+
+  const updateUser = (data: Partial<AuthUser>) => {
+    setUser((prev) =>
+      prev ? { ...prev, ...data } : (data as AuthUser),
+    );
+  };
+
+  const value: AuthContextValue = {
+    user,
+    loading,
+    login,
+    logout,
+    updateUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * Safe hook that returns auth context with fallback for SSR/prerender
+ */
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) {
+    // Fallback for SSR/prerender/errors
+    return {
+      user: null,
+      loading: false,
+      login: async () => {},
+      logout: async () => {},
+      updateUser: () => {},
+    };
+  }
   return ctx;
 }

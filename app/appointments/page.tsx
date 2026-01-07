@@ -51,7 +51,7 @@ function getApiBase(): string | null {
 }
 
 export default function AppointmentsPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const apiBase = useMemo(() => getApiBase(), []);
   const [loading, setLoading] = useState(true);
@@ -63,19 +63,18 @@ export default function AppointmentsPage() {
   const [newTime, setNewTime] = useState('');
 
   function buildUrl(path: string) {
-    return apiBase ? `${apiBase}${path}` : `/api-proxy${path}`;
+    return apiBase ? `${apiBase}${path}` : `/api${path}`;
   }
 
   async function authedFetch(path: string, init?: RequestInit) {
-    if (!token) throw new Error('Non authentifié');
     const headers: Record<string, string> = { ...(init?.headers as any) };
-    headers['Authorization'] = `Bearer ${token}`;
     if (init?.body && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
     const r = await fetch(buildUrl(path), {
       ...init,
       headers,
+      credentials: 'include',
       cache: 'no-store',
     });
     if (!r.ok) {
@@ -102,13 +101,13 @@ export default function AppointmentsPage() {
   }
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       router.replace('/auth/login');
       return;
     }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [user]);
 
   async function updateStatus(id: string, status: AppointmentStatus) {
     setActionId(id);

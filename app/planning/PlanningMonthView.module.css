@@ -1,0 +1,192 @@
+.monthView {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.monthTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-transform: capitalize;
+  text-align: center;
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.weekDay {
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 0.75rem;
+}
+
+.daysGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dayCell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.dayCell:hover {
+  border-color: #14b8a6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.dayCell.otherMonth {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.dayCell.otherMonth .dayNumber {
+  color: #d1d5db;
+}
+
+.dayCell.today {
+  border-color: #14b8a6;
+  border-width: 2px;
+  background: #f0fdfa;
+}
+
+.dayCell.today .dayNumber {
+  background: #14b8a6;
+  color: white;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dayCell.hasSlots {
+  background: #f0fdf4;
+}
+
+.dayNumber {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.slotsIndicator {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.slotBadge {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: white;
+}
+
+.legend {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.legendBadge {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .monthView {
+    padding: 1rem;
+  }
+
+  .monthTitle {
+    font-size: 1.25rem;
+  }
+
+  .weekDay {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .dayCell {
+    padding: 0.5rem;
+  }
+
+  .dayNumber {
+    font-size: 0.75rem;
+  }
+
+  .slotBadge {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .daysGrid {
+    gap: 0.25rem;
+  }
+
+  .dayCell {
+    padding: 0.25rem;
+  }
+
+  .weekDay {
+    padding: 0.25rem;
+  }
+
+  .legend {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+  }
+}

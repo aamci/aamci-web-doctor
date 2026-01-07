@@ -1,0 +1,178 @@
+.listView {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 1.125rem;
+}
+
+.dateGroup {
+  margin-bottom: 2rem;
+}
+
+.dateGroup:last-child {
+  margin-bottom: 0;
+}
+
+.dateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.dateInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dayNumber {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #14b8a6;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+.dateDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dayName {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  text-transform: capitalize;
+}
+
+.monthYear {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.slotCount {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.slotsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.slotCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.slotCard:hover {
+  border-color: #14b8a6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.slotTime {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.timeRange {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.slotDetails {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slotInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.capacity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.slotStatus {
+  display: flex;
+  align-items: center;
+}
+
+.statusBadge {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid;
+  text-transform: uppercase;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .listView {
+    padding: 1rem;
+  }
+
+  .dateHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .slotCard {
+    padding: 0.75rem;
+  }
+
+  .slotDetails {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+.kindBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}

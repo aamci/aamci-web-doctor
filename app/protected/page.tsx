@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 export default function Protected(){
   const [me,setMe] = useState<any>(null);
-  const api = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  const api = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
   useEffect(()=>{ const t = localStorage.getItem('token'); if(!t){ setMe({error:'missing token'}); return; }
     fetch(`${api}/me`, { headers:{ Authorization:`Bearer ${t}` }})
       .then(r=>r.json()).then(setMe).catch(()=>setMe({error:'unauthorized'})); },[]);

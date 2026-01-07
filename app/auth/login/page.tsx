@@ -19,18 +19,8 @@ function getApiBase(): string | null {
 
 async function callApi(p: string, i?: RequestInit) {
   const b = getApiBase();
-  const u = b ? `${b}${p}` : p;
+  const u = b ? `${b}${p}` : `/api${p}`;
   return fetch(u, i);
-}
-
-function decodeJwt(token: string): any | null {
-  try {
-    const payload = token.split('.')[1];
-    const json = atob(payload);
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
 }
 
 export default function Login() {
@@ -72,6 +62,7 @@ export default function Login() {
       const r = await callApi('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Send and receive cookies
         body: JSON.stringify({ email, password }),
       });
 
@@ -82,23 +73,18 @@ export default function Login() {
 
       const d = await r.json();
 
-      if (d?.access_token) {
-        setToken(d.access_token);
-        localStorage.setItem('token', d.access_token);
+      // Cookie is set automatically by backend
+      if (d?.success) {
+        setToken('authenticated');
         remember
           ? localStorage.setItem('login_email', email)
           : localStorage.removeItem('login_email');
 
-        setAuthToken(d.access_token);
+        // Fetch user data from /auth/me endpoint
+        await setAuthToken();
 
-        const payload = decodeJwt(d.access_token);
-        const role = payload?.role as string | undefined;
-
-        if (role === 'DOCTOR') {
-          router.replace('/availability');
-        } else {
-          router.replace('/');
-        }
+        // Redirect to planning page for doctors
+        router.replace('/planning');
       } else {
         setErr('Réponse inattendue du serveur.');
       }
