@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../_providers/AuthProvider';
 
@@ -14,7 +14,7 @@ function getApiBase(): string | null {
   }
 }
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -162,6 +162,31 @@ export default function VerifyEmailPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          }}
+        >
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <div style={{ fontSize: 48, marginBottom: 20 }}>⏳</div>
+            <h2>Chargement...</h2>
+          </div>
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
 
