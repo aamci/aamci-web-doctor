@@ -89,38 +89,56 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
 
               return (
                 <div key={dayIndex} className={styles.dayCell}>
-                  {cellSlots.map((slot) => {
+                  {cellSlots.map((slot: any) => {
                     const slotStart = new Date(slot.start);
                     const timeStr = slotStart.toLocaleTimeString('fr-FR', {
                       hour: '2-digit',
                       minute: '2-digit',
                     });
 
-                    // Afficher soit le type de consultation, soit "Disponible"
                     const appointment = slot.appointments?.[0];
-                    const kindName = appointment?.kind?.name || 'Disponible';
-                    const isAvailable = !appointment;
+                    const isBooked = slot.isBooked || (appointment && !slot.isGenerated);
+                    const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
+                    const isGenerated = slot.isGenerated && !appointment;
 
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`${styles.appointment} ${
-                          isAvailable
-                            ? 'bg-green-50 border-green-300 text-green-700'
-                            : getAppointmentColor(kindName)
-                        } cursor-pointer hover:opacity-80`}
-                        onClick={() => {
-                          if (isAvailable) {
-                            onSlotClick(slot);
-                          } else if (appointment) {
-                            onAppointmentClick({ ...appointment, start: slot.start, end: slot.end });
-                          }
-                        }}
-                      >
-                        <span className={styles.appointmentTime}>{timeStr}</span>
-                        <span className={styles.appointmentType}>{kindName}</span>
-                      </div>
-                    );
+                    // Si c'est un temps exclu, afficher avec style grisé
+                    if (isExcluded) {
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.appointment} ${styles.excludedSlot}`}
+                          title="Période non disponible"
+                        >
+                          <span className={styles.appointmentTime}>{timeStr}</span>
+                          <span className={styles.appointmentType}>Indisponible</span>
+                        </div>
+                      );
+                    }
+
+                    // Si c'est un slot généré vide, ne pas l'afficher (ou l'afficher très discrètement)
+                    if (isGenerated) {
+                      return null; // On ne montre plus les slots vides générés
+                    }
+
+                    // Afficher les rendez-vous réservés avec couleur
+                    if (isBooked) {
+                      const kindName = appointment?.kind?.name || 'Consultation';
+                      const patientName = appointment?.patient?.fullName || 'Patient';
+
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.appointment} ${getAppointmentColor(kindName)} cursor-pointer hover:opacity-80`}
+                          onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                        >
+                          <span className={styles.appointmentTime}>{timeStr}</span>
+                          <span className={styles.appointmentType}>{kindName}</span>
+                          <span className={styles.appointmentPatient}>{patientName}</span>
+                        </div>
+                      );
+                    }
+
+                    return null;
                   })}
                 </div>
               );

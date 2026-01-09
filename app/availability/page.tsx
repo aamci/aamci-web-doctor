@@ -213,36 +213,52 @@ export default function AvailabilityManagementPage() {
     setSuccess(null);
 
     try {
+      // Helper to add minutes to time string
+      const addMinutes = (timeStr: string, minutes: number): string => {
+        const [h, m] = timeStr.split(':').map(Number);
+        const totalMinutes = h * 60 + m + minutes;
+        const newH = Math.floor(totalMinutes / 60);
+        const newM = totalMinutes % 60;
+        return `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+      };
+
       const payload = {
-        ownerId: user.id,
-        ownerType: 'DOCTOR',
-        days: Array.from(selectedDays).map((day) => {
+        startDate,
+        endDate,
+        daysOfWeek: Array.from(selectedDays).map((day) => {
           const dayObj = daysOfWeek.find((d) => d.value === day);
           return dayObj?.num || 1;
         }),
         startHour: parseInt(startHour.split(':')[0]),
         endHour: parseInt(endHour.split(':')[0]),
-        stepMinutes: slotDuration,
-        startDate,
-        endDate,
-        excludedHours: Array.from(excludedHours),
+        slotDurationMins: slotDuration,
+        excludedTimes: Array.from(excludedHours).map((h) => `${h}-${addMinutes(h, slotDuration)}`),
         capacity,
       };
 
-      const response = await authedFetch('/slots/generate', {
+      const response = await authedFetch('/availability-rules', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
-      setSuccess(`${result.created || 0} créneaux générés avec succès ! ${result.skipped || 0} créneaux ignorés (déjà existants).`);
+      await response.json();
+
+      // Calculate approximate number of slots for user feedback
+      const daysCount = Array.from(selectedDays).length;
+      const hoursPerDay = parseInt(endHour.split(':')[0]) - parseInt(startHour.split(':')[0]);
+      const slotsPerDay = (hoursPerDay * 60) / slotDuration;
+      const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const workDays = Math.ceil((totalDays / 7) * daysCount);
+      const approxSlots = Math.floor(workDays * slotsPerDay);
+
+      setSuccess(`Disponibilité enregistrée avec succès ! Environ ${approxSlots} créneaux seront disponibles à la réservation.`);
 
       // Reset form
       setStartDate('');
       setEndDate('');
       setExcludedHours(new Set());
     } catch (e: any) {
-      setError(e?.message || 'Erreur lors de la génération des créneaux');
+      setError(e?.message || 'Erreur lors de l\'enregistrement de la disponibilité');
     } finally {
       setLoading(false);
     }
@@ -269,48 +285,48 @@ export default function AvailabilityManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Settings className="w-8 h-8 text-teal-600" />
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Settings className="w-6 h-6 text-teal-600" />
             Gestion des disponibilités
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm text-gray-600 mt-1">
             Générez automatiquement vos créneaux de disponibilité pour les 3 prochains mois
           </p>
         </div>
 
         {/* Alerts */}
         {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription className="text-sm">{error}</AlertDescription>
           </Alert>
         )}
 
         {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800">{success}</AlertDescription>
+          <Alert className="mb-4 bg-green-50 border-green-200">
+            <AlertDescription className="text-sm text-green-800">{success}</AlertDescription>
           </Alert>
         )}
 
         {/* Formulaire */}
-        <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+        <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
           {/* Période */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-teal-600" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-teal-600" />
               Période de génération
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Date de début
                 </label>
                 <input
                   type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   min={getTodayDate()}
@@ -318,12 +334,12 @@ export default function AvailabilityManagementPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Date de fin (max 3 mois)
                 </label>
                 <input
                   type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate || getTodayDate()}
@@ -335,16 +351,16 @@ export default function AvailabilityManagementPage() {
 
           {/* Jours de la semaine */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Jours de disponibilité
             </h3>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {daysOfWeek.map((day) => (
                 <button
                   key={day.value}
                   type="button"
                   onClick={() => toggleDay(day.value)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                  className={`px-3 py-2 text-sm rounded-lg font-medium transition-all ${
                     selectedDays.has(day.value)
                       ? 'bg-teal-600 text-white shadow-md'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -358,17 +374,17 @@ export default function AvailabilityManagementPage() {
 
           {/* Horaires */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-teal-600" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-teal-600" />
               Plage horaire
             </h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Heure de début
                 </label>
                 <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   value={startHour}
                   onChange={(e) => setStartHour(e.target.value)}
                 >
@@ -380,11 +396,11 @@ export default function AvailabilityManagementPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Heure de fin
                 </label>
                 <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   value={endHour}
                   onChange={(e) => setEndHour(e.target.value)}
                 >
@@ -396,11 +412,11 @@ export default function AvailabilityManagementPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Durée créneau (min)
                 </label>
                 <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   value={slotDuration}
                   onChange={(e) => setSlotDuration(parseInt(e.target.value))}
                 >
@@ -415,14 +431,14 @@ export default function AvailabilityManagementPage() {
 
           {/* Heures à exclure */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-red-600" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-red-600" />
               Heures à exclure (optionnel)
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-xs text-gray-600 mb-2">
               Sélectionnez les heures où vous ne souhaitez pas être disponible (ex: pause déjeuner)
             </p>
-            <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded-lg">
               {generateHours()
                 .filter((hour) => {
                   const h = parseInt(hour.split(':')[0]);
@@ -435,7 +451,7 @@ export default function AvailabilityManagementPage() {
                     key={hour}
                     type="button"
                     onClick={() => toggleExcludedHour(hour)}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-all ${
+                    className={`px-2 py-1.5 rounded text-xs font-medium transition-all ${
                       excludedHours.has(hour)
                         ? 'bg-red-100 text-red-700 border-2 border-red-400'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
@@ -449,40 +465,40 @@ export default function AvailabilityManagementPage() {
 
           {/* Capacité */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
               Capacité par créneau
             </label>
             <input
               type="number"
               min="1"
               max="10"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               value={capacity}
               onChange={(e) => setCapacity(parseInt(e.target.value))}
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               Nombre de patients maximum par créneau
             </p>
           </div>
 
           {/* Motifs de consultation */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Motifs de consultation autorisés (optionnel)
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-xs text-gray-600 mb-2">
               Sélectionnez les types de consultations pour lesquels ces créneaux seront disponibles. Si aucun motif n'est sélectionné, tous les motifs seront acceptés.
             </p>
 
             {/* Formulaire de création de motif */}
-            <div className="bg-teal-50 border-2 border-teal-200 rounded-lg p-4 mb-4">
-              <h4 className="font-semibold text-teal-900 mb-3 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
+            <div className="bg-teal-50 border-2 border-teal-200 rounded-lg p-3 mb-3">
+              <h4 className="text-sm font-semibold text-teal-900 mb-2 flex items-center gap-2">
+                <Plus className="w-3.5 h-3.5" />
                 Créer un nouveau motif
               </h4>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Nom du motif <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -596,17 +612,17 @@ export default function AvailabilityManagementPage() {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  Génération en cours...
+                  Enregistrement en cours...
                 </>
               ) : (
                 <>
                   <Plus className="w-5 h-5" />
-                  Générer les créneaux
+                  Enregistrer la disponibilité
                 </>
               )}
             </button>
             <p className="text-sm text-gray-500 text-center mt-3">
-              Les créneaux déjà existants ne seront pas écrasés
+              Les créneaux seront générés automatiquement lors des réservations
             </p>
           </div>
         </div>

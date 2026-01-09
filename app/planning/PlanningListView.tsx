@@ -96,69 +96,94 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
 
               {/* Liste des créneaux */}
               <div className={styles.slotsList}>
-                {daySlots.map((slot) => {
+                {daySlots.map((slot: any) => {
                   const startTime = new Date(slot.start);
                   const endTime = new Date(slot.end);
                   const appointment = slot.appointments?.[0];
-                  const hasAppointment = !!appointment;
+                  const isBooked = slot.isBooked || (appointment && !slot.isGenerated);
+                  const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
+                  const isGenerated = slot.isGenerated && !appointment;
 
-                  return (
-                    <div
-                      key={slot.id}
-                      className={`${styles.slotCard} cursor-pointer hover:bg-gray-50`}
-                      onClick={() => {
-                        if (hasAppointment && appointment) {
-                          onAppointmentClick({ ...appointment, start: slot.start, end: slot.end });
-                        } else {
-                          onSlotClick(slot);
-                        }
-                      }}
-                    >
-                      <div className={styles.slotTime}>
-                        <Clock className="w-5 h-5 text-gray-400" />
-                        <span className={styles.timeRange}>
-                          {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
-                        </span>
-                      </div>
+                  // Ne pas afficher les slots générés vides
+                  if (isGenerated) {
+                    return null;
+                  }
 
-                      <div className={styles.slotDetails}>
-                        <div className={styles.slotInfo}>
-                          {hasAppointment && appointment.patient ? (
-                            <>
-                              <div className={styles.capacity}>
-                                <User className="w-4 h-4 text-gray-400" />
-                                <span>Patient: {appointment.patient.fullName}</span>
-                              </div>
-                              {appointment.kind && (
-                                <div className={styles.kindBadge}>
-                                  {appointment.kind.name}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className={styles.capacity}>
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span>Capacité: {slot.capacity}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className={styles.slotStatus}>
-                          <span
-                            className={`${styles.statusBadge} ${
-                              hasAppointment
-                                ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                : getStatusColor(slot.status)
-                            }`}
-                          >
-                            {hasAppointment
-                              ? 'Réservé'
-                              : getStatusLabel(slot.status)}
+                  // Style pour slots exclus
+                  if (isExcluded) {
+                    return (
+                      <div
+                        key={slot.id}
+                        className={`${styles.slotCard} ${styles.excludedSlot}`}
+                        title="Période non disponible"
+                      >
+                        <div className={styles.slotTime}>
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className={styles.timeRange}>
+                            {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
                           </span>
                         </div>
+
+                        <div className={styles.slotDetails}>
+                          <div className={styles.slotInfo}>
+                            <div className={styles.capacity}>
+                              <span>Période bloquée</span>
+                            </div>
+                          </div>
+
+                          <div className={styles.slotStatus}>
+                            <span className={`${styles.statusBadge} bg-gray-100 text-gray-700 border-gray-300`}>
+                              Indisponible
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  );
+                    );
+                  }
+
+                  // Afficher uniquement les rendez-vous réservés
+                  if (isBooked) {
+                    return (
+                      <div
+                        key={slot.id}
+                        className={`${styles.slotCard} cursor-pointer hover:bg-gray-50`}
+                        onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                      >
+                        <div className={styles.slotTime}>
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className={styles.timeRange}>
+                            {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                          </span>
+                        </div>
+
+                        <div className={styles.slotDetails}>
+                          <div className={styles.slotInfo}>
+                            {appointment?.patient && (
+                              <>
+                                <div className={styles.capacity}>
+                                  <User className="w-3 h-3 text-gray-400" />
+                                  <span>Patient: {appointment.patient.fullName}</span>
+                                </div>
+                                {appointment.kind && (
+                                  <div className={styles.kindBadge}>
+                                    {appointment.kind.name}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          <div className={styles.slotStatus}>
+                            <span className={`${styles.statusBadge} bg-blue-100 text-blue-700 border-blue-300`}>
+                              Réservé
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
                 })}
               </div>
             </div>

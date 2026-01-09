@@ -103,8 +103,14 @@ export default function PlanningMonthView({ slots, currentDate, onDateClick }: P
       <div className={styles.daysGrid}>
         {monthDays.map((d, i) => {
           const daySlots = getSlotsForDay(d.date);
-          const activeSlots = daySlots.filter((s) => s.status === 'ACTIVE');
-          const inactiveSlots = daySlots.filter((s) => s.status === 'INACTIVE');
+
+          // Compter uniquement les rendez-vous réservés et les slots exclus
+          const bookedSlots = daySlots.filter((s: any) =>
+            s.isBooked || (s.appointments && s.appointments.length > 0 && !s.isGenerated)
+          );
+          const excludedSlots = daySlots.filter((s: any) =>
+            s.isExcluded || s.status === 'EXCLUDED'
+          );
 
           return (
             <button
@@ -113,21 +119,21 @@ export default function PlanningMonthView({ slots, currentDate, onDateClick }: P
               className={`${styles.dayCell} ${
                 !d.isCurrentMonth ? styles.otherMonth : ''
               } ${isToday(d.date) ? styles.today : ''} ${
-                daySlots.length > 0 ? styles.hasSlots : ''
+                (bookedSlots.length > 0 || excludedSlots.length > 0) ? styles.hasSlots : ''
               }`}
             >
               <div className={styles.dayNumber}>{d.day}</div>
 
-              {daySlots.length > 0 && (
+              {(bookedSlots.length > 0 || excludedSlots.length > 0) && (
                 <div className={styles.slotsIndicator}>
-                  {activeSlots.length > 0 && (
-                    <div className={styles.slotBadge} style={{ background: '#10b981' }}>
-                      {activeSlots.length}
+                  {bookedSlots.length > 0 && (
+                    <div className={styles.slotBadge} style={{ background: '#3b82f6' }} title={`${bookedSlots.length} rendez-vous`}>
+                      {bookedSlots.length}
                     </div>
                   )}
-                  {inactiveSlots.length > 0 && (
-                    <div className={styles.slotBadge} style={{ background: '#6b7280' }}>
-                      {inactiveSlots.length}
+                  {excludedSlots.length > 0 && (
+                    <div className={styles.slotBadge} style={{ background: '#9ca3af' }} title={`${excludedSlots.length} périodes bloquées`}>
+                      {excludedSlots.length}
                     </div>
                   )}
                 </div>
@@ -140,12 +146,12 @@ export default function PlanningMonthView({ slots, currentDate, onDateClick }: P
       {/* Légende */}
       <div className={styles.legend}>
         <div className={styles.legendItem}>
-          <div className={styles.legendBadge} style={{ background: '#10b981' }}></div>
-          <span>Créneaux disponibles</span>
+          <div className={styles.legendBadge} style={{ background: '#3b82f6' }}></div>
+          <span>Rendez-vous réservés</span>
         </div>
         <div className={styles.legendItem}>
-          <div className={styles.legendBadge} style={{ background: '#6b7280' }}></div>
-          <span>Créneaux indisponibles</span>
+          <div className={styles.legendBadge} style={{ background: '#9ca3af' }}></div>
+          <span>Périodes bloquées</span>
         </div>
       </div>
     </div>

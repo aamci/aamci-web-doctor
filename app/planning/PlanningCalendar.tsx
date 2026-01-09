@@ -57,7 +57,7 @@ export default function PlanningCalendar({ selectedDate, onDateChange }: Props) 
       {/* Header */}
       <div className={styles.calendarHeader}>
         <button onClick={goToPreviousMonth} className={styles.navButton}>
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-3.5 h-3.5" />
         </button>
         <h3 className={styles.monthTitle}>
           {selectedDate.toLocaleDateString('fr-FR', {
@@ -66,7 +66,7 @@ export default function PlanningCalendar({ selectedDate, onDateChange }: Props) 
           })}
         </h3>
         <button onClick={goToNextMonth} className={styles.navButton}>
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
 

@@ -1,230 +1,147 @@
-// app/_components/Navbar.tsx
 'use client';
-import Link from 'next/link'; 
-import { useState, useRef, useEffect } from 'react';
+
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
+import { LogOut, User } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // fermer le menu cliquer dehors
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+  const handleLogout = async () => {
+    await logout();
+    router.push('/auth/login');
+  };
+
+  const isActive = (href: string) => {
+    if (href === '/planning') {
+      return pathname === '/' || pathname === '/dashboard' || pathname === '/planning';
     }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    return pathname?.startsWith(href);
+  };
 
-  const linksForDoctor = [
-    { href: '/availability', label: 'Planning' },
-    { href: '/appointments', label: 'Mes rendez-vous' },
-  ];
-
-  const linksForPatient = [
-    { href: '/', label: 'Accueil' },
-    { href: '/doctors', label: 'Trouver un médecin' },
-    { href: '/facilities', label: 'Établissements' },
-    { href: '/appointments', label: 'Mes rendez-vous' },
-  ];
-
-  const links = user?.role === 'DOCTOR' ? linksForDoctor : linksForPatient;
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'U';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   return (
-    <header
-      style={{
-        borderBottom: '1px solid #eee',
-        background: '#fff',
-        position: 'sticky',
-        top: 0,
-        zIndex: 30,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 16px',
-          gap: 16,
-        }}
-      >
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-          onClick={() => router.push('/')}
-        >
-          <span style={{ fontWeight: 700 }}>Plateforme Santé</span>
-          {user?.role && (
-            <span
-              style={{
-                fontSize: 11,
-                background: '#eef2ff',
-                color: '#4338ca',
-                padding: '2px 6px',
-                borderRadius: 999,
-              }}
-            >
-              {user.role === 'DOCTOR' ? 'Espace médecin' : 'Espace patient'}
+    <nav className="fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white shadow-lg z-40 flex items-center">
+      <div className={`flex items-center justify-between w-full px-6 ${user ? 'ml-20' : ''}`}>
+        {/* Logo et titre */}
+        <Link href={user ? '/planning' : '/'} className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center hover:bg-slate-600 transition-colors">
+            <span className="text-xl font-bold text-teal-400">M</span>
+          </div>
+          <span className="text-lg font-bold text-white">Health Platform</span>
+          {user && (
+            <span className="ml-2 text-xs bg-teal-600 text-white px-2 py-1 rounded-full">
+              Espace médecin
             </span>
           )}
-        </div>
+        </Link>
 
-        <nav style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {links.map((l) => (
-            <button
-              key={l.href}
-              onClick={() => router.push(l.href as any)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 13,
-                padding: '4px 8px',
-                borderRadius: 6,
-                color: pathname === l.href ? '#0f62fe' : '#111',
-                fontWeight: pathname === l.href ? 600 : 400,
-              }}
+        {/* Navigation principale (si connecté) */}
+        {user && (
+          <div className="flex items-center gap-2">
+            <Link
+              href="/planning"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/planning')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
             >
-              {l.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* droite */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {!user ? (
-            <button
-              onClick={() => router.push('/auth/login')}
-              style={{
-                background: '#0f62fe',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 6,
-                padding: '6px 14px',
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
+              Planning
+            </Link>
+            <Link
+              href="/availability"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/availability')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
             >
-              Connexion
-            </button>
-          ) : (
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button
-                onClick={() => setOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
+              Disponibilités
+            </Link>
+            <Link
+              href="/preferences"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/preferences')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Préférences
+            </Link>
+            {user.role === 'FACILITY_MANAGER' && (
+              <Link
+                href="/facility-management"
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  isActive('/facility-management')
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`}
               >
-                <AvatarSmall name={user.email} src={user.avatarUrl || null} />
-                <span style={{ fontSize: 12 }}>{user.email}</span>
-                <span style={{ fontSize: 10 }}>▼</span>
+                Gestion
+              </Link>
+            )}
+            <Link
+              href={"/patients" as any}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/patients')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Patients
+            </Link>
+          </div>
+        )}
+
+        {/* Actions à droite */}
+        <div className="flex items-center gap-3">
+          {!user ? (
+            <>
+              <button
+                onClick={() => router.push('/auth/login' as any)}
+                className="px-4 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+              >
+                Connexion
               </button>
-              {open && (
-                <div className="card" style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:240, display:'grid', gap:6, padding:8 }}>
-                  <Link
-                    href="/account"
-                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
-                    className="item"
-                  >
-                    Mon compte
-                  </Link>
-
-                  <Link
-                    href="/"
-                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
-                    className="item"
-                  >
-                    Mes documents
-                  </Link>
-
-                  <Link
-                    href="/appointments"
-                    onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
-                    className="item"
-                  >
-                    Mes rendez-vous
-                  </Link>
-
-                  <hr style={{margin:'6px 0'}}/>
-
-                  <button
-                    type="button"
-                    onClick={(e)=>{ e.stopPropagation(); logout(); }}
-                    className="item"
-                    style={{ textAlign:'left', color:'#b91c1c' }}
-                  >
-                    Déconnexion
-                  </button>
-                </div>
-              )}
-            </div>
+              <button
+                onClick={() => router.push('/auth/register' as any)}
+                className="px-4 py-2 rounded-lg font-medium bg-teal-600 text-white hover:bg-teal-500 transition-colors"
+              >
+                S'inscrire
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href={"/settings" as any}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+              >
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium">{user.fullName || user.email}</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-red-600 hover:text-white transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm font-medium">Déconnexion</span>
+              </button>
+            </>
           )}
         </div>
       </div>
-    </header>
-  );
-}
-
-function AvatarSmall({ src, name }: { src: string | null; name: string }) {
-  const initials = name?.charAt(0)?.toUpperCase() || 'U';
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name}
-        style={{ width: 28, height: 28, borderRadius: '999px', objectFit: 'cover' }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: '999px',
-        background: '#dfe3e8',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 12,
-        fontWeight: 600,
-        color: '#333',
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-function DropdownItem({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        background: 'transparent',
-        border: 'none',
-        padding: '8px 12px',
-        fontSize: 13,
-        cursor: 'pointer',
-      }}
-    >
-      {children}
-    </button>
+    </nav>
   );
 }

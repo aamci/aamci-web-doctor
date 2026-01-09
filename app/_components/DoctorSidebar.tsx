@@ -27,6 +27,11 @@ export default function DoctorSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
 
+  // Ne pas afficher la sidebar si l'utilisateur n'est pas connecté
+  if (!user) {
+    return null;
+  }
+
   const navigationItems: NavItem[] = [
     {
       label: 'Planning',
@@ -103,7 +108,7 @@ export default function DoctorSidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-20 bg-slate-800 text-white flex flex-col items-center py-6 shadow-lg z-50">
+    <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-slate-800 text-white flex flex-col items-center py-6 shadow-lg z-30">
       {/* Logo en haut */}
       <Link href="/planning" className="mb-8">
         <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center hover:bg-slate-600 transition-colors">

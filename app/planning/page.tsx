@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
@@ -13,6 +13,7 @@ import PlanningFilters from './PlanningFilters';
 import AppointmentSheet from '../_components/AppointmentSheet';
 import SlotSheet from '../_components/SlotSheet';
 import { useAuth } from '../_providers/AuthProvider';
+import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule } from './utils/generateSlots';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -113,7 +114,8 @@ interface WeekDay {
 export default function AvailabilityPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<Slot[]>([]); // Only slots with appointments
+  const [rules, setRules] = useState<AvailabilityRule[]>([]); // Availability rules
   const [appointmentKinds, setAppointmentKinds] = useState<AppointmentKind[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -194,10 +196,15 @@ export default function AvailabilityPage() {
     setLoading(true);
     setErr(null);
     try {
-      // Charger les slots avec les appointments
+      // Charger les règles de disponibilité
+      const rulesResponse = await authedFetch('/availability-rules/mine', { method: 'GET' });
+      const rulesData = await rulesResponse.json().catch(() => []);
+      setRules(Array.isArray(rulesData) ? rulesData : rulesData?.data || []);
+
+      // Charger UNIQUEMENT les slots avec appointments (booked slots)
       const slotsResponse = await authedFetch('/slots/mine', { method: 'GET' });
       const slotsData = await slotsResponse.json().catch(() => []);
-      setSlots(Array.isArray(slotsData) ? slotsData : slotsData?.data || []);
+      setBookedSlots(Array.isArray(slotsData) ? slotsData : slotsData?.data || []);
 
       // Charger les types de consultations (AppointmentKinds)
       const kindsResponse = await authedFetch('/appointment-kinds', { method: 'GET' });
@@ -213,6 +220,48 @@ export default function AvailabilityPage() {
       setLoading(false);
     }
   }
+
+  // Générer dynamiquement tous les slots à partir des règles
+  // et fusionner avec les slots réservés (booked)
+  const allSlots = useMemo(() => {
+    // Calculer la plage de dates à afficher selon la vue
+    let viewStartDate = new Date(currentDate);
+    let viewEndDate = new Date(currentDate);
+
+    if (view === 'week') {
+      // Début de semaine (lundi)
+      const day = viewStartDate.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      viewStartDate.setDate(viewStartDate.getDate() + diffToMonday);
+      viewStartDate.setHours(0, 0, 0, 0);
+
+      // Fin de semaine (dimanche)
+      viewEndDate = new Date(viewStartDate);
+      viewEndDate.setDate(viewEndDate.getDate() + 6);
+      viewEndDate.setHours(23, 59, 59, 999);
+    } else if (view === 'day') {
+      viewStartDate.setHours(0, 0, 0, 0);
+      viewEndDate.setHours(23, 59, 59, 999);
+    } else if (view === 'month') {
+      viewStartDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      viewEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      // list - afficher une semaine
+      const day = viewStartDate.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      viewStartDate.setDate(viewStartDate.getDate() + diffToMonday);
+      viewStartDate.setHours(0, 0, 0, 0);
+      viewEndDate = new Date(viewStartDate);
+      viewEndDate.setDate(viewEndDate.getDate() + 6);
+      viewEndDate.setHours(23, 59, 59, 999);
+    }
+
+    // Générer les slots à partir des règles
+    const generatedSlots = generateSlotsFromRules(rules, viewStartDate, viewEndDate);
+
+    // Fusionner avec les slots réservés
+    return mergeSlotsWithBooked(generatedSlots, bookedSlots);
+  }, [rules, bookedSlots, currentDate, view]);
 
   // Navigation selon la vue
   const goToPrevious = () => {
@@ -289,7 +338,7 @@ export default function AvailabilityPage() {
   }
 
   // Filtrer les slots selon les critères sélectionnés
-  const filteredSlots = slots.filter((slot) => {
+  const filteredSlots = allSlots.filter((slot) => {
     // Filtre par status du slot
     if (selectedStatus && slot.status !== selectedStatus) {
       return false;
@@ -303,7 +352,7 @@ export default function AvailabilityPage() {
     // Filtre par motif de consultation (via les appointments)
     if (selectedMotif) {
       const hasMatchingAppointment = slot.appointments?.some(
-        (apt) => apt.kindId === selectedMotif
+        (apt: any) => apt.kindId === selectedMotif
       );
       if (!hasMatchingAppointment) {
         return false;
@@ -329,21 +378,21 @@ export default function AvailabilityPage() {
   }, [user, authLoading]);
 
   return (
-    <div className="flex h-screen bg-gray-50 -ml-20">
+    <div className="flex h-screen bg-white">
       {/* Sidebar Gauche - Calendrier Mensuel */}
-      <div className="w-80 bg-white border-r border-gray-200 p-6 flex flex-col">
+      <div className="w-56 bg-white border-r border-gray-200 p-3 flex flex-col overflow-y-auto">
         {/* Bouton Nouveau RDV */}
-        <button className="w-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 mb-6 font-medium transition-colors">
-          <Plus className="w-5 h-5" />
-          Nouveau rendez-vous
+        <button className="w-full bg-teal-600 hover:bg-teal-700 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 mb-3 text-xs font-medium transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+          Nouveau RDV
         </button>
 
         {/* Mini Calendrier */}
         <PlanningCalendar selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
         {/* Filtres */}
-        <div className="mt-6 border-t border-gray-200 pt-6">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">FILTRES</h4>
+        <div className="mt-3 border-t border-gray-200 pt-3">
+          <h4 className="text-[0.625rem] font-semibold text-gray-700 mb-2 uppercase tracking-wide">Filtres</h4>
           <PlanningFilters
             motifs={motifOptions}
             agendas={agendaOptions}
@@ -359,54 +408,51 @@ export default function AvailabilityPage() {
       </div>
 
       {/* Contenu Principal - Planning */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-white">
         {/* Alerts */}
         {err && (
-          <Alert variant="destructive" className="m-4">
-            <AlertDescription>{err}</AlertDescription>
+          <Alert variant="destructive" className="m-3">
+            <AlertDescription className="text-sm">{err}</AlertDescription>
           </Alert>
         )}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-3 py-2">
           <div className="flex items-center justify-between">
             {/* Navigation Date */}
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-semibold text-gray-800">Planning</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={goToPrevious} className="p-2 hover:bg-gray-100 rounded">
-                  <ChevronLeft className="w-5 h-5" />
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-800">Planning</h2>
+              <div className="flex items-center gap-0.5">
+                <button onClick={goToPrevious} className="p-1 hover:bg-gray-100 rounded">
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-sm font-medium text-gray-600 min-w-[250px] text-center capitalize">
+                <span className="text-[0.625rem] font-medium text-gray-600 min-w-[160px] text-center capitalize">
                   {getDateRangeLabel()}
                 </span>
-                <button onClick={goToNext} className="p-2 hover:bg-gray-100 rounded">
-                  <ChevronRight className="w-5 h-5" />
+                <button onClick={goToNext} className="p-1 hover:bg-gray-100 rounded">
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Onglets Vue */}
-            <div className="flex items-center gap-2">
-              {['Liste', 'Journée', 'Semaine', 'Mois', 'Affichage'].map((tab) => (
+            {/* Group Buttons Vue */}
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white overflow-hidden">
+              {[
+                { label: 'Liste', value: 'list' },
+                { label: 'Journée', value: 'day' },
+                { label: 'Semaine', value: 'week' },
+                { label: 'Mois', value: 'month' },
+              ].map((tab, index, arr) => (
                 <button
-                  key={tab}
-                  onClick={() => {
-                    if (tab === 'Liste') setView('list');
-                    if (tab === 'Journée') setView('day');
-                    if (tab === 'Semaine') setView('week');
-                    if (tab === 'Mois') setView('month');
-                  }}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    (tab === 'Semaine' && view === 'week') ||
-                    (tab === 'Liste' && view === 'list') ||
-                    (tab === 'Journée' && view === 'day') ||
-                    (tab === 'Mois' && view === 'month')
-                      ? 'bg-teal-50 text-teal-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  key={tab.value}
+                  onClick={() => setView(tab.value as any)}
+                  className={`px-2.5 py-1 text-[0.625rem] font-medium transition-colors ${
+                    view === tab.value
+                      ? 'bg-teal-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  } ${index !== arr.length - 1 ? 'border-r border-gray-300' : ''}`}
                 >
-                  {tab}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -414,7 +460,7 @@ export default function AvailabilityPage() {
         </div>
 
         {/* Vue Planning */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Chargement...</p>

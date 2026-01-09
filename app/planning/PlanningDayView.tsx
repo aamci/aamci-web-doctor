@@ -93,56 +93,71 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
               <div className={styles.slotContainer}>
                 {hourSlots.length === 0 ? (
                   <div className={styles.emptySlot}>
-                    <span className="text-gray-400 text-sm">Aucun créneau</span>
+                    <span className="text-gray-400 text-xs">Aucun créneau</span>
                   </div>
                 ) : (
-                  hourSlots.map((slot) => {
+                  hourSlots.map((slot: any) => {
                     const startTime = new Date(slot.start);
                     const endTime = new Date(slot.end);
                     const appointment = slot.appointments?.[0];
-                    const hasAppointment = !!appointment;
+                    const isBooked = slot.isBooked || (appointment && !slot.isGenerated);
+                    const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
+                    const isGenerated = slot.isGenerated && !appointment;
 
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`${styles.slotCard} ${
-                          hasAppointment
-                            ? 'bg-blue-50 border-blue-400 text-blue-700'
-                            : getStatusColor(slot.status)
-                        } cursor-pointer hover:opacity-80`}
-                        onClick={() => {
-                          if (hasAppointment && appointment) {
-                            onAppointmentClick({ ...appointment, start: slot.start, end: slot.end });
-                          } else {
-                            onSlotClick(slot);
-                          }
-                        }}
-                      >
-                        <div className={styles.slotHeader}>
-                          <span className={styles.slotTime}>
-                            {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
-                          </span>
-                          <span className={styles.statusBadge}>
-                            {hasAppointment
-                              ? appointment.kind?.name || 'Rendez-vous'
-                              : slot.status === 'ACTIVE'
-                              ? 'Disponible'
-                              : 'Indisponible'}
-                          </span>
+                    // Ne pas afficher les slots générés vides
+                    if (isGenerated) {
+                      return null;
+                    }
+
+                    // Style pour slots exclus
+                    if (isExcluded) {
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.slotCard} ${styles.excludedSlot}`}
+                          title="Période non disponible"
+                        >
+                          <div className={styles.slotHeader}>
+                            <span className={styles.slotTime}>
+                              {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                            </span>
+                            <span className={styles.statusBadge}>Indisponible</span>
+                          </div>
+                          <div className={styles.slotBody}>
+                            <div className={styles.capacity}>Période bloquée</div>
+                          </div>
                         </div>
-                        <div className={styles.slotBody}>
-                          {hasAppointment && appointment.patient ? (
-                            <div className={styles.patientInfo}>
-                              Patient: <strong>{appointment.patient.fullName}</strong>
-                            </div>
-                          ) : (
-                            <div className={styles.capacity}>
-                              Capacité: <strong>{slot.capacity}</strong>
-                            </div>
-                          )}
+                      );
+                    }
+
+                    // Afficher uniquement les rendez-vous réservés
+                    if (isBooked) {
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.slotCard} bg-blue-50 border-blue-400 text-blue-700 cursor-pointer hover:opacity-80`}
+                          onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                        >
+                          <div className={styles.slotHeader}>
+                            <span className={styles.slotTime}>
+                              {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                            </span>
+                            <span className={styles.statusBadge}>
+                              {appointment?.kind?.name || 'Rendez-vous'}
+                            </span>
+                          </div>
+                          <div className={styles.slotBody}>
+                            {appointment?.patient && (
+                              <div className={styles.patientInfo}>
+                                Patient: <strong>{appointment.patient.fullName}</strong>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
+                      );
+                    }
+
+                    return null;
                   })
                 )}
               </div>

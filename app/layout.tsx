@@ -2,6 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from './_providers/AuthProvider';
 import DoctorSidebar from '@/app/_components/DoctorSidebar';
+import Navbar from '@/app/_components/Navbar';
+import LayoutClient from './_components/LayoutClient';
 
 export const metadata: Metadata = {
   title: 'Health Platform - Médecin',
@@ -13,15 +15,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body className="bg-gray-50">
         <AuthProvider>
-          {/* Sidebar fixe à gauche */}
+          {/* Navbar toujours visible en haut */}
+          <Navbar />
+
+          {/* Sidebar fixe à gauche (cachée si non connecté) */}
           <DoctorSidebar />
 
-          {/* Contenu principal avec marge à gauche pour le sidebar */}
-          <main className="ml-20 min-h-screen">
-            <div className="max-w-7xl mx-auto p-8">
-              {children}
-            </div>
-          </main>
+          {/* Contenu principal avec marges ajustées */}
+          <LayoutClient>
+            {children}
+          </LayoutClient>
         </AuthProvider>
       </body>
     </html>
