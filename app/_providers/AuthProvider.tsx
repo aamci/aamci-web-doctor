@@ -41,8 +41,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const apiBase = getApiBase();
       const url = apiBase ? `${apiBase}/auth/me` : '/api/auth/me';
+
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add Authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(url, {
-        credentials: 'include', // Send cookies with request
+        credentials: 'include', // Still send cookies as fallback
+        headers,
       });
 
       if (res.ok) {
@@ -50,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
       } else {
         setUser(null);
+        // Clear invalid token
+        if (token) {
+          localStorage.removeItem('token');
+        }
       }
     } catch (error) {
       console.error('Failed to fetch user:', error);
@@ -68,10 +86,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const apiBase = getApiBase();
       const url = apiBase ? `${apiBase}/auth/logout` : '/api/auth/logout';
+
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       await fetch(url, {
         method: 'POST',
         credentials: 'include', // Send cookies with request
+        headers,
       });
+
+      // Clear token from localStorage
+      localStorage.removeItem('token');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {

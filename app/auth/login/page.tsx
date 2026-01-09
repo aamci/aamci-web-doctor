@@ -73,8 +73,11 @@ export default function Login() {
 
       const d = await r.json();
 
-      // Cookie is set automatically by backend
-      if (d?.success) {
+      // Save token from response body (for cross-origin scenarios)
+      if (d?.success && d?.token) {
+        // Store the JWT token in localStorage
+        localStorage.setItem('token', d.token);
+
         setToken('authenticated');
         remember
           ? localStorage.setItem('login_email', email)
