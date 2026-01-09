@@ -79,6 +79,12 @@ async function authedFetch(path: string, init?: RequestInit) {
     headers['Content-Type'] = 'application/json';
   }
 
+  // Ajouter le token JWT depuis localStorage pour cross-origin
+  const token = localStorage.getItem('token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   // Utiliser credentials: 'include' pour envoyer les cookies automatiquement
   const r = await fetch(url, {
     ...init,
