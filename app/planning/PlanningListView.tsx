@@ -163,15 +163,36 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
 
                   // Afficher uniquement les rendez-vous réservés
                   if (isBooked) {
+                    const appointmentStatus = appointment?.status || 'PENDING';
+
+                    // Classes selon le statut
+                    const statusClasses =
+                      appointmentStatus === 'CANCELLED' ? 'bg-gray-50 opacity-60' :
+                      appointmentStatus === 'PENDING' ? 'bg-yellow-50 border-l-4 border-yellow-400' :
+                      appointmentStatus === 'CONFIRMED' ? 'bg-green-50 border-l-4 border-green-400' :
+                      '';
+
+                    const badgeClasses =
+                      appointmentStatus === 'CANCELLED' ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                      appointmentStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                      appointmentStatus === 'CONFIRMED' ? 'bg-green-100 text-green-700 border-green-300' :
+                      'bg-blue-100 text-blue-700 border-blue-300';
+
+                    const statusLabel =
+                      appointmentStatus === 'CANCELLED' ? '❌ Annulé' :
+                      appointmentStatus === 'PENDING' ? '⏳ En attente' :
+                      appointmentStatus === 'CONFIRMED' ? '✅ Confirmé' :
+                      'Réservé';
+
                     return (
                       <div
                         key={slot.id}
-                        className={`${styles.slotCard} cursor-pointer hover:bg-gray-50 ${isCopyMode ? 'bg-yellow-50 border-2 border-yellow-300' : ''}`}
+                        className={`${styles.slotCard} ${statusClasses} cursor-pointer hover:bg-gray-50 ${isCopyMode ? 'bg-yellow-50 border-2 border-yellow-300' : ''}`}
                         onClick={() => isCopyMode ? onSlotClick(slot) : onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
                       >
                         <div className={styles.slotTime}>
                           <Clock className="w-3.5 h-3.5 text-gray-400" />
-                          <span className={styles.timeRange}>
+                          <span className={`${styles.timeRange} ${appointmentStatus === 'CANCELLED' ? 'line-through text-gray-400' : ''}`}>
                             {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
                           </span>
                         </div>
@@ -182,7 +203,9 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
                               <>
                                 <div className={styles.capacity}>
                                   <User className="w-3 h-3 text-gray-400" />
-                                  <span>Patient: {appointment.patient.fullName}</span>
+                                  <span className={appointmentStatus === 'CANCELLED' ? 'line-through text-gray-400' : ''}>
+                                    Patient: {appointment.patient.fullName}
+                                  </span>
                                 </div>
                                 {appointment.kind && (
                                   <div className={styles.kindBadge}>
@@ -194,8 +217,8 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
                           </div>
 
                           <div className={styles.slotStatus}>
-                            <span className={`${styles.statusBadge} bg-blue-100 text-blue-700 border-blue-300`}>
-                              Réservé
+                            <span className={`${styles.statusBadge} ${badgeClasses}`}>
+                              {statusLabel}
                             </span>
                           </div>
                         </div>

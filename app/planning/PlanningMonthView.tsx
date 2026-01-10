@@ -19,6 +19,15 @@ interface Props {
 }
 
 export default function PlanningMonthView({ slots, currentDate, onDateClick }: Props) {
+  // Obtenir la couleur du badge selon la charge
+  const getLoadBadgeColor = (count: number) => {
+    if (count === 0) return '#9ca3af'; // gray
+    if (count <= 3) return '#10b981'; // green
+    if (count <= 7) return '#f59e0b'; // yellow/amber
+    if (count <= 12) return '#f97316'; // orange
+    return '#ef4444'; // red
+  };
+
   const getMonthDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -127,12 +136,16 @@ export default function PlanningMonthView({ slots, currentDate, onDateClick }: P
               {(bookedSlots.length > 0 || excludedSlots.length > 0) && (
                 <div className={styles.slotsIndicator}>
                   {bookedSlots.length > 0 && (
-                    <div className={styles.slotBadge} style={{ background: '#3b82f6' }} title={`${bookedSlots.length} rendez-vous`}>
+                    <div
+                      className={styles.slotBadge}
+                      style={{ background: getLoadBadgeColor(bookedSlots.length) }}
+                      title={`${bookedSlots.length} rendez-vous${bookedSlots.length > 1 ? '' : ''} actif${bookedSlots.length > 1 ? 's' : ''}`}
+                    >
                       {bookedSlots.length}
                     </div>
                   )}
                   {excludedSlots.length > 0 && (
-                    <div className={styles.slotBadge} style={{ background: '#9ca3af' }} title={`${excludedSlots.length} périodes bloquées`}>
+                    <div className={styles.slotBadge} style={{ background: '#9ca3af' }} title={`${excludedSlots.length} période${excludedSlots.length > 1 ? 's' : ''} bloquée${excludedSlots.length > 1 ? 's' : ''}`}>
                       {excludedSlots.length}
                     </div>
                   )}

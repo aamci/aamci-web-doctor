@@ -10,9 +10,14 @@ import PlanningListView from './PlanningListView';
 import PlanningDayView from './PlanningDayView';
 import PlanningMonthView from './PlanningMonthView';
 import PlanningFilters from './PlanningFilters';
+import PlanningWeekViewSkeleton from './PlanningWeekViewSkeleton';
+import PlanningListViewSkeleton from './PlanningListViewSkeleton';
+import PlanningDayViewSkeleton from './PlanningDayViewSkeleton';
+import PlanningMonthViewSkeleton from './PlanningMonthViewSkeleton';
 import AppointmentSheet from '../_components/AppointmentSheet';
 import SlotSheet from '../_components/SlotSheet';
 import CreateAppointmentModal from './CreateAppointmentModal';
+import EditAppointmentModal from './EditAppointmentModal';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
@@ -148,6 +153,10 @@ export default function AvailabilityPage() {
   const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] = useState(false);
   const [createAppointmentSlot, setCreateAppointmentSlot] = useState<{ start: string; end: string } | null>(null);
 
+  // Modal state for editing appointment
+  const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<any>(null);
+
   // Copy/Move mode state
   const [isCopyMode, setIsCopyMode] = useState(false);
   const [isMoveMode, setIsMoveMode] = useState(false);
@@ -159,8 +168,8 @@ export default function AvailabilityPage() {
   };
 
   const handleSlotClick = (slot: Slot) => {
-    if (isCopyMode && copiedAppointment) {
-      // Paste appointment to this slot
+    // Si en mode Move ou Copy, coller le rendez-vous
+    if ((isMoveMode || isCopyMode) && copiedAppointment) {
       handlePasteAppointment(slot);
     } else if (slot.appointments && slot.appointments.length > 0) {
       // Open appointment sheet
@@ -305,6 +314,27 @@ export default function AvailabilityPage() {
     }
   };
 
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    try {
+      await toast.promise(
+        authedFetch(`/appointments/${appointmentId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'CONFIRMED' }),
+        }),
+        {
+          loading: 'Confirmation du rendez-vous...',
+          success: 'Rendez-vous confirmé avec succès !',
+          error: 'Erreur lors de la confirmation du rendez-vous',
+        }
+      );
+      setIsAppointmentSheetOpen(false);
+      setSelectedAppointment(null);
+      await load(); // Reload appointments
+    } catch (error) {
+      console.error('Error confirming appointment:', error);
+    }
+  };
+
   const handleUpdateAppointment = async (appointmentId: string, data: any) => {
     try {
       await toast.promise(
@@ -335,6 +365,34 @@ export default function AvailabilityPage() {
     toast.info('Mode déplacer activé', {
       description: 'Cliquez sur une plage horaire disponible pour déplacer le rendez-vous'
     });
+  };
+
+  const handleEditAppointment = (appointment: any) => {
+    setEditingAppointment(appointment);
+    setIsEditAppointmentModalOpen(true);
+    setIsAppointmentSheetOpen(false);
+  };
+
+  const handleSaveEditedAppointment = async (appointmentId: string, data: any) => {
+    try {
+      await toast.promise(
+        authedFetch(`/appointments/${appointmentId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        }),
+        {
+          loading: 'Mise à jour du rendez-vous...',
+          success: 'Rendez-vous mis à jour avec succès !',
+          error: 'Erreur lors de la mise à jour du rendez-vous',
+        }
+      );
+      setIsEditAppointmentModalOpen(false);
+      setEditingAppointment(null);
+      await load();
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      throw error;
+    }
   };
 
   // Générer la semaine actuelle
@@ -552,7 +610,7 @@ export default function AvailabilityPage() {
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar Gauche - Calendrier Mensuel */}
-      <div className="w-56 bg-white border-r border-gray-200 p-3 flex flex-col overflow-y-auto">
+      <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 p-3 flex-col overflow-y-auto">
         {/* Bouton Nouveau RDV */}
         <button className="w-full bg-teal-600 hover:bg-teal-700 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 mb-3 text-xs font-medium transition-colors">
           <Plus className="w-3.5 h-3.5" />
@@ -589,42 +647,43 @@ export default function AvailabilityPage() {
         )}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-3 py-2">
-          <div className="flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 px-2 sm:px-3 py-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             {/* Navigation Date */}
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-gray-800">Planning</h2>
-              <div className="flex items-center gap-0.5">
-                <button onClick={goToPrevious} className="p-1 hover:bg-gray-100 rounded">
-                  <ChevronLeft className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
+              <h2 className="text-sm font-semibold text-gray-800 hidden sm:block">Planning</h2>
+              <div className="flex items-center gap-0.5 flex-1 sm:flex-initial">
+                <button onClick={goToPrevious} className="p-1 hover:bg-gray-100 rounded touch-manipulation">
+                  <ChevronLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </button>
-                <span className="text-[0.625rem] font-medium text-gray-600 min-w-[160px] text-center capitalize">
+                <span className="text-[0.65rem] sm:text-[0.625rem] font-medium text-gray-600 min-w-[140px] sm:min-w-[160px] text-center capitalize px-1">
                   {getDateRangeLabel()}
                 </span>
-                <button onClick={goToNext} className="p-1 hover:bg-gray-100 rounded">
-                  <ChevronRight className="w-3.5 h-3.5" />
+                <button onClick={goToNext} className="p-1 hover:bg-gray-100 rounded touch-manipulation">
+                  <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </button>
               </div>
             </div>
 
             {/* Group Buttons Vue */}
-            <div className="inline-flex rounded-lg border border-gray-300 bg-white overflow-hidden">
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white overflow-hidden w-full sm:w-auto">
               {[
                 { label: 'Liste', value: 'list' },
-                { label: 'Journée', value: 'day' },
+                { label: 'Jour', value: 'day', fullLabel: 'Journée' },
                 { label: 'Semaine', value: 'week' },
                 { label: 'Mois', value: 'month' },
               ].map((tab, index, arr) => (
                 <button
                   key={tab.value}
                   onClick={() => setView(tab.value as any)}
-                  className={`px-2.5 py-1 text-[0.625rem] font-medium transition-colors ${
+                  className={`flex-1 sm:flex-initial px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.65rem] sm:text-[0.625rem] font-medium transition-colors touch-manipulation ${
                     view === tab.value
                       ? 'bg-teal-600 text-white'
                       : 'text-gray-600 hover:bg-gray-50'
                   } ${index !== arr.length - 1 ? 'border-r border-gray-300' : ''}`}
                 >
-                  {tab.label}
+                  <span className="hidden sm:inline">{tab.fullLabel || tab.label}</span>
+                  <span className="sm:hidden">{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -634,9 +693,12 @@ export default function AvailabilityPage() {
         {/* Vue Planning */}
         <div className="flex-1 overflow-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">Chargement...</p>
-            </div>
+            <>
+              {view === 'week' && <PlanningWeekViewSkeleton />}
+              {view === 'list' && <PlanningListViewSkeleton />}
+              {view === 'day' && <PlanningDayViewSkeleton />}
+              {view === 'month' && <PlanningMonthViewSkeleton />}
+            </>
           ) : (
             <>
               {view === 'week' && (
@@ -690,8 +752,11 @@ export default function AvailabilityPage() {
         onClose={handleCloseAppointmentSheet}
         onCopy={handleCopyAppointment}
         onCancel={handleCancelAppointment}
+        onConfirm={handleConfirmAppointment}
         onUpdate={handleUpdateAppointment}
         onMove={handleMoveAppointment}
+        onEdit={handleEditAppointment}
+        authedFetch={authedFetch}
       />
 
       {/* Slot Management Sheet */}
@@ -720,6 +785,19 @@ export default function AvailabilityPage() {
           copiedAppointment={copiedAppointment}
         />
       )}
+
+      {/* Edit Appointment Modal */}
+      <EditAppointmentModal
+        appointment={editingAppointment}
+        isOpen={isEditAppointmentModalOpen}
+        onClose={() => {
+          setIsEditAppointmentModalOpen(false);
+          setEditingAppointment(null);
+        }}
+        onSave={handleSaveEditedAppointment}
+        appointmentKinds={appointmentKinds}
+        authedFetch={authedFetch}
+      />
 
       {/* Copy/Move Mode Banner */}
       {(isCopyMode || isMoveMode) && (

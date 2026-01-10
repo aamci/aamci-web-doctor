@@ -3,7 +3,8 @@
 import { X, User, Calendar, Clock, Phone, Mail, FileText, Edit, ChevronDown, ChevronUp, History, Paperclip, Pill, CreditCard, Bell, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../_providers/AuthProvider';
 
 interface Patient {
   id: string;
@@ -36,8 +37,11 @@ interface AppointmentSheetProps {
   onClose: () => void;
   onCopy?: (appointment: Appointment) => void;
   onCancel?: (appointmentId: string) => void;
+  onConfirm?: (appointmentId: string) => void;
   onUpdate?: (appointmentId: string, data: any) => void;
   onMove?: (appointment: Appointment) => void;
+  onEdit?: (appointment: Appointment) => void;
+  authedFetch: (path: string, init?: RequestInit) => Promise<any>;
 }
 
 export default function AppointmentSheet({
@@ -46,11 +50,16 @@ export default function AppointmentSheet({
   onClose,
   onCopy,
   onCancel,
+  onConfirm,
   onUpdate,
-  onMove
+  onMove,
+  onEdit,
+  authedFetch
 }: AppointmentSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Expanded sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -67,6 +76,26 @@ export default function AppointmentSheet({
       ...prev,
       [section]: !prev[section]
     }));
+
+    // Charger l'historique quand on ouvre la section
+    if (section === 'history' && !expandedSections.history && appointment) {
+      loadHistory();
+    }
+  };
+
+  const loadHistory = async () => {
+    if (!appointment?.id) return;
+    setLoadingHistory(true);
+    try {
+      const data = await authedFetch(`/appointments/${appointment.id}/history`);
+      // S'assurer que data est un tableau
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading history:', error);
+      setHistory([]); // En cas d'erreur, réinitialiser à un tableau vide
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   if (!isOpen || !appointment) return null;
@@ -250,6 +279,15 @@ export default function AppointmentSheet({
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-4 gap-1.5">
+            {onEdit && appointment.status !== 'CANCELLED' && (
+              <button
+                onClick={() => onEdit(appointment)}
+                className="px-2 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+              >
+                <Edit className="w-3 h-3" />
+                Modifier
+              </button>
+            )}
             {onMove && (
               <button
                 onClick={() => onMove(appointment)}
@@ -266,9 +304,6 @@ export default function AppointmentSheet({
                 Copier
               </button>
             )}
-            <button className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-xs font-medium text-gray-700 transition-colors">
-              Imprimer
-            </button>
             <button
               onClick={handleEditClick}
               className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-xs font-medium text-gray-700 transition-colors flex items-center justify-center gap-1"
@@ -323,7 +358,7 @@ export default function AppointmentSheet({
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-700">Historique</span>
-                  <span className="text-xs text-gray-500">(0)</span>
+                  <span className="text-xs text-gray-500">({history.length})</span>
                 </div>
                 {expandedSections.history ? (
                   <ChevronUp className="w-4 h-4 text-gray-400" />
@@ -332,8 +367,39 @@ export default function AppointmentSheet({
                 )}
               </button>
               {expandedSections.history && (
-                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">Aucun historique disponible</p>
+                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 max-h-60 overflow-y-auto">
+                  {loadingHistory ? (
+                    <p className="text-xs text-gray-500">Chargement...</p>
+                  ) : history.length === 0 ? (
+                    <p className="text-xs text-gray-500">Aucun historique disponible</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {history.map((entry) => (
+                        <div key={entry.id} className="bg-white rounded p-2 border border-gray-100">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {entry.description || entry.action}
+                              </p>
+                              {entry.user && (
+                                <p className="text-[10px] text-gray-500 truncate">
+                                  Par {entry.user.fullName || entry.user.email}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">
+                              {format(new Date(entry.createdAt), 'dd/MM à HH:mm', { locale: fr })}
+                            </span>
+                          </div>
+                          {entry.action === 'STATUS_CHANGED' && entry.oldValue && entry.newValue && (
+                            <div className="text-[10px] text-gray-600 mt-1">
+                              {JSON.parse(entry.oldValue).status} → {JSON.parse(entry.newValue).status}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -472,6 +538,18 @@ export default function AppointmentSheet({
 
         {/* Footer buttons - Compact */}
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-3 flex gap-2">
+          {onConfirm && appointment.status === 'PENDING' && (
+            <button
+              onClick={() => {
+                if (window.confirm('Confirmer ce rendez-vous ?')) {
+                  onConfirm(appointment.id);
+                }
+              }}
+              className="flex-1 py-2 px-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              Confirmer
+            </button>
+          )}
           {onCancel && appointment.status !== 'CANCELLED' && (
             <button
               onClick={() => {
@@ -484,7 +562,7 @@ export default function AppointmentSheet({
               Annuler
             </button>
           )}
-          {onMove && (
+          {onMove && appointment.status !== 'CANCELLED' && (
             <button
               onClick={() => onMove(appointment)}
               className="flex-1 py-2 px-3 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
