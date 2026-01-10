@@ -15,9 +15,10 @@ interface Props {
   hours: number[];
   onAppointmentClick: (appointment: any) => void;
   onSlotClick: (slot: any) => void;
+  isCopyMode?: boolean;
 }
 
-export default function PlanningWeekView({ slots, weekDays, hours, onAppointmentClick, onSlotClick }: Props) {
+export default function PlanningWeekView({ slots, weekDays, hours, onAppointmentClick, onSlotClick, isCopyMode = false }: Props) {
   // Fonction pour obtenir la couleur selon le type de consultation
   const getAppointmentColor = (kindName?: string) => {
     if (!kindName) return 'bg-gray-100 border-gray-400 text-gray-700';
@@ -86,9 +87,13 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
             {/* Colonnes jours */}
             {weekDays.map((day, dayIndex) => {
               const cellSlots = getSlotsForCell(day.date, hour);
+              const hasAvailableSlots = cellSlots.some((s: any) => !s.isBooked && !s.isExcluded);
 
               return (
-                <div key={dayIndex} className={styles.dayCell}>
+                <div
+                  key={dayIndex}
+                  className={`${styles.dayCell} ${isCopyMode && hasAvailableSlots ? 'bg-yellow-50 border-2 border-yellow-300 cursor-copy' : ''}`}
+                >
                   {cellSlots.map((slot: any) => {
                     const slotStart = new Date(slot.start);
                     const timeStr = slotStart.toLocaleTimeString('fr-FR', {
@@ -101,7 +106,7 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
                     const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
                     const isGenerated = slot.isGenerated && !appointment;
 
-                    // Si c'est un temps exclu, afficher avec style grisé
+                    // Si c'est un temps exclu, afficher avec style grisé (sans texte)
                     if (isExcluded) {
                       return (
                         <div
@@ -109,15 +114,23 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
                           className={`${styles.appointment} ${styles.excludedSlot}`}
                           title="Période non disponible"
                         >
-                          <span className={styles.appointmentTime}>{timeStr}</span>
-                          <span className={styles.appointmentType}>Indisponible</span>
+                          {/* Slot grisé vide */}
                         </div>
                       );
                     }
 
-                    // Si c'est un slot généré vide, ne pas l'afficher (ou l'afficher très discrètement)
+                    // Si c'est un slot généré vide, afficher une zone cliquable pour créer un RDV
                     if (isGenerated) {
-                      return null; // On ne montre plus les slots vides générés
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.appointment} cursor-pointer hover:bg-blue-50 transition-colors border border-dashed border-gray-300`}
+                          onClick={() => onSlotClick(slot)}
+                          title="Cliquez pour créer un rendez-vous"
+                        >
+                          <span className={styles.appointmentTime}>{timeStr}</span>
+                        </div>
+                      );
                     }
 
                     // Afficher les rendez-vous réservés avec couleur

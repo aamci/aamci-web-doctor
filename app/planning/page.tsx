@@ -12,8 +12,10 @@ import PlanningMonthView from './PlanningMonthView';
 import PlanningFilters from './PlanningFilters';
 import AppointmentSheet from '../_components/AppointmentSheet';
 import SlotSheet from '../_components/SlotSheet';
+import CreateAppointmentModal from './CreateAppointmentModal';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule } from './utils/generateSlots';
+import { toast } from '../_components/Toaster';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -142,14 +144,99 @@ export default function AvailabilityPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [isSlotSheetOpen, setIsSlotSheetOpen] = useState(false);
 
+  // Modal state for creating appointment
+  const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] = useState(false);
+  const [createAppointmentSlot, setCreateAppointmentSlot] = useState<{ start: string; end: string } | null>(null);
+
+  // Copy/Move mode state
+  const [isCopyMode, setIsCopyMode] = useState(false);
+  const [isMoveMode, setIsMoveMode] = useState(false);
+  const [copiedAppointment, setCopiedAppointment] = useState<any>(null);
+
   const handleAppointmentClick = (appointment: any) => {
     setSelectedAppointment(appointment);
     setIsAppointmentSheetOpen(true);
   };
 
   const handleSlotClick = (slot: Slot) => {
-    setSelectedSlot(slot);
-    setIsSlotSheetOpen(true);
+    if (isCopyMode && copiedAppointment) {
+      // Paste appointment to this slot
+      handlePasteAppointment(slot);
+    } else if (slot.appointments && slot.appointments.length > 0) {
+      // Open appointment sheet
+      setSelectedSlot(slot);
+      setIsSlotSheetOpen(true);
+    } else {
+      // Open create appointment modal for empty slot
+      setCreateAppointmentSlot({ start: slot.start, end: slot.end });
+      setIsCreateAppointmentModalOpen(true);
+    }
+  };
+
+  const handleCopyAppointment = (appointment: any) => {
+    setCopiedAppointment(appointment);
+    setIsCopyMode(true);
+    setIsMoveMode(false);
+    setIsAppointmentSheetOpen(false);
+    toast.info('Mode copier activé', {
+      description: 'Cliquez sur une plage horaire disponible pour coller le rendez-vous'
+    });
+  };
+
+  const handlePasteAppointment = async (targetSlot: Slot) => {
+    if (!copiedAppointment) return;
+
+    // Vérifier que la date n'est pas dans le passé
+    const targetDate = new Date(targetSlot.start);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (targetDate < today) {
+      toast.error('Date invalide', {
+        description: 'Vous ne pouvez pas copier/déplacer un rendez-vous à une date passée'
+      });
+      return;
+    }
+
+    if (isMoveMode) {
+      // Mode déplacement: mettre à jour le rendez-vous existant
+      try {
+        await toast.promise(
+          authedFetch(`/appointments/${copiedAppointment.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              slotStart: targetSlot.start,
+              slotEnd: targetSlot.end,
+            }),
+          }),
+          {
+            loading: 'Déplacement du rendez-vous...',
+            success: 'Rendez-vous déplacé avec succès !',
+            error: 'Erreur lors du déplacement du rendez-vous',
+          }
+        );
+        setIsMoveMode(false);
+        setCopiedAppointment(null);
+        await load(); // Reload appointments
+      } catch (error) {
+        console.error('Error moving appointment:', error);
+      }
+    } else {
+      // Mode copie: ouvrir le modal pour créer un nouveau rendez-vous
+      setCreateAppointmentSlot({
+        start: targetSlot.start,
+        end: targetSlot.end,
+      });
+      setIsCreateAppointmentModalOpen(true);
+      setIsCopyMode(false);
+    }
+  };
+
+  const handleCancelCopyMode = () => {
+    setIsCopyMode(false);
+    setIsMoveMode(false);
+    setCopiedAppointment(null);
+    toast.info('Mode copier/déplacer désactivé');
   };
 
   const handleCloseAppointmentSheet = () => {
@@ -163,16 +250,91 @@ export default function AvailabilityPage() {
   };
 
   const handleDeleteSlot = async (slotId: string) => {
-    await authedFetch(`/slots/${slotId}`, { method: 'DELETE' });
-    await load(); // Reload slots
+    try {
+      await toast.promise(
+        authedFetch(`/slots/${slotId}`, { method: 'DELETE' }),
+        {
+          loading: 'Suppression du créneau...',
+          success: 'Créneau supprimé avec succès !',
+          error: 'Erreur lors de la suppression du créneau',
+        }
+      );
+      await load(); // Reload slots
+    } catch (error) {
+      console.error('Error deleting slot:', error);
+    }
   };
 
   const handleUpdateSlot = async (slotId: string, data: any) => {
-    await authedFetch(`/slots/${slotId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
+    try {
+      await toast.promise(
+        authedFetch(`/slots/${slotId}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+        {
+          loading: 'Mise à jour du créneau...',
+          success: 'Créneau mis à jour avec succès !',
+          error: 'Erreur lors de la mise à jour du créneau',
+        }
+      );
+      await load(); // Reload slots
+    } catch (error) {
+      console.error('Error updating slot:', error);
+    }
+  };
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      await toast.promise(
+        authedFetch(`/appointments/${appointmentId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'CANCELLED' }),
+        }),
+        {
+          loading: 'Annulation du rendez-vous...',
+          success: 'Rendez-vous annulé avec succès !',
+          error: 'Erreur lors de l\'annulation du rendez-vous',
+        }
+      );
+      setIsAppointmentSheetOpen(false);
+      setSelectedAppointment(null);
+      await load(); // Reload appointments
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+    }
+  };
+
+  const handleUpdateAppointment = async (appointmentId: string, data: any) => {
+    try {
+      await toast.promise(
+        authedFetch(`/appointments/${appointmentId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        }),
+        {
+          loading: 'Mise à jour du rendez-vous...',
+          success: 'Rendez-vous mis à jour avec succès !',
+          error: 'Erreur lors de la mise à jour du rendez-vous',
+        }
+      );
+      setIsAppointmentSheetOpen(false);
+      setSelectedAppointment(null);
+      await load(); // Reload appointments
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+    }
+  };
+
+  const handleMoveAppointment = (appointment: any) => {
+    // Activer le mode "déplacement"
+    setCopiedAppointment(appointment);
+    setIsMoveMode(true);
+    setIsCopyMode(false);
+    setIsAppointmentSheetOpen(false);
+    toast.info('Mode déplacer activé', {
+      description: 'Cliquez sur une plage horaire disponible pour déplacer le rendez-vous'
     });
-    await load(); // Reload slots
   };
 
   // Générer la semaine actuelle
@@ -220,7 +382,11 @@ export default function AvailabilityPage() {
       if (e?.message?.includes('Non authentifié')) {
         router.replace('/auth/login');
       } else {
-        setErr(e?.message || 'Erreur de chargement');
+        const errorMessage = e?.message || 'Erreur de chargement';
+        setErr(errorMessage);
+        toast.error('Erreur de chargement', {
+          description: errorMessage
+        });
       }
     } finally {
       setLoading(false);
@@ -480,6 +646,7 @@ export default function AvailabilityPage() {
                   hours={hours}
                   onAppointmentClick={handleAppointmentClick}
                   onSlotClick={handleSlotClick}
+                  isCopyMode={isCopyMode}
                 />
               )}
               {view === 'list' && (
@@ -488,6 +655,7 @@ export default function AvailabilityPage() {
                   currentDate={currentDate}
                   onAppointmentClick={handleAppointmentClick}
                   onSlotClick={handleSlotClick}
+                  isCopyMode={isCopyMode}
                 />
               )}
               {view === 'day' && (
@@ -497,6 +665,7 @@ export default function AvailabilityPage() {
                   hours={hours}
                   onAppointmentClick={handleAppointmentClick}
                   onSlotClick={handleSlotClick}
+                  isCopyMode={isCopyMode}
                 />
               )}
               {view === 'month' && (
@@ -519,6 +688,10 @@ export default function AvailabilityPage() {
         appointment={selectedAppointment}
         isOpen={isAppointmentSheetOpen}
         onClose={handleCloseAppointmentSheet}
+        onCopy={handleCopyAppointment}
+        onCancel={handleCancelAppointment}
+        onUpdate={handleUpdateAppointment}
+        onMove={handleMoveAppointment}
       />
 
       {/* Slot Management Sheet */}
@@ -530,6 +703,44 @@ export default function AvailabilityPage() {
         onDelete={handleDeleteSlot}
         onUpdate={handleUpdateSlot}
       />
+
+      {/* Create Appointment Modal */}
+      {createAppointmentSlot && (
+        <CreateAppointmentModal
+          isOpen={isCreateAppointmentModalOpen}
+          onClose={() => {
+            setIsCreateAppointmentModalOpen(false);
+            setCreateAppointmentSlot(null);
+            setCopiedAppointment(null);
+          }}
+          slotStart={createAppointmentSlot.start}
+          slotEnd={createAppointmentSlot.end}
+          onAppointmentCreated={load}
+          apiBase={getApiBase() || ''}
+          copiedAppointment={copiedAppointment}
+        />
+      )}
+
+      {/* Copy/Move Mode Banner */}
+      {(isCopyMode || isMoveMode) && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40 bg-yellow-100 border-2 border-yellow-400 rounded-lg shadow-lg px-6 py-3 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+            <span className="font-medium text-yellow-900">
+              {isMoveMode
+                ? 'Mode déplacer activé - Cliquez sur une plage horaire pour déplacer le rendez-vous'
+                : 'Mode copier activé - Cliquez sur une plage horaire pour coller le rendez-vous'
+              }
+            </span>
+          </div>
+          <button
+            onClick={handleCancelCopyMode}
+            className="px-4 py-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors text-sm font-medium"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
     </div>
   );
 }

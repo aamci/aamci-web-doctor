@@ -32,9 +32,10 @@ interface Props {
   currentDate: Date;
   onAppointmentClick: (appointment: any) => void;
   onSlotClick: (slot: any) => void;
+  isCopyMode?: boolean;
 }
 
-export default function PlanningListView({ slots, currentDate, onAppointmentClick, onSlotClick }: Props) {
+export default function PlanningListView({ slots, currentDate, onAppointmentClick, onSlotClick, isCopyMode = false }: Props) {
   // Grouper les slots par date
   const groupedSlots = slots.reduce((acc, slot) => {
     const slotDate = new Date(slot.start);
@@ -104,9 +105,28 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
                   const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
                   const isGenerated = slot.isGenerated && !appointment;
 
-                  // Ne pas afficher les slots générés vides
+                  // Afficher les slots générés vides comme cliquables
                   if (isGenerated) {
-                    return null;
+                    return (
+                      <div
+                        key={slot.id}
+                        className={`${styles.slotCard} cursor-pointer hover:bg-blue-50 transition-colors border border-dashed border-gray-300`}
+                        onClick={() => onSlotClick(slot)}
+                        title="Cliquez pour créer un rendez-vous"
+                      >
+                        <div className={styles.slotTime}>
+                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <span className={styles.timeRange}>
+                            {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                          </span>
+                        </div>
+                        <div className={styles.slotDetails}>
+                          <div className={styles.slotInfo}>
+                            <span className="text-gray-500 text-sm">Disponible</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
                   }
 
                   // Style pour slots exclus
@@ -146,8 +166,8 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
                     return (
                       <div
                         key={slot.id}
-                        className={`${styles.slotCard} cursor-pointer hover:bg-gray-50`}
-                        onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                        className={`${styles.slotCard} cursor-pointer hover:bg-gray-50 ${isCopyMode ? 'bg-yellow-50 border-2 border-yellow-300' : ''}`}
+                        onClick={() => isCopyMode ? onSlotClick(slot) : onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
                       >
                         <div className={styles.slotTime}>
                           <Clock className="w-3.5 h-3.5 text-gray-400" />

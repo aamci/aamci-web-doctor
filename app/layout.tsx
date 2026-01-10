@@ -4,6 +4,7 @@ import { AuthProvider } from './_providers/AuthProvider';
 import DoctorSidebar from '@/app/_components/DoctorSidebar';
 import Navbar from '@/app/_components/Navbar';
 import LayoutClient from './_components/LayoutClient';
+import { Toaster } from './_components/Toaster';
 
 export const metadata: Metadata = {
   title: 'Health Platform - Médecin',
@@ -25,6 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LayoutClient>
             {children}
           </LayoutClient>
+
+          {/* Toast notifications */}
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

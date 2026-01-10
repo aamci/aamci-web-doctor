@@ -32,9 +32,10 @@ interface Props {
   hours: number[];
   onAppointmentClick: (appointment: any) => void;
   onSlotClick: (slot: any) => void;
+  isCopyMode?: boolean;
 }
 
-export default function PlanningDayView({ slots, currentDate, hours, onAppointmentClick, onSlotClick }: Props) {
+export default function PlanningDayView({ slots, currentDate, hours, onAppointmentClick, onSlotClick, isCopyMode = false }: Props) {
   // Filtrer les créneaux pour la date actuelle
   const daySlots = slots.filter((slot) => {
     const slotDate = new Date(slot.start);
@@ -83,6 +84,7 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
       <div className={styles.timeGrid}>
         {hours.map((hour) => {
           const hourSlots = getSlotForHour(hour);
+          const hasAvailableSlots = hourSlots.some((s: any) => !s.isBooked && !s.isExcluded);
 
           return (
             <div key={hour} className={styles.timeSlot}>
@@ -90,7 +92,7 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
               <div className={styles.hourLabel}>{hour}:00</div>
 
               {/* Colonne créneaux */}
-              <div className={styles.slotContainer}>
+              <div className={`${styles.slotContainer} ${isCopyMode && hasAvailableSlots ? 'bg-yellow-50 border-2 border-yellow-300 rounded cursor-copy' : ''}`}>
                 {hourSlots.length === 0 ? (
                   <div className={styles.emptySlot}>
                     <span className="text-gray-400 text-xs">Aucun créneau</span>
@@ -104,12 +106,25 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
                     const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
                     const isGenerated = slot.isGenerated && !appointment;
 
-                    // Ne pas afficher les slots générés vides
+                    // Afficher les slots générés vides comme cliquables
                     if (isGenerated) {
-                      return null;
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`${styles.slotCard} cursor-pointer hover:bg-blue-50 transition-colors border border-dashed border-gray-300`}
+                          onClick={() => onSlotClick(slot)}
+                          title="Cliquez pour créer un rendez-vous"
+                        >
+                          <div className={styles.slotHeader}>
+                            <span className={styles.slotTime}>
+                              {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                            </span>
+                          </div>
+                        </div>
+                      );
                     }
 
-                    // Style pour slots exclus
+                    // Style pour slots exclus (grisé sans texte)
                     if (isExcluded) {
                       return (
                         <div
@@ -117,15 +132,7 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
                           className={`${styles.slotCard} ${styles.excludedSlot}`}
                           title="Période non disponible"
                         >
-                          <div className={styles.slotHeader}>
-                            <span className={styles.slotTime}>
-                              {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
-                            </span>
-                            <span className={styles.statusBadge}>Indisponible</span>
-                          </div>
-                          <div className={styles.slotBody}>
-                            <div className={styles.capacity}>Période bloquée</div>
-                          </div>
+                          {/* Slot grisé vide */}
                         </div>
                       );
                     }
