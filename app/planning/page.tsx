@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Menu, Settings } from 'lucide-react';
 
 import PlanningCalendar from './PlanningCalendar';
 import PlanningWeekView from './PlanningWeekView';
@@ -14,10 +14,14 @@ import PlanningWeekViewSkeleton from './PlanningWeekViewSkeleton';
 import PlanningListViewSkeleton from './PlanningListViewSkeleton';
 import PlanningDayViewSkeleton from './PlanningDayViewSkeleton';
 import PlanningMonthViewSkeleton from './PlanningMonthViewSkeleton';
+import MobileSidebar from './MobileSidebar';
 import AppointmentSheet from '../_components/AppointmentSheet';
 import SlotSheet from '../_components/SlotSheet';
 import CreateAppointmentModal from './CreateAppointmentModal';
 import EditAppointmentModal from './EditAppointmentModal';
+import CreateAvailabilityWizard from './_components/CreateAvailabilityWizard';
+import ManageRulesPage from './_components/ManageRulesPage';
+import ManageAbsencesPage from './_components/ManageAbsencesPage';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
@@ -161,6 +165,12 @@ export default function AvailabilityPage() {
   const [isCopyMode, setIsCopyMode] = useState(false);
   const [isMoveMode, setIsMoveMode] = useState(false);
   const [copiedAppointment, setCopiedAppointment] = useState<any>(null);
+
+  // Mobile sidebar state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isCreateAvailabilityWizardOpen, setIsCreateAvailabilityWizardOpen] = useState(false);
+  const [isManageRulesPageOpen, setIsManageRulesPageOpen] = useState(false);
+  const [isManageAbsencesPageOpen, setIsManageAbsencesPageOpen] = useState(false);
 
   const handleAppointmentClick = (appointment: any) => {
     setSelectedAppointment(appointment);
@@ -611,11 +621,30 @@ export default function AvailabilityPage() {
     <div className="flex h-screen bg-white">
       {/* Sidebar Gauche - Calendrier Mensuel */}
       <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 p-3 flex-col overflow-y-auto">
-        {/* Bouton Nouveau RDV */}
-        <button className="w-full bg-teal-600 hover:bg-teal-700 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 mb-3 text-xs font-medium transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-          Nouveau RDV
-        </button>
+        {/* Boutons d'actions */}
+        <div className="space-y-2 mb-3">
+          <button
+            onClick={() => setIsCreateAvailabilityWizardOpen(true)}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nouvelle Disponibilité
+          </button>
+          <button
+            onClick={() => setIsManageRulesPageOpen(true)}
+            className="w-full border-2 border-teal-600 text-teal-600 hover:bg-teal-50 px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Gérer les règles
+          </button>
+          <button
+            onClick={() => setIsManageAbsencesPageOpen(true)}
+            className="w-full border-2 border-amber-600 text-amber-600 hover:bg-amber-50 px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Gérer les absences
+          </button>
+        </div>
 
         {/* Mini Calendrier */}
         <PlanningCalendar selectedDate={selectedDate} onDateChange={setSelectedDate} />
@@ -651,6 +680,15 @@ export default function AvailabilityPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             {/* Navigation Date */}
             <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
+              {/* Bouton Menu Hamburger - Mobile uniquement */}
+              <button
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="lg:hidden p-1.5 hover:bg-gray-100 rounded touch-manipulation"
+                aria-label="Ouvrir le menu"
+              >
+                <Menu className="w-5 h-5 text-gray-700" />
+              </button>
+
               <h2 className="text-sm font-semibold text-gray-800 hidden sm:block">Planning</h2>
               <div className="flex items-center gap-0.5 flex-1 sm:flex-initial">
                 <button onClick={goToPrevious} className="p-1 hover:bg-gray-100 rounded touch-manipulation">
@@ -819,6 +857,97 @@ export default function AvailabilityPage() {
           </button>
         </div>
       )}
+
+      {/* Mobile Sidebar */}
+      <MobileSidebar
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+      >
+        {/* Boutons d'actions */}
+        <div className="p-3 space-y-2">
+          <button
+            onClick={() => {
+              setIsMobileSidebarOpen(false);
+              setIsCreateAvailabilityWizardOpen(true);
+            }}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Nouvelle Disponibilité
+          </button>
+          <button
+            onClick={() => {
+              setIsMobileSidebarOpen(false);
+              setIsManageRulesPageOpen(true);
+            }}
+            className="w-full border-2 border-teal-600 text-teal-600 hover:bg-teal-50 px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+          >
+            <Settings className="w-4 h-4" />
+            Gérer les règles
+          </button>
+          <button
+            onClick={() => {
+              setIsMobileSidebarOpen(false);
+              setIsManageAbsencesPageOpen(true);
+            }}
+            className="w-full border-2 border-amber-600 text-amber-600 hover:bg-amber-50 px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+          >
+            <Settings className="w-4 h-4" />
+            Gérer les absences
+          </button>
+        </div>
+
+        {/* Mini Calendrier */}
+        <div className="px-3">
+          <PlanningCalendar
+            selectedDate={selectedDate}
+            onDateChange={(date) => {
+              setSelectedDate(date);
+              setIsMobileSidebarOpen(false); // Fermer après sélection
+            }}
+          />
+        </div>
+
+        {/* Filtres */}
+        <div className="mt-3 border-t border-gray-200 pt-3 px-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Filtres</h4>
+          <PlanningFilters
+            motifs={motifOptions}
+            agendas={agendaOptions}
+            statuses={statusOptions}
+            selectedMotif={selectedMotif}
+            selectedAgenda={selectedAgenda}
+            selectedStatus={selectedStatus}
+            onMotifChange={setSelectedMotif}
+            onAgendaChange={setSelectedAgenda}
+            onStatusChange={setSelectedStatus}
+          />
+        </div>
+      </MobileSidebar>
+
+      {/* Wizard de création de disponibilités */}
+      <CreateAvailabilityWizard
+        isOpen={isCreateAvailabilityWizardOpen}
+        onClose={() => setIsCreateAvailabilityWizardOpen(false)}
+        onSuccess={() => {
+          setIsCreateAvailabilityWizardOpen(false);
+          load(); // Refresh planning
+        }}
+      />
+
+      {/* Page de gestion des règles */}
+      <ManageRulesPage
+        isOpen={isManageRulesPageOpen}
+        onClose={() => setIsManageRulesPageOpen(false)}
+        onRuleUpdated={() => load()} // Refresh planning when rules are updated
+      />
+
+      {/* Page de gestion des absences */}
+      <ManageAbsencesPage
+        isOpen={isManageAbsencesPageOpen}
+        onClose={() => setIsManageAbsencesPageOpen(false)}
+        onAbsenceUpdated={() => load()} // Refresh planning when absences are updated
+      />
     </div>
   );
 }

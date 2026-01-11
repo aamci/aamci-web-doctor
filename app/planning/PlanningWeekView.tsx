@@ -2,6 +2,7 @@
 
 import { Slot } from './page';
 import styles from './PlanningWeekView.module.css';
+import EmptyState from './EmptyState';
 
 interface WeekDay {
   date: Date;
@@ -110,6 +111,15 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
   };
 
   const today = new Date();
+
+  // Vérifier si aucun slot
+  if (slots.length === 0) {
+    return (
+      <div className={styles.weekView}>
+        <EmptyState type="no-slots" view="week" />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.weekView}>

@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Clock, MapPin, User } from 'lucide-react';
 import styles from './PlanningListView.module.css';
+import EmptyState from './EmptyState';
 
 interface Appointment {
   id: string;
@@ -63,9 +64,7 @@ export default function PlanningListView({ slots, currentDate, onAppointmentClic
   return (
     <div className={styles.listView}>
       {sortedDates.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p className="text-gray-500">Aucun créneau disponible</p>
-        </div>
+        <EmptyState type="no-slots" view="list" />
       ) : (
         sortedDates.map((dateKey) => {
           const date = new Date(dateKey);

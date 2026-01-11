@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import styles from './PlanningDayView.module.css';
+import EmptyState from './EmptyState';
 
 interface Appointment {
   id: string;
@@ -59,6 +60,15 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
       ? 'bg-green-100 border-green-400 text-green-700'
       : 'bg-gray-100 border-gray-400 text-gray-700';
   };
+
+  // Vérifier si aucun slot
+  if (daySlots.length === 0) {
+    return (
+      <div className={styles.dayView}>
+        <EmptyState type="no-slots" view="day" />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.dayView}>

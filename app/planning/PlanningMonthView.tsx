@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import styles from './PlanningMonthView.module.css';
+import EmptyState from './EmptyState';
 
 interface Slot {
   id: string;
@@ -89,6 +90,15 @@ export default function PlanningMonthView({ slots, currentDate, onDateClick }: P
       date.getFullYear() === today.getFullYear()
     );
   };
+
+  // Vérifier si aucun slot
+  if (slots.length === 0) {
+    return (
+      <div className={styles.monthView}>
+        <EmptyState type="no-slots" view="month" />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.monthView}>
