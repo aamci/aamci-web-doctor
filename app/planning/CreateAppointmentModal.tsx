@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, User, Calendar, Clock } from 'lucide-react';
+import { X, Search, User, Calendar, Clock, UserPlus, ChevronLeft } from 'lucide-react';
 import { toast } from '../_components/Toaster';
 
 interface Patient {
@@ -34,6 +34,19 @@ interface CreateAppointmentModalProps {
   } | null;
 }
 
+// Nouveau patient form data
+interface NewPatientForm {
+  gender: 'male' | 'female';
+  lastName: string;
+  firstName: string;
+  birthName: string;
+  birthDate: string;
+  birthPlace: 'france' | 'abroad';
+  birthCity: string;
+  phone: string;
+  email: string;
+}
+
 export default function CreateAppointmentModal({
   isOpen,
   onClose,
@@ -51,6 +64,21 @@ export default function CreateAppointmentModal({
   const [notes, setNotes] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Mode création de patient
+  const [showNewPatientForm, setShowNewPatientForm] = useState(false);
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  const [newPatient, setNewPatient] = useState<NewPatientForm>({
+    gender: 'male',
+    lastName: '',
+    firstName: '',
+    birthName: '',
+    birthDate: '',
+    birthPlace: 'france',
+    birthCity: '',
+    phone: '',
+    email: '',
+  });
 
   // Fetch appointment kinds
   useEffect(() => {
@@ -85,7 +113,6 @@ export default function CreateAppointmentModal({
   const fetchAppointmentKinds = async () => {
     try {
       const token = localStorage.getItem('token');
-      // Utiliser la même logique que authedFetch: si apiBase est vide, utiliser /api prefix
       const url = apiBase ? `${apiBase}/appointment-kinds` : '/api/appointment-kinds';
 
       const response = await fetch(url, {
@@ -98,13 +125,10 @@ export default function CreateAppointmentModal({
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Appointment kinds data:', data); // Debug
-        // L'API peut retourner un tableau directement ou un objet avec une clé 'data'
         const kinds = Array.isArray(data) ? data : (data?.data || []);
-        console.log('Parsed appointment kinds:', kinds); // Debug
         setAppointmentKinds(kinds);
       } else {
-        console.error('Failed to fetch appointment kinds:', response.status, await response.text());
+        console.error('Failed to fetch appointment kinds:', response.status);
         toast.error('Erreur lors du chargement des types de consultation');
       }
     } catch (error) {
@@ -139,6 +163,87 @@ export default function CreateAppointmentModal({
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleCreatePatient = async () => {
+    // Validation
+    if (!newPatient.lastName.trim() || !newPatient.firstName.trim()) {
+      toast.error('Veuillez renseigner le nom et le prénom du patient');
+      return;
+    }
+
+    if (!newPatient.email.trim()) {
+      toast.error('Veuillez renseigner l\'email du patient');
+      return;
+    }
+
+    setIsCreatingPatient(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = apiBase ? `${apiBase}/users/create-patient` : '/api/users/create-patient';
+
+      const fullName = `${newPatient.firstName.trim()} ${newPatient.lastName.trim()}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          fullName,
+          email: newPatient.email.trim(),
+          phone: newPatient.phone.trim() || undefined,
+          gender: newPatient.gender,
+          birthDate: newPatient.birthDate || undefined,
+          birthPlace: newPatient.birthPlace === 'france' ? newPatient.birthCity : `Étranger - ${newPatient.birthCity}`,
+          birthName: newPatient.birthName.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Erreur lors de la création du patient');
+      }
+
+      const createdPatient = await response.json();
+
+      toast.success('Patient créé avec succès !');
+
+      // Sélectionner le patient créé
+      setSelectedPatient({
+        id: createdPatient.id,
+        fullName: createdPatient.fullName,
+        email: createdPatient.email,
+        phone: createdPatient.phone,
+      });
+
+      // Fermer le formulaire de création
+      setShowNewPatientForm(false);
+      resetNewPatientForm();
+
+    } catch (error: any) {
+      console.error('Error creating patient:', error);
+      toast.error(error.message || 'Erreur lors de la création du patient');
+    } finally {
+      setIsCreatingPatient(false);
+    }
+  };
+
+  const resetNewPatientForm = () => {
+    setNewPatient({
+      gender: 'male',
+      lastName: '',
+      firstName: '',
+      birthName: '',
+      birthDate: '',
+      birthPlace: 'france',
+      birthCity: '',
+      phone: '',
+      email: '',
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -217,6 +322,8 @@ export default function CreateAppointmentModal({
     setSearchResults([]);
     setSelectedPatient(null);
     setNotes('');
+    setShowNewPatientForm(false);
+    resetNewPatientForm();
   };
 
   const handleClose = () => {
@@ -229,6 +336,202 @@ export default function CreateAppointmentModal({
   const startDate = new Date(slotStart);
   const endDate = new Date(slotEnd);
 
+  // Formulaire de création de patient
+  if (showNewPatientForm) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b">
+            <button
+              onClick={() => setShowNewPatientForm(false)}
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-600" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center">
+                <UserPlus className="h-5 w-5 text-teal-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Ajouter un nouveau patient
+              </h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="ml-auto text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Form */}
+          <div className="p-5 space-y-5">
+            {/* Genre */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Genre
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    checked={newPatient.gender === 'male'}
+                    onChange={() => setNewPatient({ ...newPatient, gender: 'male' })}
+                    className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Homme</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    checked={newPatient.gender === 'female'}
+                    onChange={() => setNewPatient({ ...newPatient, gender: 'female' })}
+                    className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Femme</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Nom et Prénom */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Nom utilisé *
+                </label>
+                <input
+                  type="text"
+                  value={newPatient.lastName}
+                  onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
+                  placeholder="Nom"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  1er prénom de naissance *
+                </label>
+                <input
+                  type="text"
+                  value={newPatient.firstName}
+                  onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                  placeholder="Prénom"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Nom de naissance et Date */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Nom de naissance
+                </label>
+                <input
+                  type="text"
+                  value={newPatient.birthName}
+                  onChange={(e) => setNewPatient({ ...newPatient, birthName: e.target.value })}
+                  placeholder="Nom de naissance"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Date de naissance
+                </label>
+                <input
+                  type="date"
+                  value={newPatient.birthDate}
+                  onChange={(e) => setNewPatient({ ...newPatient, birthDate: e.target.value })}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Lieu et Ville de naissance */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Lieu de naissance
+                </label>
+                <select
+                  value={newPatient.birthPlace}
+                  onChange={(e) => setNewPatient({ ...newPatient, birthPlace: e.target.value as 'france' | 'abroad' })}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                >
+                  <option value="france">Né(e) en France</option>
+                  <option value="abroad">Né(e) à l'étranger</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Ville de naissance
+                </label>
+                <input
+                  type="text"
+                  value={newPatient.birthCity}
+                  onChange={(e) => setNewPatient({ ...newPatient, birthCity: e.target.value })}
+                  placeholder="Ville"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Téléphone et Email */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Téléphone
+                </label>
+                <input
+                  type="tel"
+                  value={newPatient.phone}
+                  onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                  placeholder="06 12 34 56 78"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Adresse e-mail *
+                </label>
+                <input
+                  type="email"
+                  value={newPatient.email}
+                  onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                  placeholder="email@exemple.fr"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Séparateur et Actions */}
+            <div className="pt-4 border-t flex items-center justify-between">
+              <button
+                type="button"
+                className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+              >
+                Plus d'options
+              </button>
+              <button
+                type="button"
+                onClick={handleCreatePatient}
+                disabled={isCreatingPatient || !newPatient.lastName || !newPatient.firstName || !newPatient.email}
+                className="px-5 py-2.5 bg-teal-600 text-white text-sm font-medium rounded-xl hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {isCreatingPatient ? 'Création...' : 'Ajouter le patient'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Modal principal de création de RDV
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -291,9 +594,21 @@ export default function CreateAppointmentModal({
 
           {/* Recherche patient */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Patient *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-gray-700">
+                Patient *
+              </label>
+              {!selectedPatient && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewPatientForm(true)}
+                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Nouveau patient
+                </button>
+              )}
+            </div>
 
             {selectedPatient ? (
               <div className="flex items-center justify-between px-2 py-2 bg-blue-50 border border-blue-200 rounded">
@@ -328,15 +643,23 @@ export default function CreateAppointmentModal({
                 </div>
 
                 {/* Search results */}
-                {(isSearching || searchResults.length > 0) && (
+                {(isSearching || searchResults.length > 0 || (searchQuery.length >= 2 && !isSearching)) && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto">
                     {isSearching ? (
                       <div className="px-3 py-2 text-center text-xs text-gray-500">
                         Recherche...
                       </div>
                     ) : searchResults.length === 0 ? (
-                      <div className="px-3 py-2 text-center text-xs text-gray-500">
-                        Aucun patient trouvé
+                      <div className="px-3 py-3 text-center">
+                        <p className="text-xs text-gray-500 mb-2">Aucun patient trouvé</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPatientForm(true)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-medium rounded-lg hover:bg-teal-100 transition-colors"
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          Créer ce patient
+                        </button>
                       </div>
                     ) : (
                       searchResults.map((patient) => (

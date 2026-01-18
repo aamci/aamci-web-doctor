@@ -15,6 +15,19 @@ export interface AvailabilityRule {
   updatedAt: string;
 }
 
+export interface DoctorAbsence {
+  id: string;
+  doctorId: string;
+  startDate: string;
+  endDate: string;
+  type: string;
+  reason?: string;
+  blockSlots: boolean;
+  cancelAppointments: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GeneratedSlot {
   id: string;
   start: string;
@@ -45,13 +58,40 @@ function isTimeExcluded(time: string, excludedTimes: string[]): boolean {
 }
 
 /**
+ * Check if a date falls within any absence period
+ */
+function isDateDuringAbsence(date: Date, absences: DoctorAbsence[]): boolean {
+  if (!absences || absences.length === 0) return false;
+
+  for (const absence of absences) {
+    if (!absence.blockSlots) continue;
+
+    const absenceStart = new Date(absence.startDate);
+    const absenceEnd = new Date(absence.endDate);
+
+    // Set to start of day for comparison
+    absenceStart.setHours(0, 0, 0, 0);
+    absenceEnd.setHours(23, 59, 59, 999);
+
+    const checkDate = new Date(date);
+    checkDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+
+    if (checkDate >= absenceStart && checkDate <= absenceEnd) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Generate slots from availability rules for a specific date range
  * This is used on the frontend to show available time slots without storing them in the database
  */
 export function generateSlotsFromRules(
   rules: AvailabilityRule[],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  absences: DoctorAbsence[] = []
 ): GeneratedSlot[] {
   const slots: GeneratedSlot[] = [];
 
@@ -73,8 +113,11 @@ export function generateSlotsFromRules(
       // Get day of week (convert Sunday=0 to Sunday=7 for consistency)
       const dayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
 
+      // Check if this day is during an absence period
+      const isDuringAbsence = isDateDuringAbsence(currentDate, absences);
+
       // Check if this day is in the rule's days of week
-      if (rule.daysOfWeek.includes(dayOfWeek)) {
+      if (rule.daysOfWeek.includes(dayOfWeek) && !isDuringAbsence) {
         // Generate slots for this day
         for (let hour = rule.startHour; hour < rule.endHour; hour++) {
           for (let minute = 0; minute < 60; minute += rule.slotDurationMins) {

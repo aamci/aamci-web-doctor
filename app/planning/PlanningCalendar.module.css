@@ -77,3 +77,25 @@
 .dayCell.today:hover {
   background-color: #0f766e;
 }
+
+.dayCell.absence {
+  background-color: #fef3c7;
+  color: #92400e;
+  position: relative;
+}
+
+.dayCell.absence:hover {
+  background-color: #fde68a;
+}
+
+.dayCell.absence::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+}

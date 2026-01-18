@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
 import { LogOut, User } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -102,6 +103,16 @@ export default function Navbar() {
             >
               Patients
             </Link>
+            <Link
+              href={"/medical-notes" as any}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/medical-notes')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Notes
+            </Link>
           </div>
         )}
 
@@ -124,6 +135,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              <NotificationBell />
               <Link
                 href={"/settings" as any}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"

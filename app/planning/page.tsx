@@ -23,7 +23,7 @@ import CreateAvailabilityWizard from './_components/CreateAvailabilityWizard';
 import ManageRulesPage from './_components/ManageRulesPage';
 import ManageAbsencesPage from './_components/ManageAbsencesPage';
 import { useAuth } from '../_providers/AuthProvider';
-import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule } from './utils/generateSlots';
+import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule, DoctorAbsence } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -133,6 +133,7 @@ export default function AvailabilityPage() {
   const { user, loading: authLoading } = useAuth();
   const [bookedSlots, setBookedSlots] = useState<Slot[]>([]); // Only slots with appointments
   const [rules, setRules] = useState<AvailabilityRule[]>([]); // Availability rules
+  const [absences, setAbsences] = useState<DoctorAbsence[]>([]); // Doctor absences
   const [appointmentKinds, setAppointmentKinds] = useState<AppointmentKind[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -446,6 +447,11 @@ export default function AvailabilityPage() {
       const kindsResponse = await authedFetch('/appointment-kinds', { method: 'GET' });
       const kindsData = await kindsResponse.json().catch(() => []);
       setAppointmentKinds(Array.isArray(kindsData) ? kindsData : kindsData?.data || []);
+
+      // Charger les absences du médecin
+      const absencesResponse = await authedFetch('/doctor-absences/mine', { method: 'GET' });
+      const absencesData = await absencesResponse.json().catch(() => []);
+      setAbsences(Array.isArray(absencesData) ? absencesData : absencesData?.data || []);
     } catch (e: any) {
       if (e?.message?.includes('Non authentifié')) {
         router.replace('/auth/login');
@@ -496,12 +502,12 @@ export default function AvailabilityPage() {
       viewEndDate.setHours(23, 59, 59, 999);
     }
 
-    // Générer les slots à partir des règles
-    const generatedSlots = generateSlotsFromRules(rules, viewStartDate, viewEndDate);
+    // Générer les slots à partir des règles en excluant les absences
+    const generatedSlots = generateSlotsFromRules(rules, viewStartDate, viewEndDate, absences);
 
     // Fusionner avec les slots réservés
     return mergeSlotsWithBooked(generatedSlots, bookedSlots);
-  }, [rules, bookedSlots, currentDate, view]);
+  }, [rules, bookedSlots, absences, currentDate, view]);
 
   // Navigation selon la vue
   const goToPrevious = () => {
@@ -647,7 +653,7 @@ export default function AvailabilityPage() {
         </div>
 
         {/* Mini Calendrier */}
-        <PlanningCalendar selectedDate={selectedDate} onDateChange={setSelectedDate} />
+        <PlanningCalendar selectedDate={selectedDate} onDateChange={setSelectedDate} absences={absences} />
 
         {/* Filtres */}
         <div className="mt-3 border-t border-gray-200 pt-3">
@@ -905,6 +911,7 @@ export default function AvailabilityPage() {
               setSelectedDate(date);
               setIsMobileSidebarOpen(false); // Fermer après sélection
             }}
+            absences={absences}
           />
         </div>
 

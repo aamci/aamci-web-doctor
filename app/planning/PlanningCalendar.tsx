@@ -3,12 +3,26 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import styles from './PlanningCalendar.module.css';
 
+interface DoctorAbsence {
+  id: string;
+  doctorId: string;
+  startDate: string;
+  endDate: string;
+  type: string;
+  reason?: string;
+  blockSlots: boolean;
+  cancelAppointments: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Props {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  absences?: DoctorAbsence[];
 }
 
-export default function PlanningCalendar({ selectedDate, onDateChange }: Props) {
+export default function PlanningCalendar({ selectedDate, onDateChange, absences = [] }: Props) {
   const getMonthDays = () => {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
@@ -38,6 +52,29 @@ export default function PlanningCalendar({ selectedDate, onDateChange }: Props) 
       selectedDate.getMonth() === today.getMonth() &&
       selectedDate.getFullYear() === today.getFullYear()
     );
+  };
+
+  const isDuringAbsence = (day: number) => {
+    if (!absences || absences.length === 0 || !day) return false;
+
+    const checkDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
+    checkDate.setHours(12, 0, 0, 0); // Noon to avoid timezone issues
+
+    for (const absence of absences) {
+      if (!absence.blockSlots) continue;
+
+      const absenceStart = new Date(absence.startDate);
+      const absenceEnd = new Date(absence.endDate);
+
+      absenceStart.setHours(0, 0, 0, 0);
+      absenceEnd.setHours(23, 59, 59, 999);
+
+      if (checkDate >= absenceStart && checkDate <= absenceEnd) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const goToPreviousMonth = () => {
@@ -81,23 +118,29 @@ export default function PlanningCalendar({ selectedDate, onDateChange }: Props) 
 
       {/* Calendar grid */}
       <div className={styles.daysGrid}>
-        {monthDays.map((d, i) => (
-          <button
-            key={i}
-            className={`${styles.dayCell} ${
-              !d.isCurrentMonth ? styles.otherMonth : ''
-            } ${isToday(d.day) ? styles.today : ''}`}
-            onClick={() => {
-              if (d.isCurrentMonth) {
-                const newDate = new Date(selectedDate);
-                newDate.setDate(d.day);
-                onDateChange(newDate);
-              }
-            }}
-          >
-            {d.day || ''}
-          </button>
-        ))}
+        {monthDays.map((d, i) => {
+          const isAbsence = isDuringAbsence(d.day);
+          return (
+            <button
+              key={i}
+              className={`${styles.dayCell} ${
+                !d.isCurrentMonth ? styles.otherMonth : ''
+              } ${isToday(d.day) ? styles.today : ''} ${
+                isAbsence ? styles.absence : ''
+              }`}
+              onClick={() => {
+                if (d.isCurrentMonth) {
+                  const newDate = new Date(selectedDate);
+                  newDate.setDate(d.day);
+                  onDateChange(newDate);
+                }
+              }}
+              title={isAbsence ? 'Jour d\'absence' : ''}
+            >
+              {d.day || ''}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
