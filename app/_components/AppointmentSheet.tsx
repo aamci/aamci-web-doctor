@@ -1,9 +1,10 @@
 'use client';
 
-import { X, User, Calendar, Clock, Phone, Mail, FileText, Edit, ChevronDown, ChevronUp, History, Paperclip, Pill, CreditCard, Bell, Activity } from 'lucide-react';
+import { X, User, Calendar, Clock, Phone, Mail, FileText, Edit, ChevronDown, ChevronUp, History, Paperclip, Pill, CreditCard, Bell, Activity, Video, Plus, CheckCircle, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
 
 interface Patient {
@@ -19,6 +20,15 @@ interface AppointmentKind {
   id: string;
   name: string;
   duration?: number;
+  isTelemedicine?: boolean;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  total: number;
+  status: 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED' | 'OVERDUE';
+  issueDate: string;
 }
 
 interface Appointment {
@@ -56,10 +66,16 @@ export default function AppointmentSheet({
   onEdit,
   authedFetch
 }: AppointmentSheetProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [invoiceDescription, setInvoiceDescription] = useState('Consultation médicale');
 
   // Expanded sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -81,6 +97,10 @@ export default function AppointmentSheet({
     if (section === 'history' && !expandedSections.history && appointment) {
       loadHistory();
     }
+    // Charger les factures quand on ouvre la section
+    if (section === 'billing' && !expandedSections.billing && appointment) {
+      loadInvoices();
+    }
   };
 
   const loadHistory = async () => {
@@ -97,6 +117,92 @@ export default function AppointmentSheet({
       setLoadingHistory(false);
     }
   };
+
+  const loadInvoices = async () => {
+    if (!appointment?.id) return;
+    setLoadingInvoices(true);
+    try {
+      const data = await authedFetch(`/invoices?appointmentId=${appointment.id}`);
+      setInvoices(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading invoices:', error);
+      setInvoices([]);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!appointment?.patient?.id || !invoiceAmount) return;
+
+    try {
+      await authedFetch('/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: appointment.patient.id,
+          appointmentId: appointment.id,
+          items: [{
+            description: invoiceDescription,
+            quantity: 1,
+            unitPrice: parseFloat(invoiceAmount),
+          }],
+        }),
+      });
+      setIsCreatingInvoice(false);
+      setInvoiceAmount('');
+      setInvoiceDescription('Consultation médicale');
+      loadInvoices();
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+    }
+  };
+
+  const handleSendInvoice = async (invoiceId: string) => {
+    try {
+      await authedFetch(`/invoices/${invoiceId}/send`, { method: 'POST' });
+      loadInvoices();
+    } catch (error) {
+      console.error('Error sending invoice:', error);
+    }
+  };
+
+  const handleMarkInvoicePaid = async (invoiceId: string) => {
+    const method = prompt('Méthode de paiement (ex: Espèces, Carte, Virement):');
+    if (!method) return;
+
+    try {
+      await authedFetch(`/invoices/${invoiceId}/mark-paid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: method }),
+      });
+      loadInvoices();
+    } catch (error) {
+      console.error('Error marking invoice paid:', error);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'XAF',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getInvoiceStatusLabel = (status: Invoice['status']) => {
+    const statusMap = {
+      DRAFT: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700' },
+      SENT: { label: 'Envoyée', color: 'bg-blue-100 text-blue-700' },
+      PAID: { label: 'Payée', color: 'bg-green-100 text-green-700' },
+      CANCELLED: { label: 'Annulée', color: 'bg-red-100 text-red-700' },
+      OVERDUE: { label: 'En retard', color: 'bg-orange-100 text-orange-700' },
+    };
+    return statusMap[status];
+  };
+
+  const totalBilled = invoices.reduce((sum, inv) => inv.status !== 'CANCELLED' ? sum + inv.total : sum, 0);
 
   if (!isOpen || !appointment) return null;
 
@@ -254,10 +360,18 @@ export default function AppointmentSheet({
                 </div>
                 <div className="text-xs">
                   <div className="text-gray-500 text-[10px]">Type</div>
-                  <div className="font-medium text-gray-900 truncate">
+                  <div className="font-medium text-gray-900 truncate flex items-center gap-1">
+                    {kind?.isTelemedicine && (
+                      <Video className="w-3 h-3 text-purple-600 flex-shrink-0" />
+                    )}
                     {kind?.name || 'Consultation'}
                     {kind?.duration && <span className="text-gray-500 ml-1">({kind.duration}min)</span>}
                   </div>
+                  {kind?.isTelemedicine && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] mt-1">
+                      Téléconsultation
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs pt-1.5 border-t border-gray-100">
                   <div className="text-gray-500 text-[10px] mb-1">Statut</div>
@@ -279,6 +393,16 @@ export default function AppointmentSheet({
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-4 gap-1.5">
+            {/* Bouton Visio pour les téléconsultations */}
+            {kind?.isTelemedicine && appointment.status === 'CONFIRMED' && (
+              <button
+                onClick={() => router.push(`/visio/${appointment.id}`)}
+                className="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 col-span-2"
+              >
+                <Video className="w-3 h-3" />
+                Démarrer Visio
+              </button>
+            )}
             {onEdit && appointment.status !== 'CANCELLED' && (
               <button
                 onClick={() => onEdit(appointment)}
@@ -461,7 +585,7 @@ export default function AppointmentSheet({
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-700">Facturation</span>
-                  <span className="text-xs text-green-600 font-medium">0 €</span>
+                  <span className="text-xs text-green-600 font-medium">{formatCurrency(totalBilled)}</span>
                 </div>
                 {expandedSections.billing ? (
                   <ChevronUp className="w-4 h-4 text-gray-400" />
@@ -470,8 +594,118 @@ export default function AppointmentSheet({
                 )}
               </button>
               {expandedSections.billing && (
-                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">Aucune facturation</p>
+                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
+                  {loadingInvoices ? (
+                    <p className="text-xs text-gray-500">Chargement...</p>
+                  ) : invoices.length === 0 && !isCreatingInvoice ? (
+                    <div className="text-center py-2">
+                      <p className="text-xs text-gray-500 mb-2">Aucune facture</p>
+                      <button
+                        onClick={() => setIsCreatingInvoice(true)}
+                        className="text-xs text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1 mx-auto"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Créer une facture
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Liste des factures */}
+                      {invoices.map((invoice) => {
+                        const statusInfo = getInvoiceStatusLabel(invoice.status);
+                        return (
+                          <div key={invoice.id} className="bg-white rounded p-2 border border-gray-100">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-xs font-medium text-gray-900">{invoice.invoiceNumber}</span>
+                                  <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${statusInfo.color}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500">
+                                  {format(new Date(invoice.issueDate), 'dd/MM/yyyy', { locale: fr })}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-semibold text-gray-900">{formatCurrency(invoice.total)}</p>
+                                <div className="flex items-center gap-1 mt-1">
+                                  {invoice.status === 'DRAFT' && (
+                                    <button
+                                      onClick={() => handleSendInvoice(invoice.id)}
+                                      className="p-1 hover:bg-blue-50 rounded text-blue-600"
+                                      title="Envoyer"
+                                    >
+                                      <Send className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  {(invoice.status === 'SENT' || invoice.status === 'OVERDUE') && (
+                                    <button
+                                      onClick={() => handleMarkInvoicePaid(invoice.id)}
+                                      className="p-1 hover:bg-green-50 rounded text-green-600"
+                                      title="Marquer payée"
+                                    >
+                                      <CheckCircle className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Bouton ajouter facture */}
+                      {!isCreatingInvoice && (
+                        <button
+                          onClick={() => setIsCreatingInvoice(true)}
+                          className="w-full text-xs text-teal-600 hover:text-teal-700 font-medium flex items-center justify-center gap-1 py-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Ajouter une facture
+                        </button>
+                      )}
+
+                      {/* Formulaire création facture */}
+                      {isCreatingInvoice && (
+                        <div className="bg-white rounded p-2 border border-teal-200 space-y-2">
+                          <p className="text-xs font-medium text-gray-900">Nouvelle facture</p>
+                          <input
+                            type="text"
+                            placeholder="Description"
+                            value={invoiceDescription}
+                            onChange={(e) => setInvoiceDescription(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Montant (XAF)"
+                            value={invoiceAmount}
+                            onChange={(e) => setInvoiceAmount(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleCreateInvoice}
+                              disabled={!invoiceAmount}
+                              className="flex-1 py-1 bg-teal-600 text-white rounded text-xs font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Créer
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsCreatingInvoice(false);
+                                setInvoiceAmount('');
+                              }}
+                              className="flex-1 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>

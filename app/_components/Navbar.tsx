@@ -113,6 +113,26 @@ export default function Navbar() {
             >
               Notes
             </Link>
+            <Link
+              href={"/billing" as any}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/billing')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Facturation
+            </Link>
+            <Link
+              href={"/tasks" as any}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isActive('/tasks')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Tâches
+            </Link>
           </div>
         )}
 

@@ -3,6 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  Plus,
+  Search,
+  FileText,
+  Eye,
+  EyeOff,
+  Trash2,
+  User,
+  Calendar,
+  Tag,
+  X,
+  Filter,
+  Stethoscope,
+  ClipboardList,
+  Pill,
+  Activity,
+  MoreHorizontal,
+} from 'lucide-react';
 
 interface MedicalNote {
   id: string;
@@ -27,22 +46,43 @@ interface MedicalNote {
   } | null;
 }
 
-const NOTE_TYPE_LABELS: Record<string, string> = {
-  OBSERVATION: 'Observation',
-  FOLLOW_UP: 'Suivi',
-  PRESCRIPTION: 'Prescription',
-  DIAGNOSIS: 'Diagnostic',
-  TREATMENT_PLAN: 'Plan de traitement',
-  OTHER: 'Autre',
-};
-
-const NOTE_TYPE_COLORS: Record<string, string> = {
-  OBSERVATION: '#3b82f6',
-  FOLLOW_UP: '#10b981',
-  PRESCRIPTION: '#8b5cf6',
-  DIAGNOSIS: '#f59e0b',
-  TREATMENT_PLAN: '#ec4899',
-  OTHER: '#6b7280',
+const NOTE_TYPES = {
+  OBSERVATION: {
+    label: 'Observation',
+    color: 'bg-blue-100 text-blue-700',
+    icon: Eye,
+    bgColor: 'bg-blue-500',
+  },
+  FOLLOW_UP: {
+    label: 'Suivi',
+    color: 'bg-green-100 text-green-700',
+    icon: Activity,
+    bgColor: 'bg-green-500',
+  },
+  PRESCRIPTION: {
+    label: 'Prescription',
+    color: 'bg-purple-100 text-purple-700',
+    icon: Pill,
+    bgColor: 'bg-purple-500',
+  },
+  DIAGNOSIS: {
+    label: 'Diagnostic',
+    color: 'bg-amber-100 text-amber-700',
+    icon: Stethoscope,
+    bgColor: 'bg-amber-500',
+  },
+  TREATMENT_PLAN: {
+    label: 'Plan de traitement',
+    color: 'bg-pink-100 text-pink-700',
+    icon: ClipboardList,
+    bgColor: 'bg-pink-500',
+  },
+  OTHER: {
+    label: 'Autre',
+    color: 'bg-gray-100 text-gray-700',
+    icon: FileText,
+    bgColor: 'bg-gray-500',
+  },
 };
 
 function getApiBase(): string {
@@ -63,6 +103,7 @@ export default function MedicalNotesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<MedicalNote | null>(null);
   const apiBase = getApiBase();
 
   useEffect(() => {
@@ -132,236 +173,264 @@ export default function MedicalNotesPage() {
     }
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'P';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   if (loading) {
     return (
-      <div style={{ padding: '24px 0' }}>
-        <h1>Notes Médicales</h1>
-        <div className="card" style={{ marginTop: 16 }}>Chargement...</div>
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px 0', display: 'grid', gap: 20 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0 }}>Notes Médicales</h1>
-        <button className="btn primary" onClick={() => setShowCreateModal(true)}>
-          + Nouvelle note
-        </button>
-      </div>
-
-      {/* Statistiques */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: 12,
-        }}
-      >
-        {Object.entries(NOTE_TYPE_LABELS).map(([type, label]) => {
-          const count = notes.filter((n) => n.type === type).length;
-          return (
-            <div
-              key={type}
-              className="card"
-              style={{
-                textAlign: 'center',
-                padding: 12,
-                cursor: 'pointer',
-                border: selectedType === type ? `2px solid ${NOTE_TYPE_COLORS[type]}` : undefined,
-              }}
-              onClick={() => setSelectedType(selectedType === type ? null : type)}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, color: NOTE_TYPE_COLORS[type] }}>
-                {count}
-              </div>
-              <div style={{ fontSize: 12, color: '#6b7280' }}>{label}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Recherche */}
-      <div style={{ display: 'flex', gap: 12 }}>
-        <input
-          type="text"
-          className="input"
-          placeholder="Rechercher dans les notes..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        {tags.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            {tags.slice(0, 5).map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: 12,
-                  padding: '4px 8px',
-                  background: '#f3f4f6',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                }}
-                onClick={() => setSearchQuery(tag)}
-              >
-                #{tag}
-              </span>
-            ))}
+    <div className="min-h-screen bg-gray-100 py-6 px-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => router.back()}
+            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-900">Notes Médicales</h1>
+            <p className="text-gray-600 text-sm">
+              {notes.length} note{notes.length > 1 ? 's' : ''} au total
+            </p>
           </div>
-        )}
-      </div>
-
-      {/* Liste des notes */}
-      {filteredNotes.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
-          <h3 style={{ margin: 0, marginBottom: 8 }}>Aucune note</h3>
-          <p style={{ color: '#6b7280', margin: 0, marginBottom: 16 }}>
-            Commencez à créer des notes pour vos patients
-          </p>
-          <button className="btn primary" onClick={() => setShowCreateModal(true)}>
-            Créer ma première note
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Nouvelle note
           </button>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {filteredNotes.map((note) => (
-            <div
-              key={note.id}
-              className="card"
-              style={{ display: 'grid', gap: 12, padding: '16px 20px' }}
+
+        {/* Stats par type */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+          {Object.entries(NOTE_TYPES).map(([type, config]) => {
+            const count = notes.filter((n) => n.type === type).length;
+            const Icon = config.icon;
+            const isSelected = selectedType === type;
+
+            return (
+              <button
+                key={type}
+                onClick={() => setSelectedType(isSelected ? null : type)}
+                className={`p-3 rounded-xl text-center transition-all ${
+                  isSelected
+                    ? 'ring-2 ring-teal-500 bg-white shadow-md'
+                    : 'bg-white hover:shadow-md'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center ${config.bgColor}`}
+                >
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-xl font-bold text-gray-900">{count}</p>
+                <p className="text-xs text-gray-500 truncate">{config.label}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Recherche et filtres */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher dans les notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Tags populaires */}
+          {tags.length > 0 && (
+            <div className="flex gap-2 items-center overflow-x-auto pb-1">
+              {tags.slice(0, 5).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSearchQuery(tag)}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-xs text-gray-600 whitespace-nowrap transition-colors"
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filtre actif */}
+        {selectedType && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm text-gray-500">Filtré par:</span>
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${NOTE_TYPES[selectedType as keyof typeof NOTE_TYPES].color}`}
             >
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  {/* Avatar patient */}
-                  {note.patient.avatarUrl ? (
-                    <img
-                      src={note.patient.avatarUrl}
-                      alt={note.patient.fullName}
-                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        background: '#dbeafe',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 600,
-                        color: '#3b82f6',
-                      }}
-                    >
-                      {note.patient.fullName?.[0]?.toUpperCase() || 'P'}
+              {NOTE_TYPES[selectedType as keyof typeof NOTE_TYPES].label}
+              <button onClick={() => setSelectedType(null)} className="ml-1">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          </div>
+        )}
+
+        {/* Liste des notes */}
+        {filteredNotes.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune note</h3>
+            <p className="text-gray-500 mb-4">
+              Commencez à créer des notes pour vos patients
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium"
+            >
+              Créer ma première note
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredNotes.map((note) => {
+              const typeConfig = NOTE_TYPES[note.type as keyof typeof NOTE_TYPES] || NOTE_TYPES.OTHER;
+              const TypeIcon = typeConfig.icon;
+
+              return (
+                <div
+                  key={note.id}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar patient */}
+                      <Link href={`/patients/${note.patient.id}`}>
+                        {note.patient.avatarUrl ? (
+                          <img
+                            src={note.patient.avatarUrl}
+                            alt={note.patient.fullName}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold">
+                            {getInitials(note.patient.fullName)}
+                          </div>
+                        )}
+                      </Link>
+                      <div>
+                        <Link
+                          href={`/patients/${note.patient.id}`}
+                          className="font-medium text-gray-900 hover:text-teal-600"
+                        >
+                          {note.patient.fullName || note.patient.email}
+                        </Link>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(note.createdAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeConfig.color}`}
+                      >
+                        <TypeIcon className="w-3 h-3" />
+                        {typeConfig.label}
+                      </span>
+                      {note.isPrivate && (
+                        <span
+                          className="p-1 bg-gray-100 rounded-full"
+                          title="Note privée"
+                        >
+                          <EyeOff className="w-3 h-3 text-gray-500" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Titre et contenu */}
+                  {note.title && (
+                    <h3 className="font-semibold text-gray-900 mb-2">{note.title}</h3>
+                  )}
+                  <p className="text-gray-600 text-sm whitespace-pre-wrap line-clamp-3 mb-3">
+                    {note.content}
+                  </p>
+
+                  {/* Tags */}
+                  {note.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {note.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600"
+                        >
+                          <Tag className="w-2.5 h-2.5" />
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   )}
-                  <div>
-                    <Link
-                      href={`/patients/${note.patient.id}`}
-                      style={{ fontWeight: 600, color: '#111', textDecoration: 'none' }}
-                    >
-                      {note.patient.fullName || note.patient.email}
-                    </Link>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      {new Date(note.createdAt).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    {note.appointment && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <Calendar className="w-3 h-3" />
+                        Lié au RDV du{' '}
+                        {new Date(note.appointment.slot.start).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        onClick={() => setSelectedNote(note)}
+                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+                        title="Voir"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteNote(note.id)}
+                        className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      padding: '4px 8px',
-                      borderRadius: 12,
-                      background: `${NOTE_TYPE_COLORS[note.type]}15`,
-                      color: NOTE_TYPE_COLORS[note.type],
-                      fontWeight: 500,
-                    }}
-                  >
-                    {NOTE_TYPE_LABELS[note.type]}
-                  </span>
-                  {note.isPrivate && (
-                    <span style={{ fontSize: 14 }} title="Note privée">
-                      🔒
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Titre et contenu */}
-              {note.title && (
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{note.title}</div>
-              )}
-              <div
-                style={{
-                  fontSize: 14,
-                  color: '#374151',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {note.content.length > 300
-                  ? note.content.slice(0, 300) + '...'
-                  : note.content}
-              </div>
-
-              {/* Tags */}
-              {note.tags.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {note.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontSize: 11,
-                        padding: '2px 6px',
-                        background: '#e5e7eb',
-                        borderRadius: 4,
-                        color: '#6b7280',
-                      }}
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Lien RDV si applicable */}
-              {note.appointment && (
-                <div style={{ fontSize: 12, color: '#6b7280' }}>
-                  📅 Lié au RDV du{' '}
-                  {new Date(note.appointment.slot.start).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button
-                  className="btn outline"
-                  style={{ fontSize: 12, padding: '6px 12px', color: '#ef4444' }}
-                  onClick={() => deleteNote(note.id)}
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Modal de création */}
       {showCreateModal && (
@@ -372,6 +441,18 @@ export default function MedicalNotesPage() {
             setShowCreateModal(false);
           }}
           apiBase={apiBase}
+        />
+      )}
+
+      {/* Modal de détail */}
+      {selectedNote && (
+        <NoteDetailModal
+          note={selectedNote}
+          onClose={() => setSelectedNote(null)}
+          onDelete={() => {
+            deleteNote(selectedNote.id);
+            setSelectedNote(null);
+          }}
         />
       )}
     </div>
@@ -397,7 +478,6 @@ function CreateNoteModal({
   const [searchPatient, setSearchPatient] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Rechercher des patients
   useEffect(() => {
     if (!searchPatient || searchPatient.length < 2) {
       setPatients([]);
@@ -409,9 +489,12 @@ function CreateNoteModal({
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${apiBase}/users/patients/search?q=${encodeURIComponent(searchPatient)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${apiBase}/users/patients/search?q=${encodeURIComponent(searchPatient)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         if (res.ok) {
           const data = await res.json();
           setPatients(data);
@@ -448,7 +531,12 @@ function CreateNoteModal({
           title: title || null,
           content,
           isPrivate,
-          tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : [],
+          tags: tagsInput
+            ? tagsInput
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
         }),
       });
 
@@ -469,190 +557,282 @@ function CreateNoteModal({
   const selectedPatient = patients.find((p) => p.id === patientId);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="card"
-        style={{
-          width: '100%',
-          maxWidth: 600,
-          maxHeight: '90vh',
-          overflow: 'auto',
-          padding: 24,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 style={{ margin: 0, marginBottom: 20 }}>Nouvelle note médicale</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold">Nouvelle note médicale</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Sélection patient */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Patient *
             </label>
             {selectedPatient ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: 8,
-                  background: '#f3f4f6',
-                  borderRadius: 8,
-                }}
-              >
-                <span>{selectedPatient.fullName || selectedPatient.email}</span>
+              <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                <User className="w-4 h-4 text-teal-600" />
+                <span className="font-medium text-teal-900">
+                  {selectedPatient.fullName || selectedPatient.email}
+                </span>
                 <button
                   type="button"
                   onClick={() => setPatientId('')}
-                  style={{
-                    marginLeft: 'auto',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  className="ml-auto p-1 hover:bg-teal-100 rounded"
                 >
-                  ✕
+                  <X className="w-4 h-4 text-teal-600" />
                 </button>
               </div>
             ) : (
-              <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  className="input"
                   value={searchPatient}
                   onChange={(e) => setSearchPatient(e.target.value)}
                   placeholder="Rechercher un patient..."
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
                 />
                 {patients.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      maxHeight: 150,
-                      overflow: 'auto',
-                    }}
-                  >
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
                     {patients.map((p) => (
-                      <div
+                      <button
                         key={p.id}
-                        style={{
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          borderBottom: '1px solid #f3f4f6',
-                        }}
+                        type="button"
                         onClick={() => {
                           setPatientId(p.id);
                           setSearchPatient('');
                         }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#f3f4f6';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-50 text-sm"
                       >
                         {p.fullName || p.email}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
 
           {/* Type de note */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Type de note
             </label>
-            <select
-              className="input"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            >
-              {Object.entries(NOTE_TYPE_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(NOTE_TYPES).map(([key, config]) => {
+                const Icon = config.icon;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setType(key)}
+                    className={`p-2 rounded-lg border text-center transition-all ${
+                      type === key
+                        ? 'border-teal-500 bg-teal-50 ring-1 ring-teal-500'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-4 h-4 mx-auto mb-1 ${type === key ? 'text-teal-600' : 'text-gray-400'}`}
+                    />
+                    <span className="text-xs">{config.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Titre */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Titre (optionnel)
             </label>
             <input
               type="text"
-              className="input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Consultation de suivi"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
           {/* Contenu */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Contenu *
             </label>
             <textarea
-              className="input"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Rédigez votre note..."
-              rows={6}
+              rows={5}
               required
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Tags (séparés par des virgules)
             </label>
             <input
               type="text"
-              className="input"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="diabète, suivi, contrôle"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
           {/* Privé */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
             <input
               type="checkbox"
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
+              className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
             />
-            <span>Note privée (visible uniquement par moi)</span>
+            <div>
+              <div className="flex items-center gap-1 font-medium text-gray-900">
+                <EyeOff className="w-4 h-4" />
+                Note privée
+              </div>
+              <p className="text-xs text-gray-500">Visible uniquement par vous</p>
+            </div>
           </label>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-            <button type="button" className="btn outline" onClick={onClose}>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
               Annuler
             </button>
-            <button type="submit" className="btn primary" disabled={loading}>
+            <button
+              type="submit"
+              disabled={loading || !patientId || !content}
+              className="flex-1 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {loading ? 'Création...' : 'Créer la note'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function NoteDetailModal({
+  note,
+  onClose,
+  onDelete,
+}: {
+  note: MedicalNote;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const typeConfig = NOTE_TYPES[note.type as keyof typeof NOTE_TYPES] || NOTE_TYPES.OTHER;
+  const TypeIcon = typeConfig.icon;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeConfig.color}`}
+            >
+              <TypeIcon className="w-3 h-3" />
+              {typeConfig.label}
+            </span>
+            {note.isPrivate && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600">
+                <EyeOff className="w-3 h-3" />
+                Privée
+              </span>
+            )}
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Patient */}
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold">
+              {note.patient.fullName?.[0]?.toUpperCase() || 'P'}
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">{note.patient.fullName}</p>
+              <p className="text-sm text-gray-500">{note.patient.email}</p>
+            </div>
+          </div>
+
+          {/* Titre */}
+          {note.title && (
+            <h2 className="text-xl font-semibold text-gray-900">{note.title}</h2>
+          )}
+
+          {/* Contenu */}
+          <div className="prose prose-sm max-w-none">
+            <p className="whitespace-pre-wrap text-gray-700">{note.content}</p>
+          </div>
+
+          {/* Tags */}
+          {note.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {note.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600"
+                >
+                  <Tag className="w-3 h-3" />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Métadonnées */}
+          <div className="flex items-center gap-4 text-sm text-gray-500 pt-4 border-t">
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              Créée le{' '}
+              {new Date(note.createdAt).toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            <button
+              onClick={onDelete}
+              className="flex-1 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Supprimer
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
