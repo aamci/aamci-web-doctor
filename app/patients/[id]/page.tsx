@@ -350,6 +350,7 @@ export default function PatientRecordPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [biometricsHistory, setBiometricsHistory] = useState<BiometricMeasurement[]>([]);
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
 
   // Fetch data
   useEffect(() => {
@@ -454,9 +455,6 @@ export default function PatientRecordPage() {
   const { patient, medicalHistory, medicalHistoryStats, vaccinations, treatments, treatmentsStats, latestBiometrics, observations, labResults, emergencyContacts, consents, documents } = record;
   const profile = patient.patientProfile;
   const age = calculateAge(patient.birthdate || profile?.birthDate || null);
-
-  // State for collapsible sidebar sections
-  const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
 
   const toggleSidebarSection = (sectionId: string) => {
     setExpandedSidebarSections(prev =>
@@ -1045,32 +1043,31 @@ function InfosAdminSection({ patient, profile, consents, emergencyContacts, pati
   patientId?: string;
   onRefresh?: () => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
   const [editSection, setEditSection] = useState<'identity' | 'contact' | 'emergency' | null>(null);
   const [showAddContact, setShowAddContact] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Form state for identity
   const [identityForm, setIdentityForm] = useState({
-    civility: profile?.civility || '',
-    birthLastName: profile?.birthLastName || '',
-    usageLastName: profile?.usageLastName || '',
-    firstName: profile?.firstName || '',
-    birthDate: profile?.birthDate?.split('T')[0] || '',
-    birthPlace: profile?.birthPlace || '',
-    birthCountry: profile?.birthCountry || '',
-    sex: patient.sex || '',
+    civility: '',
+    birthLastName: '',
+    usageLastName: '',
+    firstName: '',
+    birthDate: '',
+    birthPlace: '',
+    birthCountry: '',
+    sex: '',
   });
 
   // Form state for contact
   const [contactForm, setContactForm] = useState({
-    phonePrimary: profile?.phonePrimary || patient.phone || '',
-    phoneSecondary: profile?.phoneSecondary || '',
-    email: patient.email || '',
-    addressLine1: profile?.addressLine1 || '',
-    postalCode: profile?.postalCode || '',
-    city: profile?.city || '',
-    country: profile?.country || '',
+    phonePrimary: '',
+    phoneSecondary: '',
+    email: '',
+    addressLine1: '',
+    postalCode: '',
+    city: '',
+    country: '',
   });
 
   // Form state for new emergency contact
@@ -1080,6 +1077,32 @@ function InfosAdminSection({ patient, profile, consents, emergencyContacts, pati
     phone: '',
     isPrimary: false,
   });
+
+  // Sync form state when profile/patient data changes
+  useEffect(() => {
+    setIdentityForm({
+      civility: profile?.civility || '',
+      birthLastName: profile?.birthLastName || '',
+      usageLastName: profile?.usageLastName || '',
+      firstName: profile?.firstName || '',
+      birthDate: profile?.birthDate?.split('T')[0] || '',
+      birthPlace: profile?.birthPlace || '',
+      birthCountry: profile?.birthCountry || '',
+      sex: patient?.sex || '',
+    });
+  }, [profile, patient?.sex]);
+
+  useEffect(() => {
+    setContactForm({
+      phonePrimary: profile?.phonePrimary || patient?.phone || '',
+      phoneSecondary: profile?.phoneSecondary || '',
+      email: patient?.email || '',
+      addressLine1: profile?.addressLine1 || '',
+      postalCode: profile?.postalCode || '',
+      city: profile?.city || '',
+      country: profile?.country || '',
+    });
+  }, [profile, patient?.phone, patient?.email]);
 
   const handleSaveIdentity = async () => {
     if (!patientId) return;
