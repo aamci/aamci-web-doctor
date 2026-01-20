@@ -455,16 +455,81 @@ export default function PatientRecordPage() {
   const profile = patient.patientProfile;
   const age = calculateAge(patient.birthdate || profile?.birthDate || null);
 
+  // State for collapsible sidebar sections
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
+
+  const toggleSidebarSection = (sectionId: string) => {
+    setExpandedSidebarSections(prev =>
+      prev.includes(sectionId) ? prev.filter(s => s !== sectionId) : [...prev, sectionId]
+    );
+  };
+
+  // Get category counts for sidebar
+  const allergiesCount = medicalHistory.filter(h => h.category === 'ALLERGY').length;
+  const medicalCount = medicalHistory.filter(h => h.category === 'MEDICAL').length;
+  const cardiovascularCount = medicalHistory.filter(h => h.category === 'CARDIOVASCULAR').length;
+  const surgicalCount = medicalHistory.filter(h => h.category === 'SURGICAL').length;
+  const familyCount = medicalHistory.filter(h => h.category === 'FAMILY').length;
+  const lifestyleCount = medicalHistory.filter(h => h.category === 'LIFESTYLE').length;
+
   const menuItems = [
     { id: 'home' as const, label: 'HOME', icon: Home },
     { id: 'consultations' as const, label: 'CONSULTATION EN COURS', icon: ClipboardList },
-    { id: 'infos' as const, label: 'INFOS ADMINISTRATIVES', icon: Settings },
+    {
+      id: 'infos' as const,
+      label: 'INFOS ADMINISTRATIVES',
+      icon: Settings,
+      collapsible: true,
+      subItems: [
+        { label: 'Lieu de naissance', value: profile?.birthPlace || 'Ajouter' },
+        { label: 'Tél (portable)', value: profile?.phonePrimary || '-' },
+        { label: 'Tél (fixe)', value: profile?.phoneSecondary || 'Ajouter' },
+        { label: 'E-mail', value: patient.email || '-' },
+        { label: 'Médecin traitant', value: profile?.primaryDoctorName || '-' },
+      ]
+    },
     { id: 'historique' as const, label: 'HISTORIQUE', icon: History },
-    { id: 'antecedents' as const, label: 'ANTÉCÉDENTS ET MODE DE VIE', icon: Heart, badge: medicalHistory.length },
+    {
+      id: 'antecedents' as const,
+      label: 'ANTÉCÉDENTS ET MODE DE VIE',
+      icon: Heart,
+      collapsible: true,
+      subItems: [
+        { label: 'Allergies', value: allergiesCount > 0 ? `${allergiesCount} élément${allergiesCount > 1 ? 's' : ''}` : 'Aucun', icon: AlertTriangle, color: 'text-orange-500' },
+        { label: 'Médicaux', value: medicalCount > 0 ? `${medicalCount} élément${medicalCount > 1 ? 's' : ''}` : 'Aucun', icon: Stethoscope, color: 'text-blue-500' },
+        { label: 'Cardiovasculaires', value: cardiovascularCount > 0 ? `${cardiovascularCount} élément${cardiovascularCount > 1 ? 's' : ''}` : 'Aucun', icon: Heart, color: 'text-red-500' },
+        { label: 'Chirurgicaux', value: surgicalCount > 0 ? `${surgicalCount} élément${surgicalCount > 1 ? 's' : ''}` : 'Aucun', icon: Activity, color: 'text-purple-500' },
+        { label: 'Familiaux', value: familyCount > 0 ? `${familyCount} élément${familyCount > 1 ? 's' : ''}` : 'Aucun', icon: Users, color: 'text-green-500' },
+        { label: 'Mode de vie', value: lifestyleCount > 0 ? `${lifestyleCount} élément${lifestyleCount > 1 ? 's' : ''}` : 'Aucun', icon: User, color: 'text-gray-500' },
+      ]
+    },
     { id: 'documents' as const, label: 'DOCUMENTS', icon: Folder, badge: documents.length },
     { id: 'observations' as const, label: 'OBSERVATIONS', icon: Eye, badge: observations.length },
-    { id: 'traitement' as const, label: 'TRAITEMENT EN COURS', icon: Pill, badge: treatmentsStats.active },
-    { id: 'biologie' as const, label: 'BIOLOGIE ET BIOMÉTRIE', icon: TestTube },
+    {
+      id: 'traitement' as const,
+      label: 'TRAITEMENT EN COURS',
+      icon: Pill,
+      collapsible: true,
+      subItems: [
+        { label: 'En cours', value: treatmentsStats.active > 0 ? `${treatmentsStats.active}` : 'Aucun', icon: Pill, color: 'text-green-500' },
+        { label: 'Arrêtés', value: treatmentsStats.stopped > 0 ? `${treatmentsStats.stopped}` : 'Aucun', icon: X, color: 'text-red-500' },
+        { label: 'Expirés', value: treatmentsStats.completed > 0 ? `${treatmentsStats.completed}` : 'Aucun', icon: Clock, color: 'text-gray-500' },
+      ]
+    },
+    {
+      id: 'biologie' as const,
+      label: 'BIOLOGIE ET BIOMÉTRIE',
+      icon: TestTube,
+      collapsible: true,
+      subItems: [
+        { label: 'Poids', value: latestBiometrics.weight ? `${latestBiometrics.weight.value} kg` : '-', icon: Scale, color: 'text-blue-500' },
+        { label: 'Taille', value: latestBiometrics.height ? `${latestBiometrics.height.value} cm` : '-', icon: Ruler, color: 'text-green-500' },
+        { label: 'Tension', value: latestBiometrics.blood_pressure ? `${latestBiometrics.blood_pressure.value}/${latestBiometrics.blood_pressure.valueSecondary} mmHg` : '-', icon: Activity, color: 'text-red-500' },
+        { label: 'Température', value: latestBiometrics.temperature ? `${latestBiometrics.temperature.value}°C` : '-', icon: Thermometer, color: 'text-orange-500' },
+        { label: 'Résultats labo', value: labResults.length > 0 ? `${labResults.length}` : 'Aucun', icon: TestTube, color: 'text-purple-500' },
+        { label: 'Historique mesures', value: '6 éléments', icon: History, color: 'text-teal-500', link: true },
+      ]
+    },
     { id: 'vaccination' as const, label: 'CARNET DE VACCINATION', icon: Shield, badge: vaccinations.length },
     { id: 'factures' as const, label: 'FACTURES', icon: Receipt, badge: invoices.length },
   ];
@@ -548,26 +613,60 @@ export default function PatientRecordPage() {
 
         {/* Menu Items */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-medium transition-colors ${
-                activeSection === item.id
-                  ? 'bg-teal-50 text-teal-700 border-l-3 border-teal-600'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-              </div>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
-                  {item.badge}
-                </span>
+          {menuItems.map((item: any) => (
+            <div key={item.id}>
+              <button
+                onClick={() => {
+                  if (item.collapsible) {
+                    toggleSidebarSection(item.id);
+                  }
+                  setActiveSection(item.id);
+                }}
+                className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-medium transition-colors ${
+                  activeSection === item.id
+                    ? 'bg-teal-50 text-teal-700 border-l-3 border-teal-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
+                      {item.badge}
+                    </span>
+                  )}
+                  {item.collapsible && (
+                    expandedSidebarSections.includes(item.id) ? (
+                      <ChevronUp className="w-3 h-3 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                    )
+                  )}
+                </div>
+              </button>
+              {/* Sub items for collapsible sections */}
+              {item.collapsible && item.subItems && expandedSidebarSections.includes(item.id) && (
+                <div className="bg-gray-50 border-l-2 border-gray-200 ml-4">
+                  {item.subItems.map((sub: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between px-4 py-1.5 text-xs hover:bg-gray-100 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        {sub.icon && <sub.icon className={`w-3 h-3 ${sub.color || 'text-gray-400'}`} />}
+                        <span className="text-gray-600">{sub.label}</span>
+                      </div>
+                      <span className={`${sub.link ? 'text-teal-600 underline' : sub.value === 'Ajouter' ? 'text-teal-600' : 'text-gray-500'}`}>
+                        {sub.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </button>
+            </div>
           ))}
         </nav>
 
@@ -654,7 +753,14 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'infos' && (
-            <InfosAdminSection patient={patient} profile={profile} consents={consents} emergencyContacts={emergencyContacts} />
+            <InfosAdminSection
+              patient={patient}
+              profile={profile}
+              consents={consents}
+              emergencyContacts={emergencyContacts}
+              patientId={patientId}
+              onRefresh={fetchPatientRecord}
+            />
           )}
 
           {activeSection === 'historique' && (
@@ -931,47 +1037,342 @@ function StatCard({ value, label, color }: { value: number; label: string; color
   );
 }
 
-function InfosAdminSection({ patient, profile, consents, emergencyContacts }: { patient: Patient; profile: PatientProfile | undefined; consents: PatientConsent[]; emergencyContacts: EmergencyContact[] }) {
+function InfosAdminSection({ patient, profile, consents, emergencyContacts, patientId, onRefresh }: {
+  patient: Patient;
+  profile: PatientProfile | undefined;
+  consents: PatientConsent[];
+  emergencyContacts: EmergencyContact[];
+  patientId?: string;
+  onRefresh?: () => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSection, setEditSection] = useState<'identity' | 'contact' | 'emergency' | null>(null);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Form state for identity
+  const [identityForm, setIdentityForm] = useState({
+    civility: profile?.civility || '',
+    birthLastName: profile?.birthLastName || '',
+    usageLastName: profile?.usageLastName || '',
+    firstName: profile?.firstName || '',
+    birthDate: profile?.birthDate?.split('T')[0] || '',
+    birthPlace: profile?.birthPlace || '',
+    birthCountry: profile?.birthCountry || '',
+    sex: patient.sex || '',
+  });
+
+  // Form state for contact
+  const [contactForm, setContactForm] = useState({
+    phonePrimary: profile?.phonePrimary || patient.phone || '',
+    phoneSecondary: profile?.phoneSecondary || '',
+    email: patient.email || '',
+    addressLine1: profile?.addressLine1 || '',
+    postalCode: profile?.postalCode || '',
+    city: profile?.city || '',
+    country: profile?.country || '',
+  });
+
+  // Form state for new emergency contact
+  const [newContact, setNewContact] = useState({
+    fullName: '',
+    relationship: '',
+    phone: '',
+    isPrimary: false,
+  });
+
+  const handleSaveIdentity = async () => {
+    if (!patientId) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/patient-record/${patientId}/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(identityForm),
+      });
+      if (!response.ok) throw new Error('Erreur lors de la sauvegarde');
+      setEditSection(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error saving identity:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    if (!patientId) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/patient-record/${patientId}/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(contactForm),
+      });
+      if (!response.ok) throw new Error('Erreur lors de la sauvegarde');
+      setEditSection(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error saving contact:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddEmergencyContact = async () => {
+    if (!patientId || !newContact.fullName || !newContact.phone) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/patient-record/${patientId}/emergency-contacts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newContact),
+      });
+      if (!response.ok) throw new Error('Erreur lors de l\'ajout');
+      setShowAddContact(false);
+      setNewContact({ fullName: '', relationship: '', phone: '', isPrimary: false });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error adding contact:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteEmergencyContact = async (contactId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce contact ?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/patient-record/emergency-contacts/${contactId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Erreur lors de la suppression');
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-gray-900">Informations administratives</h2>
 
       {/* Identity */}
       <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-4">Identité</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <InfoField label="Matricule INS" value="-" />
-            <InfoField label="Civilité" value={profile?.civility === 'MR' ? 'M.' : profile?.civility === 'MME' ? 'Mme' : '-'} />
-            <InfoField label="Sexe" value={patient.sex === 'M' ? 'Homme' : patient.sex === 'F' ? 'Femme' : '-'} />
-            <InfoField label="Nom de naissance" value={profile?.birthLastName || '-'} />
-            <InfoField label="Prénom de naissance" value={profile?.firstName || '-'} />
-          </div>
-          <div className="space-y-4">
-            <InfoField label="CIP" value="-" />
-            <InfoField label="Nom utilisé" value={profile?.usageLastName || '-'} />
-            <InfoField label="Prénom utilisé" value={profile?.firstName || '-'} />
-            <InfoField label="Date de naissance" value={formatDate(profile?.birthDate || patient.birthdate)} />
-            <InfoField label="Lieu de naissance" value={profile?.birthPlace ? `${profile.birthPlace}, ${profile.birthCountry || 'France'}` : '-'} />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Identité</h3>
+          {editSection !== 'identity' ? (
+            <button
+              onClick={() => setEditSection('identity')}
+              className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              Modifier
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditSection(null)}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveIdentity}
+                disabled={saving}
+                className="px-3 py-1.5 text-sm bg-teal-600 text-white hover:bg-teal-700 rounded-lg disabled:opacity-50"
+              >
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          )}
         </div>
+
+        {editSection === 'identity' ? (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <EditableField
+                label="Civilité"
+                value={identityForm.civility}
+                onChange={(v) => setIdentityForm({ ...identityForm, civility: v })}
+                type="select"
+                options={[
+                  { value: '', label: '-' },
+                  { value: 'MR', label: 'M.' },
+                  { value: 'MME', label: 'Mme' },
+                ]}
+              />
+              <EditableField
+                label="Sexe"
+                value={identityForm.sex}
+                onChange={(v) => setIdentityForm({ ...identityForm, sex: v })}
+                type="select"
+                options={[
+                  { value: '', label: '-' },
+                  { value: 'M', label: 'Homme' },
+                  { value: 'F', label: 'Femme' },
+                ]}
+              />
+              <EditableField
+                label="Nom de naissance"
+                value={identityForm.birthLastName}
+                onChange={(v) => setIdentityForm({ ...identityForm, birthLastName: v })}
+              />
+              <EditableField
+                label="Prénom"
+                value={identityForm.firstName}
+                onChange={(v) => setIdentityForm({ ...identityForm, firstName: v })}
+              />
+            </div>
+            <div className="space-y-4">
+              <EditableField
+                label="Nom utilisé"
+                value={identityForm.usageLastName}
+                onChange={(v) => setIdentityForm({ ...identityForm, usageLastName: v })}
+              />
+              <EditableField
+                label="Date de naissance"
+                value={identityForm.birthDate}
+                onChange={(v) => setIdentityForm({ ...identityForm, birthDate: v })}
+                type="date"
+              />
+              <EditableField
+                label="Lieu de naissance"
+                value={identityForm.birthPlace}
+                onChange={(v) => setIdentityForm({ ...identityForm, birthPlace: v })}
+              />
+              <EditableField
+                label="Pays de naissance"
+                value={identityForm.birthCountry}
+                onChange={(v) => setIdentityForm({ ...identityForm, birthCountry: v })}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <InfoField label="Matricule INS" value="-" />
+              <InfoField label="Civilité" value={profile?.civility === 'MR' ? 'M.' : profile?.civility === 'MME' ? 'Mme' : '-'} />
+              <InfoField label="Sexe" value={patient.sex === 'M' ? 'Homme' : patient.sex === 'F' ? 'Femme' : '-'} />
+              <InfoField label="Nom de naissance" value={profile?.birthLastName || '-'} />
+              <InfoField label="Prénom de naissance" value={profile?.firstName || '-'} />
+            </div>
+            <div className="space-y-4">
+              <InfoField label="CIP" value="-" />
+              <InfoField label="Nom utilisé" value={profile?.usageLastName || '-'} />
+              <InfoField label="Prénom utilisé" value={profile?.firstName || '-'} />
+              <InfoField label="Date de naissance" value={formatDate(profile?.birthDate || patient.birthdate)} />
+              <InfoField label="Lieu de naissance" value={profile?.birthPlace ? `${profile.birthPlace}, ${profile.birthCountry || 'France'}` : '-'} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Contact */}
       <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-4">Coordonnées</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <InfoField label="Téléphone" value={profile?.phonePrimary || patient.phone || '-'} />
-            <InfoField label="Téléphone secondaire" value={profile?.phoneSecondary || '-'} />
-            <InfoField label="E-mail" value={patient.email} />
-          </div>
-          <div className="space-y-4">
-            <InfoField label="Adresse" value={profile?.addressLine1 || '-'} />
-            <InfoField label="Code postal / Ville" value={profile?.postalCode && profile?.city ? `${profile.postalCode} ${profile.city}` : '-'} />
-            <InfoField label="Pays" value={profile?.country || '-'} />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Coordonnées</h3>
+          {editSection !== 'contact' ? (
+            <button
+              onClick={() => setEditSection('contact')}
+              className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              Modifier
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditSection(null)}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveContact}
+                disabled={saving}
+                className="px-3 py-1.5 text-sm bg-teal-600 text-white hover:bg-teal-700 rounded-lg disabled:opacity-50"
+              >
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          )}
         </div>
+
+        {editSection === 'contact' ? (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <EditableField
+                label="Téléphone"
+                value={contactForm.phonePrimary}
+                onChange={(v) => setContactForm({ ...contactForm, phonePrimary: v })}
+                type="tel"
+              />
+              <EditableField
+                label="Téléphone secondaire"
+                value={contactForm.phoneSecondary}
+                onChange={(v) => setContactForm({ ...contactForm, phoneSecondary: v })}
+                type="tel"
+              />
+              <EditableField
+                label="E-mail"
+                value={contactForm.email}
+                onChange={(v) => setContactForm({ ...contactForm, email: v })}
+                type="email"
+              />
+            </div>
+            <div className="space-y-4">
+              <EditableField
+                label="Adresse"
+                value={contactForm.addressLine1}
+                onChange={(v) => setContactForm({ ...contactForm, addressLine1: v })}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <EditableField
+                  label="Code postal"
+                  value={contactForm.postalCode}
+                  onChange={(v) => setContactForm({ ...contactForm, postalCode: v })}
+                />
+                <EditableField
+                  label="Ville"
+                  value={contactForm.city}
+                  onChange={(v) => setContactForm({ ...contactForm, city: v })}
+                />
+              </div>
+              <EditableField
+                label="Pays"
+                value={contactForm.country}
+                onChange={(v) => setContactForm({ ...contactForm, country: v })}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <InfoField label="Téléphone" value={profile?.phonePrimary || patient.phone || '-'} />
+              <InfoField label="Téléphone secondaire" value={profile?.phoneSecondary || '-'} />
+              <InfoField label="E-mail" value={patient.email} />
+            </div>
+            <div className="space-y-4">
+              <InfoField label="Adresse" value={profile?.addressLine1 || '-'} />
+              <InfoField label="Code postal / Ville" value={profile?.postalCode && profile?.city ? `${profile.postalCode} ${profile.city}` : '-'} />
+              <InfoField label="Pays" value={profile?.country || '-'} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Consents */}
@@ -1009,19 +1410,34 @@ function InfosAdminSection({ patient, profile, consents, emergencyContacts }: { 
       <div className="bg-white rounded-xl p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">Contacts d'urgence</h3>
-          <button className="text-sm text-teal-600 hover:text-teal-700">+ Ajouter contact</button>
+          <button
+            onClick={() => setShowAddContact(true)}
+            className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Ajouter contact
+          </button>
         </div>
         {emergencyContacts.length > 0 ? (
           <div className="space-y-3">
             {emergencyContacts.map((contact) => (
-              <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
                 <div>
                   <p className="font-medium text-gray-900">{contact.fullName}</p>
                   <p className="text-sm text-gray-500">{contact.relationship} - {contact.phone}</p>
                 </div>
-                {contact.isPrimary && (
-                  <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">Principal</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {contact.isPrimary && (
+                    <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">Principal</span>
+                  )}
+                  <button
+                    onClick={() => handleDeleteEmergencyContact(contact.id)}
+                    className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Supprimer"
+                  >
+                    <X className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1029,10 +1445,130 @@ function InfosAdminSection({ patient, profile, consents, emergencyContacts }: { 
           <div className="text-center py-8 text-gray-500">
             <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
             <p className="text-sm">Aucun contact d'urgence enregistré</p>
-            <button className="mt-2 text-teal-600 text-sm">+ Ajouter un contact d'urgence</button>
+            <button
+              onClick={() => setShowAddContact(true)}
+              className="mt-2 text-teal-600 text-sm"
+            >
+              + Ajouter un contact d'urgence
+            </button>
           </div>
         )}
       </div>
+
+      {/* Add Emergency Contact Modal */}
+      {showAddContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddContact(false)}>
+          <div
+            className="bg-white rounded-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Ajouter un contact d'urgence</h3>
+              <button onClick={() => setShowAddContact(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <EditableField
+                label="Nom complet"
+                value={newContact.fullName}
+                onChange={(v) => setNewContact({ ...newContact, fullName: v })}
+                required
+              />
+              <EditableField
+                label="Relation"
+                value={newContact.relationship}
+                onChange={(v) => setNewContact({ ...newContact, relationship: v })}
+                type="select"
+                options={[
+                  { value: '', label: 'Sélectionner...' },
+                  { value: 'Conjoint(e)', label: 'Conjoint(e)' },
+                  { value: 'Parent', label: 'Parent' },
+                  { value: 'Enfant', label: 'Enfant' },
+                  { value: 'Frère/Sœur', label: 'Frère/Sœur' },
+                  { value: 'Ami(e)', label: 'Ami(e)' },
+                  { value: 'Autre', label: 'Autre' },
+                ]}
+              />
+              <EditableField
+                label="Téléphone"
+                value={newContact.phone}
+                onChange={(v) => setNewContact({ ...newContact, phone: v })}
+                type="tel"
+                required
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isPrimary"
+                  checked={newContact.isPrimary}
+                  onChange={(e) => setNewContact({ ...newContact, isPrimary: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="isPrimary" className="text-sm text-gray-700">Définir comme contact principal</label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowAddContact(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAddEmergencyContact}
+                disabled={saving || !newContact.fullName || !newContact.phone}
+                className="px-4 py-2 text-sm bg-teal-600 text-white hover:bg-teal-700 rounded-lg disabled:opacity-50"
+              >
+                {saving ? 'Ajout...' : 'Ajouter'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditableField({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  options,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: 'text' | 'email' | 'tel' | 'date' | 'select';
+  options?: { value: string; label: string }[];
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-gray-500 mb-1 block">
+        {label}{required && <span className="text-red-500">*</span>}
+      </label>
+      {type === 'select' && options ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+          required={required}
+        />
+      )}
     </div>
   );
 }
@@ -1144,8 +1680,11 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
   );
 }
 
-function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHistory: MedicalHistory[]; medicalHistoryStats: any }) {
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['ALLERGY', 'MEDICAL', 'SURGICAL']);
+function AntecedentsSection({ medicalHistory, medicalHistoryStats, patientId, onRefresh }: { medicalHistory: MedicalHistory[]; medicalHistoryStats: any; patientId?: string; onRefresh?: () => void }) {
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['ALLERGY', 'MEDICAL', 'SURGICAL', 'CARDIOVASCULAR', 'FAMILY', 'LIFESTYLE']);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addModalCategory, setAddModalCategory] = useState<string>('');
+  const [newItem, setNewItem] = useState({ title: '', description: '', severity: 'Faible', date: '', notes: '' });
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) =>
@@ -1153,27 +1692,89 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHi
     );
   };
 
+  const openAddModal = (category: string) => {
+    setAddModalCategory(category);
+    setNewItem({ title: '', description: '', severity: 'Faible', date: '', notes: '' });
+    setShowAddModal(true);
+  };
+
+  const handleAddItem = async () => {
+    // TODO: Implement API call to add new medical history
+    console.log('Adding:', { category: addModalCategory, ...newItem });
+    setShowAddModal(false);
+    if (onRefresh) onRefresh();
+  };
+
+  const severityOptions = ['Faible', 'Modéré', 'Élevé', 'Sévère'];
+  const severityColors: Record<string, string> = {
+    'Faible': 'bg-green-100 text-green-700',
+    'Modéré': 'bg-yellow-100 text-yellow-700',
+    'Élevé': 'bg-orange-100 text-orange-700',
+    'Sévère': 'bg-red-100 text-red-700',
+  };
+
   const categories = [
-    { key: 'ALLERGY', icon: AlertTriangle, color: 'text-orange-500' },
-    { key: 'MEDICAL', icon: Stethoscope, color: 'text-blue-500' },
-    { key: 'CARDIOVASCULAR', icon: Heart, color: 'text-red-500' },
-    { key: 'SURGICAL', icon: Activity, color: 'text-purple-500' },
-    { key: 'FAMILY', icon: Users, color: 'text-green-500' },
-    { key: 'LIFESTYLE', icon: User, color: 'text-gray-500' },
+    { key: 'ALLERGY', icon: AlertTriangle, color: 'text-orange-500', bgColor: 'bg-orange-50' },
+    { key: 'MEDICAL', icon: Stethoscope, color: 'text-blue-500', bgColor: 'bg-blue-50' },
+    { key: 'CARDIOVASCULAR', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
+    { key: 'SURGICAL', icon: Activity, color: 'text-purple-500', bgColor: 'bg-purple-50' },
+    { key: 'FAMILY', icon: Users, color: 'text-green-500', bgColor: 'bg-green-50' },
+    { key: 'LIFESTYLE', icon: User, color: 'text-gray-500', bgColor: 'bg-gray-50' },
   ];
+
+  // Get allergies for tags display
+  const allergies = medicalHistory.filter((h) => h.category === 'ALLERGY');
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">Antécédents et mode de vie</h2>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Ajouter
-        </button>
+      <h2 className="text-xl font-bold text-gray-900">Antécédents et mode de vie</h2>
+
+      {/* Allergies Section - Special display with tags */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <span className="font-semibold text-gray-900">Allergies</span>
+            <span className="text-sm text-gray-500">{allergies.length} allergie{allergies.length > 1 ? 's' : ''} enregistrée{allergies.length > 1 ? 's' : ''}</span>
+          </div>
+          <button
+            onClick={() => openAddModal('ALLERGY')}
+            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter
+          </button>
+        </div>
+        {allergies.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {allergies.map((allergy) => (
+              <span
+                key={allergy.id}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm ${
+                  allergy.severity === 'SEVERE' || allergy.severity === 'Élevé' || allergy.severity === 'Sévère'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-orange-100 text-orange-700'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                {allergy.title}
+                {allergy.severity && (
+                  <span className="text-xs opacity-75">({allergy.severity})</span>
+                )}
+                <button className="ml-1 hover:text-red-900">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Aucune allergie enregistrée</p>
+        )}
       </div>
 
+      {/* Other Categories */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {categories.map(({ key, icon: Icon, color }) => {
+        {categories.filter(c => c.key !== 'ALLERGY').map(({ key, icon: Icon, color, bgColor }) => {
           const items = medicalHistory.filter((h) => h.category === key);
           const count = items.length;
 
@@ -1186,10 +1787,12 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHi
                 <div className="flex items-center gap-3">
                   <Icon className={`w-5 h-5 ${color}`} />
                   <span className="font-medium text-gray-900">{CATEGORY_LABELS[key]}</span>
-                  {count > 0 && (
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                  {count > 0 ? (
+                    <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
                       {count} élément{count > 1 ? 's' : ''}
                     </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">Aucune donnée</span>
                   )}
                 </div>
                 {expandedCategories.includes(key) ? (
@@ -1204,24 +1807,34 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHi
                   {items.length > 0 ? (
                     <div className="space-y-3">
                       {items.map((item) => (
-                        <div key={item.id} className={`p-3 rounded-lg ${item.isActive ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
+                        <div key={item.id} className={`p-4 rounded-lg border ${item.isActive ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}>
                           <div className="flex items-start justify-between">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-900">{item.title}</span>
-                                {item.isActive && (
-                                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">Actif</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-900">{item.title}</span>
+                                {item.severity && (
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${severityColors[item.severity] || 'bg-gray-100 text-gray-600'}`}>
+                                    {item.severity}
+                                  </span>
                                 )}
                               </div>
                               {item.description && (
                                 <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                               )}
                               <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                {item.diagnosedAt && <span>Diagnostiqué le {formatDate(item.diagnosedAt)}</span>}
-                                {item.resolvedAt && <span>Résolu le {formatDate(item.resolvedAt)}</span>}
+                                {item.diagnosedAt && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(item.diagnosedAt)}
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  Ajouté le {formatDate(item.diagnosedAt || '')}
+                                </span>
                               </div>
                             </div>
-                            <button className="text-gray-400 hover:text-gray-600">
+                            <button className="text-gray-400 hover:text-gray-600 p-1">
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
                           </div>
@@ -1229,7 +1842,30 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHi
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">Aucun antécédent enregistré</p>
+                    <div className="text-center py-8">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                        <Icon className={`w-6 h-6 ${color} opacity-50`} />
+                      </div>
+                      <p className="text-sm text-gray-500 mb-3">Aucun élément enregistré</p>
+                      <button
+                        onClick={() => openAddModal(key)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Ajouter un élément
+                      </button>
+                    </div>
+                  )}
+                  {items.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+                      <button
+                        onClick={() => openAddModal(key)}
+                        className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Ajouter un élément
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -1237,12 +1873,129 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats }: { medicalHi
           );
         })}
       </div>
+
+      {/* Mode de vie section */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <User className="w-5 h-5 text-gray-500" />
+            <span className="font-semibold text-gray-900">Mode de vie</span>
+          </div>
+          <button
+            onClick={() => openAddModal('LIFESTYLE')}
+            className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter
+          </button>
+        </div>
+        <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">
+          <p className="text-sm text-gray-500 mb-2">Aucun élément enregistré</p>
+          <button
+            onClick={() => openAddModal('LIFESTYLE')}
+            className="text-sm text-teal-600 hover:text-teal-700"
+          >
+            + Ajouter un élément
+          </button>
+        </div>
+      </div>
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Ajouter - {CATEGORY_LABELS[addModalCategory] || addModalCategory}
+              </h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Titre <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newItem.title}
+                  onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
+                  placeholder={addModalCategory === 'FAMILY' ? 'Ex: Cancer du sein (mère), Diabète (père)...' : 'Ex: Hypertension, Appendicectomie...'}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={newItem.description}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  placeholder={addModalCategory === 'FAMILY' ? 'Précisez le lien de parenté et les détails...' : 'Détails supplémentaires...'}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={newItem.date}
+                    onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sévérité</label>
+                  <select
+                    value={newItem.severity}
+                    onChange={(e) => setNewItem({ ...newItem, severity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {severityOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes complémentaires</label>
+                <textarea
+                  value={newItem.notes}
+                  onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
+                  placeholder="Notes internes ou observations..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAddItem}
+                disabled={!newItem.title}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
   const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<MedicalDocument | null>(null);
+  const [showActionsFor, setShowActionsFor] = useState<string | null>(null);
 
   const categoryLabels: Record<string, string> = {
     PRESCRIPTION: 'Ordonnance',
@@ -1255,7 +2008,23 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
     OTHER: 'Autre',
   };
 
-  const filteredDocs = filter === 'all' ? documents : documents.filter((d) => d.category === filter);
+  const categoryIcons: Record<string, React.ReactNode> = {
+    PRESCRIPTION: <Pill className="w-5 h-5 text-blue-500" />,
+    LAB_RESULT: <TestTube className="w-5 h-5 text-purple-500" />,
+    IMAGING: <Eye className="w-5 h-5 text-teal-500" />,
+    MEDICAL_REPORT: <FileText className="w-5 h-5 text-gray-500" />,
+    VACCINATION: <Syringe className="w-5 h-5 text-green-500" />,
+    CERTIFICATE: <Shield className="w-5 h-5 text-yellow-500" />,
+    INSURANCE: <Receipt className="w-5 h-5 text-orange-500" />,
+    OTHER: <Folder className="w-5 h-5 text-gray-400" />,
+  };
+
+  const filteredDocs = documents.filter((d) => {
+    const matchesFilter = filter === 'all' || d.category === filter;
+    const matchesSearch = searchQuery === '' ||
+      (d.title || d.fileName).toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const groupByMonth = (docs: MedicalDocument[]) => {
     const groups: Record<string, MedicalDocument[]> = {};
@@ -1269,6 +2038,32 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
   };
 
   const grouped = groupByMonth(filteredDocs);
+
+  const handleDownload = (doc: MedicalDocument) => {
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = doc.fileUrl;
+    link.download = doc.fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowActionsFor(null);
+  };
+
+  const handlePreview = (doc: MedicalDocument) => {
+    setPreviewDoc(doc);
+    setShowActionsFor(null);
+  };
+
+  const getFileExtension = (filename: string) => {
+    return filename.split('.').pop()?.toLowerCase() || '';
+  };
+
+  const isPreviewable = (doc: MedicalDocument) => {
+    const ext = getFileExtension(doc.fileName);
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+  };
 
   return (
     <div className="space-y-6">
@@ -1287,6 +2082,8 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
           <input
             type="text"
             placeholder="Rechercher un document..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm"
           />
         </div>
@@ -1312,13 +2109,19 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">{month}</h3>
             <div className="space-y-2">
               {docs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50">
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer group"
+                  onClick={() => handlePreview(doc)}
+                >
                   <div className="flex items-center gap-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      {categoryIcons[doc.category] || <FileText className="w-5 h-5 text-gray-400" />}
+                    </div>
                     <div>
                       <p className="font-medium text-gray-900">{doc.title || doc.fileName}</p>
                       <p className="text-xs text-gray-500">
-                        {formatDate(doc.documentDate || doc.createdAt)} - {(doc.fileSize / 1024).toFixed(0)} Ko
+                        {formatDate(doc.documentDate || doc.createdAt)} - {(doc.fileSize / 1024).toFixed(0)} Ko - {getFileExtension(doc.fileName).toUpperCase()}
                       </p>
                     </div>
                   </div>
@@ -1327,9 +2130,71 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
                       {categoryLabels[doc.category] || doc.category}
                     </span>
                     <span className="px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs">Brouillon</span>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                    </button>
+
+                    {/* Action buttons - visible on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePreview(doc); }}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Aperçu"
+                      >
+                        <Eye className="w-4 h-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Télécharger"
+                      >
+                        <Download className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+
+                    {/* More actions dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowActionsFor(showActionsFor === doc.id ? null : doc.id);
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      {showActionsFor === doc.id && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePreview(doc); }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Aperçu
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Télécharger
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); window.print(); }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Printer className="w-4 h-4" />
+                            Imprimer
+                          </button>
+                          <hr className="my-1" />
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1344,6 +2209,101 @@ function DocumentsSection({ documents }: { documents: MedicalDocument[] }) {
             <Plus className="w-4 h-4" />
             Ajouter un document
           </button>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setPreviewDoc(null)}>
+          <div
+            className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  {categoryIcons[previewDoc.category] || <FileText className="w-5 h-5 text-gray-400" />}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{previewDoc.title || previewDoc.fileName}</h3>
+                  <p className="text-xs text-gray-500">
+                    {formatDate(previewDoc.documentDate || previewDoc.createdAt)} - {(previewDoc.fileSize / 1024).toFixed(0)} Ko
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(previewDoc)}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Télécharger
+                </button>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body - Preview Content */}
+            <div className="flex-1 overflow-auto p-6 bg-gray-50">
+              {isPreviewable(previewDoc) ? (
+                <div className="flex items-center justify-center min-h-[400px]">
+                  {getFileExtension(previewDoc.fileName) === 'pdf' ? (
+                    <iframe
+                      src={previewDoc.fileUrl}
+                      className="w-full h-[600px] rounded-lg border border-gray-200"
+                      title={previewDoc.title || previewDoc.fileName}
+                    />
+                  ) : (
+                    <img
+                      src={previewDoc.fileUrl}
+                      alt={previewDoc.title || previewDoc.fileName}
+                      className="max-w-full max-h-[600px] object-contain rounded-lg shadow-lg"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+                  <FileText className="w-16 h-16 text-gray-300 mb-4" />
+                  <p className="text-gray-600 font-medium mb-2">Aperçu non disponible</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Ce type de fichier ({getFileExtension(previewDoc.fileName).toUpperCase()}) ne peut pas être prévisualisé.
+                  </p>
+                  <button
+                    onClick={() => handleDownload(previewDoc)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Télécharger le fichier
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer - Document Info */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-white">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-4">
+                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                    {categoryLabels[previewDoc.category] || previewDoc.category}
+                  </span>
+                  <span className="text-gray-500">
+                    Ajouté le {formatDate(previewDoc.createdAt)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg" title="Imprimer">
+                    <Printer className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
