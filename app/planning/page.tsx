@@ -25,6 +25,7 @@ import ManageAbsencesPage from './_components/ManageAbsencesPage';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule, DoctorAbsence } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
+import { useAgendaSettings } from '../_hooks/useAgendaSettings';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -131,6 +132,7 @@ interface WeekDay {
 export default function AvailabilityPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { getDisplayHours } = useAgendaSettings();
   const [bookedSlots, setBookedSlots] = useState<Slot[]>([]); // Only slots with appointments
   const [rules, setRules] = useState<AvailabilityRule[]>([]); // Availability rules
   const [absences, setAbsences] = useState<DoctorAbsence[]>([]); // Doctor absences
@@ -426,8 +428,8 @@ export default function AvailabilityPage() {
 
   const weekDays = getWeekDays(currentDate);
 
-  // Générer les heures (8h - 18h)
-  const hours = Array.from({ length: 11 }, (_, i) => i + 8);
+  // Générer les heures basées sur les paramètres de l'agenda
+  const hours = getDisplayHours();
 
   async function load() {
     setLoading(true);
