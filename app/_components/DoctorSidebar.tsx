@@ -8,11 +8,11 @@ import {
   FileText,
   CheckSquare,
   Users,
-  MessageSquare,
-  Video,
+  CalendarCheck,
+  Receipt,
   BarChart3,
   Settings,
-  HelpCircle
+  User
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -45,7 +45,7 @@ export default function DoctorSidebar() {
     },
     {
       label: 'Notes',
-      href: '/notes',
+      href: '/medical-notes',
       icon: <FileText className="w-6 h-6" />,
     },
     {
@@ -60,19 +60,18 @@ export default function DoctorSidebar() {
       icon: <Users className="w-6 h-6" />,
     },
     {
-      label: 'Messager',
-      href: '/messages',
-      icon: <MessageSquare className="w-6 h-6" />,
-      badge: 2,
+      label: 'Réservations',
+      href: '/reservations',
+      icon: <CalendarCheck className="w-6 h-6" />,
     },
     {
-      label: 'Visio',
-      href: '/video',
-      icon: <Video className="w-6 h-6" />,
+      label: 'Facturation',
+      href: '/billing',
+      icon: <Receipt className="w-6 h-6" />,
     },
     {
       label: 'Activité',
-      href: '/activity',
+      href: '/admin/dashboard',
       icon: <BarChart3 className="w-6 h-6" />,
     },
   ];
@@ -84,9 +83,9 @@ export default function DoctorSidebar() {
       icon: <Settings className="w-6 h-6" />,
     },
     {
-      label: 'Aide',
-      href: '/help',
-      icon: <HelpCircle className="w-6 h-6" />,
+      label: 'Mon compte',
+      href: '/account',
+      icon: <User className="w-6 h-6" />,
     },
   ];
 

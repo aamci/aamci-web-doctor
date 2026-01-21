@@ -1,26 +1,33 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
-import { LogOut, User } from 'lucide-react';
+import {
+  LogOut,
+  User,
+  Settings,
+  ChevronDown,
+  Calendar,
+  CreditCard,
+  HelpCircle,
+  Bell,
+  Search,
+} from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     await logout();
     router.push('/auth/login');
-  };
-
-  const isActive = (href: string) => {
-    if (href === '/planning') {
-      return pathname === '/' || pathname === '/dashboard' || pathname === '/planning';
-    }
-    return pathname?.startsWith(href);
   };
 
   const getInitials = (name?: string | null) => {
@@ -31,6 +38,21 @@ export default function Navbar() {
     }
     return name.slice(0, 2).toUpperCase();
   };
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+      if (quickActionsRef.current && !quickActionsRef.current.contains(event.target as Node)) {
+        setShowQuickActions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white shadow-lg z-40 flex items-center">
@@ -43,111 +65,37 @@ export default function Navbar() {
           <span className="text-lg font-bold text-white">Health Platform</span>
           {user && (
             <span className="ml-2 text-xs bg-teal-600 text-white px-2 py-1 rounded-full">
-              Espace médecin
+              Pro
             </span>
           )}
         </Link>
 
-        {/* Navigation principale (si connecté) */}
+        {/* Barre de recherche centrale (si connecté) */}
         {user && (
-          <div className="flex items-center gap-2">
-            <Link
-              href="/planning"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/planning')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Planning
-            </Link>
-            <Link
-              href="/availability"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/availability')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Disponibilités
-            </Link>
-            <Link
-              href="/preferences"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/preferences')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Préférences
-            </Link>
-            {user.role === 'FACILITY_MANAGER' && (
-              <Link
-                href="/facility-management"
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isActive('/facility-management')
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`}
-              >
-                Gestion
-              </Link>
-            )}
-            <Link
-              href={"/patients" as any}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/patients')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Patients
-            </Link>
-            <Link
-              href={"/medical-notes" as any}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/medical-notes')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Notes
-            </Link>
-            <Link
-              href={"/billing" as any}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/billing')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Facturation
-            </Link>
-            <Link
-              href={"/tasks" as any}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isActive('/tasks')
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              Tâches
-            </Link>
+          <div className="flex-1 max-w-md mx-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Rechercher un patient, rendez-vous..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
           </div>
         )}
 
         {/* Actions à droite */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {!user ? (
             <>
               <button
-                onClick={() => router.push('/auth/login' as any)}
+                onClick={() => router.push('/auth/login')}
                 className="px-4 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
               >
                 Connexion
               </button>
               <button
-                onClick={() => router.push('/auth/register' as any)}
+                onClick={() => router.push('/auth/login')}
                 className="px-4 py-2 rounded-lg font-medium bg-teal-600 text-white hover:bg-teal-500 transition-colors"
               >
                 S'inscrire
@@ -155,21 +103,147 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              {/* Actions rapides dropdown */}
+              <div className="relative" ref={quickActionsRef}>
+                <button
+                  onClick={() => setShowQuickActions(!showQuickActions)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm font-medium">Actions</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showQuickActions ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showQuickActions && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <button
+                      onClick={() => {
+                        router.push('/planning');
+                        setShowQuickActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    >
+                      <Calendar className="w-4 h-4 text-teal-600" />
+                      Nouveau rendez-vous
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/patients');
+                        setShowQuickActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    >
+                      <User className="w-4 h-4 text-blue-600" />
+                      Nouveau patient
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/medical-notes');
+                        setShowQuickActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    >
+                      <Bell className="w-4 h-4 text-orange-600" />
+                      Nouvelle note
+                    </button>
+                    <hr className="my-1" />
+                    <button
+                      onClick={() => {
+                        router.push('/settings/agenda');
+                        setShowQuickActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    >
+                      <Settings className="w-4 h-4 text-gray-500" />
+                      Configurer l'agenda
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Notifications */}
               <NotificationBell />
-              <Link
-                href={"/settings" as any}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-              >
-                <User className="w-4 h-4" />
-                <span className="text-sm font-medium">{user.fullName || user.email}</span>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-red-600 hover:text-white transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="text-sm font-medium">Déconnexion</span>
-              </button>
+
+              {/* Menu utilisateur dropdown */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-sm font-bold">
+                    {getInitials(user.fullName || user.email)}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium text-white truncate max-w-[120px]">
+                      {user.fullName || 'Utilisateur'}
+                    </p>
+                    <p className="text-xs text-slate-400 truncate max-w-[120px]">
+                      {user.email}
+                    </p>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    {/* En-tête du menu */}
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900">{user.fullName || 'Utilisateur'}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+
+                    {/* Liens du menu */}
+                    <div className="py-1">
+                      <Link
+                        href="/account"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <User className="w-4 h-4" />
+                        Mon profil
+                      </Link>
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Paramètres
+                      </Link>
+                      <Link
+                        href="/wallet"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        Portefeuille
+                      </Link>
+                      <Link
+                        href="/preferences"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                        Préférences
+                      </Link>
+                    </div>
+
+                    {/* Déconnexion */}
+                    <div className="border-t border-gray-100 py-1">
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Déconnexion
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
