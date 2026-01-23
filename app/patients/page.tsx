@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -9,14 +9,21 @@ import {
   MapPin,
   Calendar,
   ChevronRight,
+  ChevronLeft,
   UserPlus,
   X,
   FileText,
   Clock,
   AlertTriangle,
   User,
-  ChevronLeft,
   Plus,
+  Filter,
+  SortAsc,
+  SortDesc,
+  Users,
+  CalendarCheck,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Patient {
@@ -33,6 +40,9 @@ interface Patient {
   lastAppointmentDate: string | null;
   nextAppointmentDate: string | null;
 }
+
+type SortField = 'fullName' | 'createdAt' | 'appointmentCount' | 'lastAppointmentDate';
+type SortOrder = 'asc' | 'desc';
 
 interface PatientDetails {
   patient: Patient;
@@ -66,9 +76,18 @@ interface NewPatientForm {
 export default function PatientsPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Tri et filtres
+  const [sortField, setSortField] = useState<SortField>('fullName');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [filterGender, setFilterGender] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   // Panel latéral
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -89,21 +108,77 @@ export default function PatientsPage() {
     fetchPatients();
   }, []);
 
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredPatients(patients);
-    } else {
+  // Filtrage, tri et recherche
+  const filteredPatients = useMemo(() => {
+    let result = [...patients];
+
+    // Recherche
+    if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const filtered = patients.filter(
+      result = result.filter(
         (p) =>
           p.fullName?.toLowerCase().includes(query) ||
           p.email.toLowerCase().includes(query) ||
           p.phone?.includes(searchQuery) ||
           formatBirthDate(p.birthdate)?.includes(searchQuery)
       );
-      setFilteredPatients(filtered);
     }
-  }, [searchQuery, patients]);
+
+    // Filtre par genre
+    if (filterGender !== 'all') {
+      result = result.filter((p) => p.sex === filterGender);
+    }
+
+    // Tri
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'fullName':
+          comparison = (a.fullName || '').localeCompare(b.fullName || '');
+          break;
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'appointmentCount':
+          comparison = a.appointmentCount - b.appointmentCount;
+          break;
+        case 'lastAppointmentDate':
+          const dateA = a.lastAppointmentDate ? new Date(a.lastAppointmentDate).getTime() : 0;
+          const dateB = b.lastAppointmentDate ? new Date(b.lastAppointmentDate).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [patients, searchQuery, filterGender, sortField, sortOrder]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
+  const paginatedPatients = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPatients.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPatients, currentPage]);
+
+  // Reset page quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterGender, sortField, sortOrder]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = patients.length;
+    const withUpcoming = patients.filter((p) => p.nextAppointmentDate).length;
+    const newThisMonth = patients.filter((p) => {
+      const created = new Date(p.createdAt);
+      const now = new Date();
+      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+    }).length;
+    const male = patients.filter((p) => p.sex === 'M').length;
+    const female = patients.filter((p) => p.sex === 'F').length;
+    return { total, withUpcoming, newThisMonth, male, female };
+  }, [patients]);
 
   const fetchPatients = async () => {
     setLoading(true);
@@ -118,7 +193,6 @@ export default function PatientsPage() {
       if (response.ok) {
         const data = await response.json();
         setPatients(data);
-        setFilteredPatients(data);
       }
     } catch (error) {
       console.error('Failed to fetch patients:', error);
@@ -241,48 +315,206 @@ export default function PatientsPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
-                <User className="w-5 h-5 text-teal-600" />
+                <Users className="w-5 h-5 text-teal-600" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Dossiers Patients</h1>
                 <p className="text-sm text-gray-500">{patients.length} patients enregistrés</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowNewPatientModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm"
-            >
-              <UserPlus className="w-4 h-4" />
-              Nouveau Patient
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchPatients}
+                disabled={loading}
+                className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Actualiser"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setShowNewPatientModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm"
+              >
+                <UserPlus className="w-4 h-4" />
+                Nouveau Patient
+              </button>
+            </div>
           </div>
 
-          {/* Barre de recherche */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Rechercher un patient (nom, téléphone, date de naissance...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-              />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  <p className="text-xs text-gray-500">Total patients</p>
+                </div>
+              </div>
             </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CalendarCheck className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{stats.withUpcoming}</p>
+                  <p className="text-xs text-gray-500">RDV à venir</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{stats.newThisMonth}</p>
+                  <p className="text-xs text-gray-500">Nouveaux ce mois</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <User className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.male} <span className="text-gray-400 text-sm font-normal">H</span> / {stats.female} <span className="text-gray-400 text-sm font-normal">F</span>
+                  </p>
+                  <p className="text-xs text-gray-500">Répartition</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Barre de recherche et filtres */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Recherche */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un patient (nom, téléphone, email...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                />
+              </div>
+
+              {/* Bouton filtres */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium transition-colors ${
+                  showFilters || filterGender !== 'all'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                Filtres
+                {filterGender !== 'all' && (
+                  <span className="w-5 h-5 bg-teal-600 text-white text-xs rounded-full flex items-center justify-center">
+                    1
+                  </span>
+                )}
+              </button>
+
+              {/* Tri */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as SortField)}
+                  className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="fullName">Nom</option>
+                  <option value="createdAt">Date création</option>
+                  <option value="appointmentCount">Nb RDV</option>
+                  <option value="lastAppointmentDate">Dernier RDV</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="p-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  title={sortOrder === 'asc' ? 'Tri croissant' : 'Tri décroissant'}
+                >
+                  {sortOrder === 'asc' ? (
+                    <SortAsc className="w-4 h-4 text-gray-600" />
+                  ) : (
+                    <SortDesc className="w-4 h-4 text-gray-600" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Panneau de filtres */}
+            {showFilters && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Genre</label>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'all', label: 'Tous' },
+                        { value: 'M', label: 'Hommes' },
+                        { value: 'F', label: 'Femmes' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => setFilterGender(option.value)}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                            filterGender === option.value
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {filterGender !== 'all' && (
+                  <button
+                    onClick={() => setFilterGender('all')}
+                    className="mt-3 text-sm text-teal-600 hover:text-teal-700 font-medium"
+                  >
+                    Réinitialiser les filtres
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Résultats info */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">
+              {filteredPatients.length} patient{filteredPatients.length > 1 ? 's' : ''} trouvé{filteredPatients.length > 1 ? 's' : ''}
+              {searchQuery && ` pour "${searchQuery}"`}
+            </p>
+            <p className="text-sm text-gray-400">
+              Page {currentPage} sur {totalPages || 1}
+            </p>
           </div>
 
           {/* Liste des patients */}
           <div className="space-y-3">
             {loading ? (
               <div className="bg-white rounded-xl p-12 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-teal-500 border-t-transparent"></div>
-                <p className="mt-4 text-gray-600">Chargement...</p>
+                <Loader2 className="w-8 h-8 text-teal-500 animate-spin mx-auto" />
+                <p className="mt-4 text-gray-600">Chargement des patients...</p>
               </div>
-            ) : filteredPatients.length === 0 ? (
+            ) : paginatedPatients.length === 0 ? (
               <div className="bg-white rounded-xl p-12 text-center">
                 <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">
+                <p className="text-gray-500 font-medium">
                   {searchQuery ? 'Aucun patient trouvé' : 'Aucun patient pour le moment'}
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  {searchQuery ? 'Essayez avec d\'autres termes de recherche' : 'Commencez par créer votre premier patient'}
                 </p>
                 {!searchQuery && (
                   <button
@@ -294,7 +526,7 @@ export default function PatientsPage() {
                 )}
               </div>
             ) : (
-              filteredPatients.map((patient) => (
+              paginatedPatients.map((patient) => (
                 <PatientCard
                   key={patient.id}
                   patient={patient}
@@ -302,11 +534,57 @@ export default function PatientsPage() {
                   onClick={() => handlePatientClick(patient)}
                   calculateAge={calculateAge}
                   formatBirthDate={formatBirthDate}
-                  getInitials={getInitials}
                 />
               ))
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-teal-600 text-white'
+                        : 'border border-gray-200 hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -375,17 +653,37 @@ function PatientCard({
   onClick,
   calculateAge,
   formatBirthDate,
-  getInitials,
 }: {
   patient: Patient;
   isSelected: boolean;
   onClick: () => void;
   calculateAge: (date: string | null) => number | null;
   formatBirthDate: (date: string | null) => string | null;
-  getInitials: (name: string | null) => string;
 }) {
   const age = calculateAge(patient.birthdate);
   const birthDateStr = formatBirthDate(patient.birthdate);
+
+  const getInitials = (name: string | null) => {
+    if (!name) return '?';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const avatarColors = [
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-teal-500',
+    'bg-orange-500',
+    'bg-cyan-500',
+  ];
+  const colorIndex = patient.id.charCodeAt(0) % avatarColors.length;
+  const avatarColor = avatarColors[colorIndex];
 
   return (
     <div
@@ -396,52 +694,75 @@ function PatientCard({
           : 'border-transparent hover:border-gray-200 hover:shadow-sm'
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-base font-semibold text-gray-900 uppercase">
-              {patient.fullName?.split(' ').slice(-1)[0] || 'NOM'}{' '}
+      <div className="flex items-center gap-4">
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          {patient.avatarUrl ? (
+            <img
+              src={patient.avatarUrl}
+              alt={patient.fullName || 'Patient'}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className={`w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center`}>
+              <span className="text-white font-semibold text-sm">
+                {getInitials(patient.fullName)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-base font-semibold text-gray-900 truncate">
+              {patient.fullName?.split(' ').slice(-1)[0]?.toUpperCase() || 'NOM'}{' '}
               <span className="font-normal capitalize">
                 {patient.fullName?.split(' ').slice(0, -1).join(' ') || ''}
               </span>
             </h3>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
-            {age && <span>{age} ans</span>}
-            {age && birthDateStr && <span>•</span>}
-            {birthDateStr && <span>{birthDateStr}</span>}
-            {(age || birthDateStr) && patient.sex && <span>•</span>}
             {patient.sex && (
-              <span>{patient.sex === 'M' ? 'Homme' : patient.sex === 'F' ? 'Femme' : ''}</span>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                patient.sex === 'M'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-pink-100 text-pink-700'
+              }`}>
+                {patient.sex === 'M' ? 'H' : 'F'}
+              </span>
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
+            {age && <span>{age} ans</span>}
+            {birthDateStr && <span>• {birthDateStr}</span>}
+          </div>
+
+          <div className="flex items-center gap-4 text-sm text-gray-500">
             {patient.phone && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone className="w-4 h-4 text-gray-400" />
+              <div className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5" />
                 <span>{patient.phone}</span>
               </div>
             )}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Mail className="w-4 h-4 text-gray-400" />
-              <span>{patient.email}</span>
+            <div className="flex items-center gap-1.5 truncate">
+              <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{patient.email}</span>
             </div>
-            {patient.city && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span>{patient.city}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Right side */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {patient.nextAppointmentDate && (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium">
+              <CalendarCheck className="w-3.5 h-3.5" />
+              <span>RDV prévu</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg">
             <Calendar className="w-4 h-4 text-gray-500" />
             <span className="text-sm font-medium text-gray-700">
-              {patient.appointmentCount} RDV
+              {patient.appointmentCount}
             </span>
           </div>
           <ChevronRight className="w-5 h-5 text-gray-400" />
