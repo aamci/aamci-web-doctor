@@ -22,6 +22,7 @@ import EditAppointmentModal from './EditAppointmentModal';
 import CreateAvailabilityWizard from './_components/CreateAvailabilityWizard';
 import ManageRulesPage from './_components/ManageRulesPage';
 import ManageAbsencesPage from './_components/ManageAbsencesPage';
+import AgendaSettingsModal from './_components/AgendaSettingsModal';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule, DoctorAbsence } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
@@ -174,6 +175,7 @@ export default function AvailabilityPage() {
   const [isCreateAvailabilityWizardOpen, setIsCreateAvailabilityWizardOpen] = useState(false);
   const [isManageRulesPageOpen, setIsManageRulesPageOpen] = useState(false);
   const [isManageAbsencesPageOpen, setIsManageAbsencesPageOpen] = useState(false);
+  const [isAgendaSettingsModalOpen, setIsAgendaSettingsModalOpen] = useState(false);
 
   const handleAppointmentClick = (appointment: any) => {
     setSelectedAppointment(appointment);
@@ -652,6 +654,13 @@ export default function AvailabilityPage() {
             <Settings className="w-3.5 h-3.5" />
             Gérer les absences
           </button>
+          <button
+            onClick={() => setIsAgendaSettingsModalOpen(true)}
+            className="w-full border-2 border-gray-400 text-gray-600 hover:bg-gray-50 px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Configurer l'affichage
+          </button>
         </div>
 
         {/* Mini Calendrier */}
@@ -903,6 +912,16 @@ export default function AvailabilityPage() {
             <Settings className="w-4 h-4" />
             Gérer les absences
           </button>
+          <button
+            onClick={() => {
+              setIsMobileSidebarOpen(false);
+              setIsAgendaSettingsModalOpen(true);
+            }}
+            className="w-full border-2 border-gray-400 text-gray-600 hover:bg-gray-50 px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+          >
+            <Settings className="w-4 h-4" />
+            Configurer l'affichage
+          </button>
         </div>
 
         {/* Mini Calendrier */}
@@ -956,6 +975,12 @@ export default function AvailabilityPage() {
         isOpen={isManageAbsencesPageOpen}
         onClose={() => setIsManageAbsencesPageOpen(false)}
         onAbsenceUpdated={() => load()} // Refresh planning when absences are updated
+      />
+
+      {/* Modal de configuration de l'agenda */}
+      <AgendaSettingsModal
+        isOpen={isAgendaSettingsModalOpen}
+        onClose={() => setIsAgendaSettingsModalOpen(false)}
       />
     </div>
   );

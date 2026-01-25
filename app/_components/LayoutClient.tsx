@@ -9,7 +9,9 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
   // Pages qui doivent être en plein écran sans padding
   const fullScreenPages = ['/planning'];
-  const isFullScreen = fullScreenPages.includes(pathname);
+  // Pages qui commencent par ces chemins doivent aussi être en plein écran
+  const fullScreenPrefixes = ['/patients/'];
+  const isFullScreen = fullScreenPages.includes(pathname) || fullScreenPrefixes.some(prefix => pathname.startsWith(prefix));
 
   return (
     <main className={`min-h-screen pt-16 ${user ? 'ml-20' : ''}`}>
