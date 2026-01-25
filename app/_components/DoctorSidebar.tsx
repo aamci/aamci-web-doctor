@@ -10,9 +10,9 @@ import {
   Users,
   CalendarCheck,
   Receipt,
-  BarChart3,
   Settings,
-  User
+  User,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -71,8 +71,8 @@ export default function DoctorSidebar() {
     },
     {
       label: 'Activité',
-      href: '/admin/dashboard',
-      icon: <BarChart3 className="w-6 h-6" />,
+      href: '/activity',
+      icon: <Activity className="w-6 h-6" />,
     },
   ];
 
