@@ -48,12 +48,18 @@ import {
   ChevronUp,
   Send,
   Award,
+  Save,
+  Loader2,
+  Check,
   FileSignature,
   Inbox,
   Reply,
   Target,
   Briefcase,
 } from 'lucide-react';
+import { InvoiceTemplate, PrescriptionTemplate, PrintButton } from '../../_components/templates';
+import type { Medication } from '../../_components/templates';
+import { useAuth } from '../../_providers/AuthProvider';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
 
@@ -328,6 +334,7 @@ type MenuSection =
   | 'documents'
   | 'observations'
   | 'traitement'
+  | 'prescriptions'
   | 'biologie'
   | 'vaccination'
   | 'certificats'
@@ -411,6 +418,7 @@ export default function PatientRecordPage() {
   const router = useRouter();
   const params = useParams();
   const patientId = params?.id as string;
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<MenuSection>('home');
@@ -418,6 +426,21 @@ export default function PatientRecordPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [biometricsHistory, setBiometricsHistory] = useState<BiometricMeasurement[]>([]);
+  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
+  const [isSavingPrescription, setIsSavingPrescription] = useState(false);
+
+  // Quick actions modals
+  const [showQuickInvoiceModal, setShowQuickInvoiceModal] = useState(false);
+  const [showQuickPrescriptionModal, setShowQuickPrescriptionModal] = useState(false);
+  const [quickPrescriptionData, setQuickPrescriptionData] = useState<{
+    diagnosis?: string;
+    generalInstructions?: string;
+    validDays: number;
+    medications: Medication[];
+  }>({
+    validDays: 30,
+    medications: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1 }],
+  });
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
 
   // Mock data pour les nouvelles sections
@@ -598,6 +621,7 @@ export default function PatientRecordPage() {
       fetchPatientRecord();
       fetchAppointments();
       fetchInvoices();
+      fetchPrescriptions();
     }
   }, [patientId]);
 
@@ -661,6 +685,81 @@ export default function PatientRecordPage() {
       }
     } catch (error) {
       console.error('Error fetching biometrics history:', error);
+    }
+  };
+
+  const fetchPrescriptions = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/prescriptions/patient/${patientId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSavedPrescriptions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching prescriptions:', error);
+    }
+  };
+
+  const savePrescription = async (appointmentId?: string) => {
+    if (quickPrescriptionData.medications.every((m) => !m.name)) {
+      alert('Veuillez ajouter au moins un médicament');
+      return;
+    }
+
+    setIsSavingPrescription(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + quickPrescriptionData.validDays);
+
+      const payload = {
+        patientId,
+        appointmentId: appointmentId || undefined,
+        diagnosis: quickPrescriptionData.diagnosis,
+        generalInstructions: quickPrescriptionData.generalInstructions,
+        validUntil: validUntil.toISOString(),
+        medications: quickPrescriptionData.medications.filter((m) => m.name),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/prescriptions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la sauvegarde');
+      }
+
+      await response.json();
+
+      // Reload prescriptions list
+      await fetchPrescriptions();
+
+      // Show success and close modal
+      alert('Ordonnance sauvegardée avec succès !');
+      setShowQuickPrescriptionModal(false);
+
+      // Reset form
+      setQuickPrescriptionData({
+        validDays: 30,
+        medications: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1 }],
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error saving prescription:', error);
+      alert('Erreur lors de la sauvegarde de l\'ordonnance');
+      return false;
+    } finally {
+      setIsSavingPrescription(false);
     }
   };
 
@@ -754,6 +853,7 @@ export default function PatientRecordPage() {
         { label: 'Expirés', value: treatmentsStats.completed > 0 ? `${treatmentsStats.completed}` : 'Aucun', icon: Clock, color: 'text-gray-500' },
       ]
     },
+    { id: 'prescriptions' as const, label: 'ORDONNANCES', icon: FileText, badge: savedPrescriptions.length },
     {
       id: 'biologie' as const,
       label: 'BIOLOGIE ET BIOMÉTRIE',
@@ -963,6 +1063,7 @@ export default function PatientRecordPage() {
                  activeSection === 'documents' ? 'Documents' :
                  activeSection === 'observations' ? 'Observations' :
                  activeSection === 'traitement' ? 'Traitement en cours' :
+                 activeSection === 'prescriptions' ? 'Ordonnances' :
                  activeSection === 'biologie' ? 'Biologie et Biométrie' :
                  activeSection === 'vaccination' ? 'Carnet de vaccination' :
                  activeSection === 'certificats' ? 'Certificats médicaux' :
@@ -973,6 +1074,20 @@ export default function PatientRecordPage() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowQuickPrescriptionModal(true)}
+                className="px-3 py-1.5 text-sm bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg flex items-center gap-1.5 font-medium"
+              >
+                <Pill className="w-4 h-4" />
+                Ordonnance
+              </button>
+              <button
+                onClick={() => setShowQuickInvoiceModal(true)}
+                className="px-3 py-1.5 text-sm bg-teal-50 text-teal-600 hover:bg-teal-100 rounded-lg flex items-center gap-1.5 font-medium"
+              >
+                <Receipt className="w-4 h-4" />
+                Facture
+              </button>
               <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
                 Fermer le dossier
               </button>
@@ -1027,6 +1142,10 @@ export default function PatientRecordPage() {
 
           {activeSection === 'traitement' && (
             <TraitementSection treatments={treatments} treatmentsStats={treatmentsStats} />
+          )}
+
+          {activeSection === 'prescriptions' && (
+            <PrescriptionsSection prescriptions={savedPrescriptions} onRefresh={fetchPrescriptions} />
           )}
 
           {activeSection === 'biologie' && (
@@ -1085,6 +1204,202 @@ export default function PatientRecordPage() {
             <ActionButton icon={Printer} label="Imprimer les rendez-vous" />
             <ActionButton icon={Folder} label="Archiver le dossier" />
             <ActionButton icon={AlertTriangle} label="Supprimer le patient" variant="danger" />
+          </div>
+        </div>
+      )}
+
+      {/* Quick Invoice Modal */}
+      {showQuickInvoiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold">Créer une facture pour {patient.fullName}</h3>
+              <button onClick={() => setShowQuickInvoiceModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 text-center">
+              <Receipt className="w-12 h-12 text-teal-500 mx-auto mb-3" />
+              <p className="text-sm text-gray-600 mb-4">
+                Pour créer une facture détaillée avec le template professionnel
+              </p>
+              <button
+                onClick={() => {
+                  setShowQuickInvoiceModal(false);
+                  router.push('/billing');
+                }}
+                className="w-full py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              >
+                Aller à la facturation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Prescription Modal */}
+      {showQuickPrescriptionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-3xl my-4">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white rounded-t-xl z-10">
+              <h3 className="font-semibold">Créer une ordonnance pour {patient.fullName}</h3>
+              <button onClick={() => setShowQuickPrescriptionModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Diagnostic */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Diagnostic / Motif</label>
+                <input
+                  type="text"
+                  value={quickPrescriptionData.diagnosis || ''}
+                  onChange={(e) => setQuickPrescriptionData({ ...quickPrescriptionData, diagnosis: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="Ex: Infection respiratoire"
+                />
+              </div>
+
+              {/* Medications */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Médicaments</label>
+                {quickPrescriptionData.medications.map((med, index) => (
+                  <div key={index} className="border rounded-lg p-3 mb-3 relative">
+                    {quickPrescriptionData.medications.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const newMeds = quickPrescriptionData.medications.filter((_, i) => i !== index);
+                          setQuickPrescriptionData({ ...quickPrescriptionData, medications: newMeds });
+                        }}
+                        className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nom du médicament *"
+                        value={med.name}
+                        onChange={(e) => {
+                          const newMeds = [...quickPrescriptionData.medications];
+                          newMeds[index] = { ...newMeds[index], name: e.target.value };
+                          setQuickPrescriptionData({ ...quickPrescriptionData, medications: newMeds });
+                        }}
+                        className="col-span-2 px-3 py-2 border rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Dosage"
+                        value={med.dosage || ''}
+                        onChange={(e) => {
+                          const newMeds = [...quickPrescriptionData.medications];
+                          newMeds[index] = { ...newMeds[index], dosage: e.target.value };
+                          setQuickPrescriptionData({ ...quickPrescriptionData, medications: newMeds });
+                        }}
+                        className="px-3 py-2 border rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Posologie"
+                        value={med.frequency || ''}
+                        onChange={(e) => {
+                          const newMeds = [...quickPrescriptionData.medications];
+                          newMeds[index] = { ...newMeds[index], frequency: e.target.value };
+                          setQuickPrescriptionData({ ...quickPrescriptionData, medications: newMeds });
+                        }}
+                        className="px-3 py-2 border rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Durée"
+                        value={med.duration || ''}
+                        onChange={(e) => {
+                          const newMeds = [...quickPrescriptionData.medications];
+                          newMeds[index] = { ...newMeds[index], duration: e.target.value };
+                          setQuickPrescriptionData({ ...quickPrescriptionData, medications: newMeds });
+                        }}
+                        className="col-span-2 px-3 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    setQuickPrescriptionData({
+                      ...quickPrescriptionData,
+                      medications: [...quickPrescriptionData.medications, { name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1 }]
+                    });
+                  }}
+                  className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  + Ajouter un médicament
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Instructions générales</label>
+                <textarea
+                  value={quickPrescriptionData.generalInstructions || ''}
+                  onChange={(e) => setQuickPrescriptionData({ ...quickPrescriptionData, generalInstructions: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  rows={3}
+                  placeholder="Ex: Repos, hydratation..."
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button
+                onClick={() => setShowQuickPrescriptionModal(false)}
+                className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => savePrescription()}
+                disabled={isSavingPrescription}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSavingPrescription ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sauvegarde...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Sauvegarder
+                  </>
+                )}
+              </button>
+              <PrintButton documentTitle={`Ordonnance-${patient.fullName}`}>
+                <PrescriptionTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                  }}
+                  patient={{
+                    fullName: patient.fullName || 'Patient',
+                    birthDate: (patient.birthdate || profile?.birthDate) || undefined,
+                    gender: (patient.sex as 'MALE' | 'FEMALE') || undefined,
+                  }}
+                  prescription={{
+                    prescriptionNumber: `ORD-${Date.now()}`,
+                    issueDate: new Date().toISOString(),
+                    validUntil: new Date(Date.now() + quickPrescriptionData.validDays * 24 * 60 * 60 * 1000).toISOString(),
+                    medications: quickPrescriptionData.medications.filter(m => m.name),
+                    diagnosis: quickPrescriptionData.diagnosis,
+                    generalInstructions: quickPrescriptionData.generalInstructions,
+                  }}
+                />
+              </PrintButton>
+            </div>
           </div>
         </div>
       )}
@@ -2772,6 +3087,373 @@ function TreatmentCard({ treatment }: { treatment: Treatment }) {
           <p className="text-sm text-gray-500">Indication: {treatment.indication}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any[]; onRefresh: () => void }) {
+  const [tab, setTab] = useState<'active' | 'all'>('active');
+  const [selectedPrescription, setSelectedPrescription] = useState<any | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { user } = useAuth();
+
+  const activePrescriptions = prescriptions.filter((p) => p.status === 'ACTIVE');
+  const allPrescriptions = prescriptions;
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
+
+  const handleActivate = async (prescriptionId: string) => {
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'activation');
+      }
+
+      await onRefresh();
+      alert('Ordonnance activée avec succès !');
+    } catch (error) {
+      console.error('Error activating prescription:', error);
+      alert('Erreur lors de l\'activation de l\'ordonnance');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancel = async (prescriptionId: string) => {
+    if (!confirm('Voulez-vous vraiment annuler cette ordonnance ?')) return;
+
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'annulation');
+      }
+
+      await onRefresh();
+      alert('Ordonnance annulée avec succès !');
+    } catch (error) {
+      console.error('Error cancelling prescription:', error);
+      alert('Erreur lors de l\'annulation de l\'ordonnance');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRenew = async (prescriptionId: string) => {
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/renew`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du renouvellement');
+      }
+
+      await onRefresh();
+      alert('Ordonnance renouvelée avec succès ! (en mode brouillon)');
+    } catch (error) {
+      console.error('Error renewing prescription:', error);
+      alert('Erreur lors du renouvellement de l\'ordonnance');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">Ordonnances</h2>
+        <button
+          onClick={onRefresh}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 flex items-center gap-2"
+        >
+          <Clock className="w-4 h-4" />
+          Actualiser
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-gray-200">
+        <button
+          onClick={() => setTab('active')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 ${
+            tab === 'active' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500'
+          }`}
+        >
+          <Pill className="w-4 h-4 inline mr-2" />
+          Actives ({activePrescriptions.length})
+        </button>
+        <button
+          onClick={() => setTab('all')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 ${
+            tab === 'all' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500'
+          }`}
+        >
+          <History className="w-4 h-4 inline mr-2" />
+          Toutes ({allPrescriptions.length})
+        </button>
+      </div>
+
+      {/* Content */}
+      {tab === 'active' ? (
+        activePrescriptions.length > 0 ? (
+          <div className="space-y-4">
+            {activePrescriptions.map((p) => (
+              <PrescriptionCard
+                key={p.id}
+                prescription={p}
+                onView={() => setSelectedPrescription(p)}
+                onActivate={() => handleActivate(p.id)}
+                onCancel={() => handleCancel(p.id)}
+                onRenew={() => handleRenew(p.id)}
+                isProcessing={isProcessing}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+            <Pill className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-600 mb-2">Aucune ordonnance active</p>
+            <p className="text-sm text-gray-500">Les ordonnances créées apparaîtront ici.</p>
+          </div>
+        )
+      ) : (
+        allPrescriptions.length > 0 ? (
+          <div className="space-y-4">
+            {allPrescriptions.map((p) => (
+              <PrescriptionCard
+                key={p.id}
+                prescription={p}
+                onView={() => setSelectedPrescription(p)}
+                onActivate={() => handleActivate(p.id)}
+                onCancel={() => handleCancel(p.id)}
+                onRenew={() => handleRenew(p.id)}
+                isProcessing={isProcessing}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+            <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500">Aucune ordonnance</p>
+          </div>
+        )
+      )}
+
+      {/* Detail Modal */}
+      {selectedPrescription && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+              <h2 className="text-lg font-semibold">Détail de l'ordonnance</h2>
+              <button
+                onClick={() => setSelectedPrescription(null)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Preview with template */}
+              <PrintButton documentTitle={`Ordonnance-${selectedPrescription.patient.fullName}`}>
+                <PrescriptionTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                  }}
+                  patient={{
+                    fullName: selectedPrescription.patient.fullName,
+                    birthDate: selectedPrescription.patient.birthdate,
+                    gender: selectedPrescription.patient.sex,
+                  }}
+                  prescription={{
+                    prescriptionNumber: selectedPrescription.prescriptionNumber,
+                    issueDate: selectedPrescription.issueDate,
+                    validUntil: selectedPrescription.validUntil,
+                    medications: selectedPrescription.medications,
+                    diagnosis: selectedPrescription.diagnosis,
+                    generalInstructions: selectedPrescription.generalInstructions,
+                  }}
+                />
+              </PrintButton>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrescriptionCard({
+  prescription,
+  onView,
+  onActivate,
+  onCancel,
+  onRenew,
+  isProcessing
+}: {
+  prescription: any;
+  onView?: () => void;
+  onActivate?: () => void;
+  onCancel?: () => void;
+  onRenew?: () => void;
+  isProcessing?: boolean;
+}) {
+  const statusColors: Record<string, string> = {
+    ACTIVE: 'bg-green-100 text-green-700',
+    DRAFT: 'bg-gray-100 text-gray-700',
+    EXPIRED: 'bg-red-100 text-red-700',
+    CANCELLED: 'bg-yellow-100 text-yellow-700',
+    DISPENSED: 'bg-blue-100 text-blue-700',
+  };
+
+  const statusLabels: Record<string, string> = {
+    ACTIVE: 'Active',
+    DRAFT: 'Brouillon',
+    EXPIRED: 'Expirée',
+    CANCELLED: 'Annulée',
+    DISPENSED: 'Délivrée',
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('fr-FR');
+  };
+
+  return (
+    <div className="p-4 bg-white rounded-xl border border-gray-200">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="font-semibold text-gray-900">{prescription.prescriptionNumber}</h4>
+            {prescription.appointmentId && (
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Consultation
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-500">
+            Patient: {prescription.patient.fullName}
+          </p>
+        </div>
+        <span className={`px-2 py-1 rounded text-xs ${statusColors[prescription.status]}`}>
+          {statusLabels[prescription.status]}
+        </span>
+      </div>
+
+      {prescription.diagnosis && (
+        <div className="mb-3 p-2 bg-blue-50 rounded text-sm">
+          <span className="font-medium text-blue-900">Diagnostic:</span>{' '}
+          <span className="text-blue-700">{prescription.diagnosis}</span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-gray-700">
+          {prescription.medications.length} médicament{prescription.medications.length > 1 ? 's' : ''}:
+        </p>
+        {prescription.medications.map((med: any, idx: number) => (
+          <div key={med.id} className="pl-3 border-l-2 border-teal-200">
+            <p className="text-sm font-medium text-gray-900">
+              {idx + 1}. {med.name}
+              {med.dosage && <span className="text-teal-600"> - {med.dosage}</span>}
+            </p>
+            {med.frequency && (
+              <p className="text-xs text-gray-600">{med.frequency}</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+        <div className="flex justify-between items-center text-sm">
+          <div className="flex gap-4">
+            <div>
+              <span className="text-gray-500">Émise le:</span>{' '}
+              <span className="font-medium">{formatDate(prescription.issueDate)}</span>
+            </div>
+            {prescription.validUntil && (
+              <div>
+                <span className="text-gray-500">Valide jusqu'au:</span>{' '}
+                <span className="font-medium">{formatDate(prescription.validUntil)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        {(onView || onActivate || onCancel || onRenew) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {onView && (
+              <button
+                onClick={onView}
+                className="px-3 py-1.5 text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 rounded-lg flex items-center gap-1 font-medium"
+              >
+                <Eye className="w-3 h-3" />
+                Voir & Imprimer
+              </button>
+            )}
+            {onActivate && prescription.status === 'DRAFT' && (
+              <button
+                onClick={onActivate}
+                disabled={isProcessing}
+                className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 rounded-lg flex items-center gap-1 font-medium disabled:opacity-50"
+              >
+                <Check className="w-3 h-3" />
+                Activer
+              </button>
+            )}
+            {onRenew && (prescription.status === 'ACTIVE' || prescription.status === 'EXPIRED') && (
+              <button
+                onClick={onRenew}
+                disabled={isProcessing}
+                className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg flex items-center gap-1 font-medium disabled:opacity-50"
+              >
+                <Clock className="w-3 h-3" />
+                Renouveler
+              </button>
+            )}
+            {onCancel && prescription.status !== 'CANCELLED' && (
+              <button
+                onClick={onCancel}
+                disabled={isProcessing}
+                className="px-3 py-1.5 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded-lg flex items-center gap-1 font-medium disabled:opacity-50"
+              >
+                <X className="w-3 h-3" />
+                Annuler
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

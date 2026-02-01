@@ -209,6 +209,16 @@ export default function AppointmentSheet({
   const patient = appointment.patient;
   const kind = appointment.kind;
 
+  // Vérifier si on peut démarrer la consultation (15 min avant jusqu'à 1h après)
+  const canStartConsultation = () => {
+    if (!appointment?.start) return false;
+    const now = new Date();
+    const start = new Date(appointment.start);
+    const diffMinutes = (start.getTime() - now.getTime()) / 1000 / 60;
+    // On peut démarrer 15 min avant jusqu'à 60 min après l'heure de début
+    return diffMinutes <= 15 && diffMinutes >= -60;
+  };
+
   const handleEditClick = () => {
     setEditedNotes(appointment.notes || '');
     setIsEditing(true);
@@ -395,13 +405,20 @@ export default function AppointmentSheet({
           <div className="grid grid-cols-4 gap-1.5">
             {/* Bouton Visio pour les téléconsultations */}
             {kind?.isTelemedicine && appointment.status === 'CONFIRMED' && (
-              <button
-                onClick={() => router.push(`/visio/${appointment.id}`)}
-                className="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 col-span-2"
-              >
-                <Video className="w-3 h-3" />
-                Démarrer Visio
-              </button>
+              canStartConsultation() ? (
+                <button
+                  onClick={() => router.push(`/visio/${appointment.id}`)}
+                  className="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 col-span-2"
+                >
+                  <Video className="w-3 h-3" />
+                  Démarrer Visio
+                </button>
+              ) : (
+                <div className="col-span-2 px-2 py-1.5 bg-gray-100 text-gray-500 rounded text-xs font-medium flex items-center justify-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(appointment.start) > new Date() ? 'Pas encore l\'heure' : 'Temps dépassé'}
+                </div>
+              )
             )}
             {onEdit && appointment.status !== 'CANCELLED' && (
               <button

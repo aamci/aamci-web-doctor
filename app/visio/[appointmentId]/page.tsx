@@ -20,6 +20,10 @@ import {
   X,
   Send,
   ChevronRight,
+  ArrowLeft,
+  Save,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../_providers/AuthProvider';
 
@@ -84,6 +88,10 @@ export default function VisioPage() {
 
   // Notes
   const [consultationNotes, setConsultationNotes] = useState('');
+  const [savedNotes, setSavedNotes] = useState('');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -123,12 +131,76 @@ export default function VisioPage() {
       // Pre-fill notes if any
       if (data.notes) {
         setConsultationNotes(data.notes);
+        setSavedNotes(data.notes);
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Sauvegarder les notes en brouillon (sans terminer la session)
+  const saveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notes: consultationNotes }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Erreur lors de la sauvegarde');
+      }
+
+      setSavedNotes(consultationNotes);
+      setLastSaved(new Date());
+    } catch (err) {
+      console.error('Error saving draft:', err);
+      setError('Erreur lors de la sauvegarde du brouillon');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Vérifier si des changements non sauvegardés existent
+  const hasUnsavedChanges = consultationNotes !== savedNotes;
+
+  // Retour avec confirmation si nécessaire
+  const handleBack = async () => {
+    if (hasUnsavedChanges) {
+      setShowLeaveConfirm(true);
+    } else {
+      // Stop video si en cours
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      router.push('/planning');
+    }
+  };
+
+  // Confirmer le départ (sauvegarder et partir)
+  const confirmLeaveAndSave = async () => {
+    await saveDraft();
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    setShowLeaveConfirm(false);
+    router.push('/planning');
+  };
+
+  // Confirmer le départ sans sauvegarder
+  const confirmLeaveWithoutSave = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    setShowLeaveConfirm(false);
+    router.push('/planning');
   };
 
   const startCall = async () => {
@@ -170,18 +242,33 @@ export default function VisioPage() {
 
     setCallStarted(false);
 
-    // Save notes and end video session
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE_URL}/appointments/${appointmentId}/end-video`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ notes: consultationNotes }),
-    });
+    try {
+      // Save notes and end video session
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/appointments/${appointmentId}/end-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notes: consultationNotes }),
+      });
 
-    router.push('/planning');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Erreur lors de la sauvegarde');
+      }
+
+      // Marquer comme sauvegardé
+      setSavedNotes(consultationNotes);
+      setLastSaved(new Date());
+
+      router.push('/planning');
+    } catch (err: any) {
+      console.error('Error ending call:', err);
+      setError(`Erreur lors de la fin de consultation: ${err.message}`);
+      // Ne pas rediriger en cas d'erreur pour que l'utilisateur puisse réessayer
+    }
   };
 
   const toggleVideo = () => {
@@ -321,10 +408,11 @@ export default function VisioPage() {
         <div className="bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-700">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/planning')}
-              className="text-gray-400 hover:text-white"
+              onClick={handleBack}
+              className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm">Retour</span>
             </button>
             <div>
               <h1 className="text-white font-semibold">
@@ -332,6 +420,12 @@ export default function VisioPage() {
               </h1>
               <p className="text-gray-400 text-sm">
                 {appointment.kind?.name || 'Consultation'} • {formatTime(appointment.slot.start)}
+                {hasUnsavedChanges && (
+                  <span className="ml-2 text-yellow-400">• Non sauvegardé</span>
+                )}
+                {lastSaved && !hasUnsavedChanges && (
+                  <span className="ml-2 text-green-400">• Sauvegardé</span>
+                )}
               </p>
             </div>
           </div>
@@ -585,23 +679,87 @@ export default function VisioPage() {
           {/* Notes */}
           {showNotes && (
             <div className="flex-1 flex flex-col">
-              <div className="p-4 border-b border-gray-700">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between">
                 <h3 className="text-white font-semibold flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   Notes de consultation
                 </h3>
+                <button
+                  onClick={saveDraft}
+                  disabled={isSavingDraft || !hasUnsavedChanges}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                    ${hasUnsavedChanges
+                      ? 'bg-teal-600 hover:bg-teal-700 text-white'
+                      : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                >
+                  {isSavingDraft ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : hasUnsavedChanges ? (
+                    <Save className="w-4 h-4" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  {isSavingDraft ? 'Sauvegarde...' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}
+                </button>
               </div>
-              <div className="flex-1 p-4">
+              <div className="flex-1 p-4 flex flex-col">
                 <textarea
                   value={consultationNotes}
                   onChange={(e) => setConsultationNotes(e.target.value)}
                   placeholder="Prenez des notes pendant la consultation..."
-                  className="w-full h-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 text-sm resize-none focus:outline-none focus:border-teal-500"
+                  className="w-full flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 text-sm resize-none focus:outline-none focus:border-teal-500"
                 />
+                {lastSaved && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Dernière sauvegarde: {lastSaved.toLocaleTimeString('fr-FR')}
+                  </p>
+                )}
               </div>
             </div>
           )}
         </div>
+      )}
+
+      {/* Modal de confirmation pour quitter */}
+      {showLeaveConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-50" onClick={() => setShowLeaveConfirm(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 rounded-xl p-6 z-50 w-full max-w-md shadow-2xl border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Notes non sauvegardées
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Vous avez des notes non sauvegardées. Que souhaitez-vous faire ?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={confirmLeaveAndSave}
+                disabled={isSavingDraft}
+                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isSavingDraft ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Sauvegarder et quitter
+              </button>
+              <button
+                onClick={confirmLeaveWithoutSave}
+                className="w-full py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-medium transition-colors"
+              >
+                Quitter sans sauvegarder
+              </button>
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

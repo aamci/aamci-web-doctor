@@ -19,6 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
+import { InvoiceTemplate, PrintButton } from '../_components/templates';
 
 interface Invoice {
   id: string;
@@ -676,9 +677,9 @@ export default function BillingPage() {
 
       {/* Invoice Detail Modal */}
       {isDetailModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div>
                 <h2 className="text-lg font-semibold">{selectedInvoice.invoiceNumber}</h2>
                 <p className="text-sm text-gray-500">
@@ -693,94 +694,21 @@ export default function BillingPage() {
               </button>
             </div>
 
-            <div className="p-4 space-y-6">
-              {/* Status */}
-              <div className="flex items-center justify-between">
-                <span
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${STATUS_CONFIG[selectedInvoice.status].color}`}
-                >
-                  {React.createElement(STATUS_CONFIG[selectedInvoice.status].icon, {
-                    className: 'w-4 h-4',
-                  })}
-                  {STATUS_CONFIG[selectedInvoice.status].label}
-                </span>
-                {selectedInvoice.paidAt && (
-                  <span className="text-sm text-gray-500">
-                    Payée le {formatDate(selectedInvoice.paidAt)}
-                    {selectedInvoice.paymentMethod && ` (${selectedInvoice.paymentMethod})`}
-                  </span>
-                )}
-              </div>
-
-              {/* Patient Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-500 mb-1">Patient</p>
-                <p className="font-medium text-gray-900">
-                  {selectedInvoice.patient.firstName} {selectedInvoice.patient.lastName}
-                </p>
-                <p className="text-sm text-gray-600">{selectedInvoice.patient.email}</p>
-              </div>
-
-              {/* Items */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Détails</p>
-                <div className="border rounded-lg divide-y">
-                  {selectedInvoice.items.map((item) => (
-                    <div key={item.id} className="p-3 flex justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{item.description}</p>
-                        <p className="text-sm text-gray-500">
-                          {item.quantity} x {formatCurrency(item.unitPrice)}
-                        </p>
-                      </div>
-                      <p className="font-medium text-gray-900">{formatCurrency(item.total)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Totals */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Sous-total</span>
-                  <span>{formatCurrency(selectedInvoice.subtotal)}</span>
-                </div>
-                {selectedInvoice.taxAmount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">TVA ({selectedInvoice.taxRate}%)</span>
-                    <span>{formatCurrency(selectedInvoice.taxAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>Total</span>
-                  <span>{formatCurrency(selectedInvoice.total)}</span>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {selectedInvoice.notes && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">Notes</p>
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                    {selectedInvoice.notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2 pt-2 border-t">
+            <div className="p-4 space-y-4">
+              {/* Actions rapides */}
+              <div className="flex flex-wrap gap-2 pb-4 border-b">
                 {selectedInvoice.status === 'DRAFT' && (
                   <>
                     <button
                       onClick={() => handleSendInvoice(selectedInvoice.id)}
-                      className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
                     >
                       <Send className="w-4 h-4" />
                       Envoyer
                     </button>
                     <button
                       onClick={() => handleCancelInvoice(selectedInvoice.id)}
-                      className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                      className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium"
                     >
                       Annuler
                     </button>
@@ -793,23 +721,87 @@ export default function BillingPage() {
                         const method = prompt('Méthode de paiement (ex: Espèces, Carte, Virement):');
                         if (method) handleMarkAsPaid(selectedInvoice.id, method);
                       }}
-                      className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Marquer payée
                     </button>
                     <button
                       onClick={() => handleCancelInvoice(selectedInvoice.id)}
-                      className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                      className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium"
                     >
                       Annuler
                     </button>
                   </>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-                  <Printer className="w-4 h-4" />
-                  Imprimer
-                </button>
+
+                {/* Boutons d'impression */}
+                <div className="ml-auto">
+                  <PrintButton documentTitle={selectedInvoice.invoiceNumber}>
+                    <InvoiceTemplate
+                      doctor={{
+                        fullName: user?.fullName || 'Dr. Médecin',
+                        specialty: (user as any)?.doctorProfile?.specialty,
+                        address: (user as any)?.doctorProfile?.address,
+                        city: (user as any)?.doctorProfile?.city,
+                        phone: (user as any)?.phone,
+                        email: user?.email,
+                      }}
+                      patient={{
+                        fullName: `${selectedInvoice.patient.firstName} ${selectedInvoice.patient.lastName}`,
+                        email: selectedInvoice.patient.email,
+                      }}
+                      invoice={{
+                        invoiceNumber: selectedInvoice.invoiceNumber,
+                        issueDate: selectedInvoice.issueDate,
+                        dueDate: selectedInvoice.dueDate || undefined,
+                        items: selectedInvoice.items,
+                        subtotal: selectedInvoice.subtotal,
+                        taxRate: selectedInvoice.taxRate,
+                        taxAmount: selectedInvoice.taxAmount,
+                        total: selectedInvoice.total,
+                        status: selectedInvoice.status,
+                        notes: selectedInvoice.notes || undefined,
+                        paymentMethod: selectedInvoice.paymentMethod || undefined,
+                        paidAt: selectedInvoice.paidAt || undefined,
+                      }}
+                      showWatermark={selectedInvoice.status === 'DRAFT'}
+                    />
+                  </PrintButton>
+                </div>
+              </div>
+
+              {/* Aperçu de la facture */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <InvoiceTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                  }}
+                  patient={{
+                    fullName: `${selectedInvoice.patient.firstName} ${selectedInvoice.patient.lastName}`,
+                    email: selectedInvoice.patient.email,
+                  }}
+                  invoice={{
+                    invoiceNumber: selectedInvoice.invoiceNumber,
+                    issueDate: selectedInvoice.issueDate,
+                    dueDate: selectedInvoice.dueDate || undefined,
+                    items: selectedInvoice.items,
+                    subtotal: selectedInvoice.subtotal,
+                    taxRate: selectedInvoice.taxRate,
+                    taxAmount: selectedInvoice.taxAmount,
+                    total: selectedInvoice.total,
+                    status: selectedInvoice.status,
+                    notes: selectedInvoice.notes || undefined,
+                    paymentMethod: selectedInvoice.paymentMethod || undefined,
+                    paidAt: selectedInvoice.paidAt || undefined,
+                  }}
+                  showWatermark={selectedInvoice.status === 'DRAFT'}
+                />
               </div>
             </div>
           </div>
