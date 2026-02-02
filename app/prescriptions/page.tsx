@@ -59,6 +59,77 @@ interface SavedPrescription {
   }>;
 }
 
+interface MedicationTemplate {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  diagnosis?: string;
+  generalInstructions?: string;
+  medications: Medication[];
+  createdAt: string;
+  isDefault?: boolean;
+}
+
+// Templates prédéfinis
+const PREDEFINED_TEMPLATES: MedicationTemplate[] = [
+  {
+    id: 'template-grippe',
+    name: 'Grippe standard',
+    category: 'Infectieux',
+    description: 'Traitement symptomatique de la grippe',
+    diagnosis: 'Syndrome grippal',
+    generalInstructions: 'Repos recommandé. Hydratation abondante. Consulter si aggravation.',
+    medications: [
+      { name: 'Paracétamol', dosage: '1g', frequency: '3 fois par jour', duration: '5 jours', instructions: 'En cas de fièvre ou douleurs', quantity: 15 },
+      { name: 'Vitamine C', dosage: '1000mg', frequency: '1 fois par jour', duration: '7 jours', instructions: 'Le matin', quantity: 7 },
+    ],
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'template-infection-resp',
+    name: 'Infection respiratoire',
+    category: 'Infectieux',
+    description: 'Traitement antibiotique infection respiratoire haute',
+    diagnosis: 'Infection respiratoire haute',
+    generalInstructions: 'Terminer le traitement même en cas d\'amélioration.',
+    medications: [
+      { name: 'Amoxicilline', dosage: '1g', frequency: '3 fois par jour', duration: '7 jours', instructions: 'Pendant les repas', quantity: 21 },
+      { name: 'Paracétamol', dosage: '1g', frequency: 'Si besoin (max 3/j)', duration: '7 jours', instructions: 'En cas de fièvre', quantity: 21 },
+    ],
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'template-allergie',
+    name: 'Allergie saisonnière',
+    category: 'Allergie',
+    description: 'Traitement antihistaminique',
+    diagnosis: 'Rhinite allergique',
+    medications: [
+      { name: 'Cétirizine', dosage: '10mg', frequency: '1 fois par jour', duration: '15 jours', instructions: 'Le soir', quantity: 15 },
+      { name: 'Collyre antiallergique', dosage: '1 goutte', frequency: '2 fois par jour', duration: '15 jours', instructions: 'Matin et soir dans chaque œil', quantity: 1 },
+    ],
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+  {
+    id: 'template-gastro',
+    name: 'Gastro-entérite',
+    category: 'Digestif',
+    description: 'Traitement symptomatique gastro-entérite',
+    diagnosis: 'Gastro-entérite aiguë',
+    generalInstructions: 'Régime léger. Hydratation orale abondante (SRO si besoin).',
+    medications: [
+      { name: 'Lopéramide', dosage: '2mg', frequency: 'Après chaque selle liquide (max 8/j)', duration: '3 jours', instructions: 'Ne pas dépasser 16mg/jour', quantity: 12 },
+      { name: 'Saccharomyces boulardii', dosage: '200mg', frequency: '2 fois par jour', duration: '7 jours', instructions: 'Probiotique', quantity: 14 },
+    ],
+    createdAt: new Date().toISOString(),
+    isDefault: true,
+  },
+];
+
 export default function PrescriptionsPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -71,6 +142,14 @@ export default function PrescriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Templates state
+  const [templates, setTemplates] = useState<MedicationTemplate[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateCategory, setTemplateCategory] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
 
   // Form state
   const [formData, setFormData] = useState<PrescriptionFormData>({
@@ -94,7 +173,92 @@ export default function PrescriptionsPage() {
   // Load prescriptions from database
   useEffect(() => {
     loadPrescriptions();
+    loadTemplates();
   }, []);
+
+  // Load templates from localStorage
+  const loadTemplates = () => {
+    try {
+      const savedTemplates = localStorage.getItem('medicationTemplates');
+      if (savedTemplates) {
+        const parsed = JSON.parse(savedTemplates);
+        setTemplates([...PREDEFINED_TEMPLATES, ...parsed]);
+      } else {
+        setTemplates(PREDEFINED_TEMPLATES);
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      setTemplates(PREDEFINED_TEMPLATES);
+    }
+  };
+
+  // Save template to localStorage
+  const saveTemplate = () => {
+    if (!templateName.trim()) {
+      alert('Veuillez donner un nom au template');
+      return;
+    }
+
+    const newTemplate: MedicationTemplate = {
+      id: `custom-${Date.now()}`,
+      name: templateName,
+      category: templateCategory || 'Personnalisé',
+      description: templateDescription,
+      diagnosis: formData.diagnosis,
+      generalInstructions: formData.generalInstructions,
+      medications: formData.medications.filter(m => m.name),
+      createdAt: new Date().toISOString(),
+      isDefault: false,
+    };
+
+    try {
+      const savedTemplates = localStorage.getItem('medicationTemplates');
+      const existing = savedTemplates ? JSON.parse(savedTemplates) : [];
+      const updated = [...existing, newTemplate];
+      localStorage.setItem('medicationTemplates', JSON.stringify(updated));
+
+      setTemplates([...PREDEFINED_TEMPLATES, ...updated]);
+      setShowSaveTemplateModal(false);
+      setTemplateName('');
+      setTemplateCategory('');
+      setTemplateDescription('');
+      alert('Template sauvegardé avec succès !');
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Erreur lors de la sauvegarde du template');
+    }
+  };
+
+  // Load template into form
+  const loadTemplate = (template: MedicationTemplate) => {
+    setFormData({
+      ...formData,
+      diagnosis: template.diagnosis || '',
+      generalInstructions: template.generalInstructions || '',
+      medications: template.medications.map(m => ({ ...m })),
+    });
+    setShowTemplateModal(false);
+    alert(`Template "${template.name}" chargé !`);
+  };
+
+  // Delete custom template
+  const deleteTemplate = (templateId: string) => {
+    if (!confirm('Voulez-vous vraiment supprimer ce template ?')) return;
+
+    try {
+      const savedTemplates = localStorage.getItem('medicationTemplates');
+      if (savedTemplates) {
+        const existing = JSON.parse(savedTemplates);
+        const updated = existing.filter((t: MedicationTemplate) => t.id !== templateId);
+        localStorage.setItem('medicationTemplates', JSON.stringify(updated));
+        setTemplates([...PREDEFINED_TEMPLATES, ...updated]);
+      }
+      alert('Template supprimé');
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
 
   const loadPrescriptions = async () => {
     setIsLoading(true);
@@ -416,6 +580,26 @@ export default function PrescriptionsPage() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Templates Quick Actions */}
+              <div className="flex items-center gap-2 pb-4 border-b">
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  className="flex-1 px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <FileText className="w-4 h-4" />
+                  Charger un template
+                </button>
+                {formData.medications.some(m => m.name) && (
+                  <button
+                    onClick={() => setShowSaveTemplateModal(true)}
+                    className="flex-1 px-4 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg hover:bg-teal-100 flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <Save className="w-4 h-4" />
+                    Sauvegarder comme template
+                  </button>
+                )}
+              </div>
+
               {/* Patient Info */}
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
                 <h3 className="text-sm font-semibold text-blue-900 mb-3">
@@ -721,6 +905,160 @@ export default function PrescriptionsPage() {
                   prescription={generatePrescriptionData()}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Selector Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+              <h2 className="text-lg font-semibold">Choisir un template de médicaments</h2>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {/* Template categories */}
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-3">
+                  Chargez rapidement un template prédéfini ou personnalisé avec vos médicaments fréquents.
+                </p>
+              </div>
+
+              {/* Templates grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-teal-500 hover:bg-teal-50 cursor-pointer transition-colors"
+                    onClick={() => loadTemplate(template)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                        <span className="text-xs text-gray-500">{template.category}</span>
+                      </div>
+                      {template.isDefault ? (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                          Prédéfini
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTemplate(template.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {template.description && (
+                      <p className="text-xs text-gray-600 mb-2">{template.description}</p>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      {template.medications.length} médicament{template.medications.length > 1 ? 's' : ''}
+                      {template.diagnosis && <span> · {template.diagnosis}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {templates.filter(t => !t.isDefault).length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  Aucun template personnalisé. Créez-en un en sauvegardant une ordonnance !
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">Sauvegarder comme template</h2>
+              <button
+                onClick={() => setShowSaveTemplateModal(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom du template *
+                </label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Ex: Mon traitement grippe"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Catégorie
+                </label>
+                <input
+                  type="text"
+                  value={templateCategory}
+                  onChange={(e) => setTemplateCategory(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Ex: Infectieux, Allergie, Digestif..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description (optionnel)
+                </label>
+                <textarea
+                  value={templateDescription}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
+                  rows={2}
+                  placeholder="Décrivez ce template..."
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900">
+                  <strong>Contenu:</strong> {formData.medications.filter(m => m.name).length} médicament(s)
+                  {formData.diagnosis && ` · ${formData.diagnosis}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border-t flex gap-3">
+              <button
+                onClick={() => setShowSaveTemplateModal(false)}
+                className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={saveTemplate}
+                className="flex-1 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Sauvegarder
+              </button>
             </div>
           </div>
         </div>

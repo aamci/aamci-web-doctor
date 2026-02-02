@@ -14,14 +14,17 @@ import {
   HelpCircle,
   Bell,
   Search,
+  Command,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import GlobalSearch from '@/components/GlobalSearch';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
 
@@ -70,16 +73,23 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* Barre de recherche centrale (si connecté) */}
+        {/* Barre de recherche globale (si connecté) */}
         {user && (
-          <div className="flex-1 max-w-md mx-8">
+          <div className="flex-1 max-w-lg mx-8">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Rechercher un patient, rendez-vous..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
+              <button
+                onClick={() => setShowGlobalSearch(true)}
+                className="w-full pl-10 pr-20 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-400 text-left hover:bg-slate-600 hover:border-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                Rechercher patients, RDV...
+              </button>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-slate-600 border border-slate-500 rounded text-xs text-slate-300">
+                  <Command className="w-3 h-3 inline" />
+                </kbd>
+                <kbd className="px-1.5 py-0.5 bg-slate-600 border border-slate-500 rounded text-xs text-slate-300">K</kbd>
+              </div>
             </div>
           </div>
         )}
@@ -248,6 +258,12 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Global Search Modal */}
+      <GlobalSearch
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+      />
     </nav>
   );
 }
