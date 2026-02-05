@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, User, Bell, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Settings, User, Bell, CheckCircle, Monitor, Calendar, BellRing, Clock, Stethoscope, ChevronRight, Laptop } from 'lucide-react';
 
 interface DoctorProfile {
   id: string;
@@ -128,6 +129,28 @@ export default function SettingsPage() {
           <p className="text-gray-600 mt-2">
             Gérez les paramètres de votre compte et de vos rendez-vous
           </p>
+        </div>
+
+        {/* Navigation sous-pages */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+          {[
+            { href: '/settings/notifications', label: 'Notifications', icon: <BellRing className="w-5 h-5" />, color: 'text-blue-500' },
+            { href: '/settings/consultation-types', label: 'Types de consultation', icon: <Stethoscope className="w-5 h-5" />, color: 'text-purple-500' },
+            { href: '/settings/agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" />, color: 'text-green-500' },
+            { href: '/settings/absences', label: 'Absences', icon: <Clock className="w-5 h-5" />, color: 'text-orange-500' },
+            { href: '/settings/calendar-sync', label: 'Calendrier externe', icon: <Monitor className="w-5 h-5" />, color: 'text-indigo-500' },
+            { href: '/settings/application', label: 'Application', icon: <Laptop className="w-5 h-5" />, color: 'text-teal-500' },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href as any}
+              className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:shadow-sm transition-all group"
+            >
+              <span className={item.color}>{item.icon}</span>
+              <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 flex-1">{item.label}</span>
+              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-teal-500 transition-colors" />
+            </Link>
+          ))}
         </div>
 
         {/* Message de feedback */}
