@@ -3279,7 +3279,7 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
 
             <div className="p-6 space-y-4">
               {/* Preview with template */}
-              <PrintButton documentTitle={`Ordonnance-${selectedPrescription.patient.fullName}`}>
+              <PrintButton documentTitle={`Ordonnance-${selectedPrescription.patient?.fullName || 'Patient'}`}>
                 <PrescriptionTemplate
                   doctor={{
                     fullName: user?.fullName || 'Dr. Médecin',
@@ -3290,9 +3290,9 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
                     email: user?.email,
                   }}
                   patient={{
-                    fullName: selectedPrescription.patient.fullName,
-                    birthDate: selectedPrescription.patient.birthdate,
-                    gender: selectedPrescription.patient.sex,
+                    fullName: selectedPrescription.patient?.fullName || 'Patient',
+                    birthDate: selectedPrescription.patient?.birthdate,
+                    gender: selectedPrescription.patient?.sex,
                   }}
                   prescription={{
                     prescriptionNumber: selectedPrescription.prescriptionNumber,
@@ -3361,7 +3361,7 @@ function PrescriptionCard({
             )}
           </div>
           <p className="text-sm text-gray-500">
-            Patient: {prescription.patient.fullName}
+            Patient: {prescription.patient?.fullName || 'Patient'}
           </p>
         </div>
         <span className={`px-2 py-1 rounded text-xs ${statusColors[prescription.status]}`}>
@@ -4563,86 +4563,27 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     const fetchConsultations = async () => {
       try {
         const token = localStorage.getItem('token');
-        // Simulation - en production, appeler l'API
-        // const response = await fetch(`${API_BASE_URL}/consultations?patientId=${patient.id}`, {
-        //   headers: { Authorization: `Bearer ${token}` },
-        // });
-        // const data = await response.json();
+        const response = await fetch(`${API_BASE_URL}/consultations/patient/${patient.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        // Données simulées pour démonstration
-        const mockHistory: Consultation[] = [
-          {
-            id: '1',
-            patientId: patient.id,
-            doctorId: 'doc1',
-            startedAt: '2025-01-20T14:30:00Z',
-            endedAt: '2025-01-20T15:00:00Z',
-            motif: 'Douleurs abdominales persistantes',
-            interrogatoire: 'Douleurs épigastriques depuis 3 jours, aggravées après les repas. Pas de nausées ni vomissements. Transit normal.',
-            examen: 'Abdomen souple, sensibilité épigastrique modérée. Pas de défense. Bruits hydro-aériques présents.',
-            notes: 'Prescription de IPP pour 14 jours. Contrôle dans 2 semaines si persistance.',
-            status: 'COMPLETED',
-            doctor: { fullName: 'Dr. Martin Dupont' },
-            prescriptions: [
-              { id: '1', medicament: 'Oméprazole', dosage: '20mg', frequence: '1x/jour', duree: '14 jours', instructions: 'À prendre le matin à jeun' }
-            ],
-            analyses: [],
-            courriers: [],
-            imageries: []
-          },
-          {
-            id: '2',
-            patientId: patient.id,
-            doctorId: 'doc1',
-            startedAt: '2025-01-10T09:00:00Z',
-            endedAt: '2025-01-10T09:30:00Z',
-            motif: 'Renouvellement ordonnance',
-            interrogatoire: 'Patient asymptomatique. Bonne observance du traitement.',
-            examen: 'TA: 135/85 mmHg. FC: 72 bpm. Auscultation cardio-pulmonaire normale.',
-            notes: 'Poursuite du traitement identique. Prochain contrôle dans 3 mois avec bilan sanguin.',
-            status: 'COMPLETED',
-            doctor: { fullName: 'Dr. Martin Dupont' },
-            prescriptions: [
-              { id: '1', medicament: 'Amlodipine', dosage: '5mg', frequence: '1x/jour', duree: '3 mois', instructions: '' },
-              { id: '2', medicament: 'Périndopril', dosage: '5mg', frequence: '1x/jour', duree: '3 mois', instructions: '' }
-            ],
-            analyses: [
-              { id: '1', nom: 'Bilan lipidique complet', type: 'biochimie', urgent: false, instructions: 'À jeun' }
-            ],
-            courriers: [],
-            imageries: []
-          },
-          {
-            id: '3',
-            patientId: patient.id,
-            doctorId: 'doc1',
-            startedAt: '2024-12-15T11:00:00Z',
-            endedAt: '2024-12-15T11:45:00Z',
-            motif: 'Bilan annuel',
-            interrogatoire: 'Pas de plainte particulière. Bon état général.',
-            examen: 'Examen clinique complet sans particularité. Poids stable.',
-            notes: 'Mise à jour vaccinations à prévoir.',
-            status: 'COMPLETED',
-            doctor: { fullName: 'Dr. Martin Dupont' },
-            prescriptions: [],
-            analyses: [
-              { id: '1', nom: 'NFS', type: 'hematologie', urgent: false, instructions: '' },
-              { id: '2', nom: 'Glycémie à jeun', type: 'biochimie', urgent: false, instructions: 'À jeun' },
-              { id: '3', nom: 'Créatinine', type: 'biochimie', urgent: false, instructions: '' }
-            ],
-            courriers: [
-              { id: '1', destinataire: 'Dr. Sophie Martin - Cardiologue', objet: 'Bilan cardiologique annuel', contenu: 'Je vous adresse ce patient pour son bilan cardiologique annuel.', dateCreation: '2024-12-15T11:30:00Z' }
-            ],
-            imageries: [
-              { id: '1', examen: 'Radiographie', zone: 'Thorax', indication: 'Bilan annuel', urgent: false }
-            ]
-          },
-        ];
+        if (response.ok) {
+          const data = await response.json();
+          setConsultationHistory(data);
 
-        setConsultationHistory(mockHistory);
-        setLoading(false);
+          // Vérifier s'il y a une consultation active
+          const active = data.find((c: Consultation) => c.status === 'ACTIVE');
+          if (active) {
+            setActiveConsultation(active);
+            setMotif(active.motif || '');
+            setInterrogatoire(active.interrogatoire || '');
+            setExamen(active.examen || '');
+            setNotes(active.notes || '');
+          }
+        }
       } catch (error) {
         console.error('Error fetching consultations:', error);
+      } finally {
         setLoading(false);
       }
     };
@@ -4650,60 +4591,69 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     fetchConsultations();
   }, [patient.id]);
 
-  const startConsultation = () => {
-    const newConsultation: Consultation = {
-      id: `temp-${Date.now()}`,
-      patientId: patient.id,
-      doctorId: 'current-doctor',
-      startedAt: new Date().toISOString(),
-      endedAt: null,
-      motif: '',
-      interrogatoire: '',
-      examen: '',
-      notes: '',
-      status: 'ACTIVE',
-      prescriptions: [],
-      analyses: [],
-      courriers: [],
-      imageries: [],
-    };
-    setActiveConsultation(newConsultation);
-    setMotif('');
-    setInterrogatoire('');
-    setExamen('');
-    setNotes('');
-    setPrescriptions([]);
-    setAnalyses([]);
-    setCourriers([]);
-    setImageries([]);
-    setShowHistory(false);
+  const startConsultation = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ patientId: patient.id }),
+      });
+
+      if (response.ok) {
+        const newConsultation = await response.json();
+        setActiveConsultation(newConsultation);
+        setMotif('');
+        setInterrogatoire('');
+        setExamen('');
+        setNotes('');
+        setPrescriptions([]);
+        setAnalyses([]);
+        setCourriers([]);
+        setImageries([]);
+        setShowHistory(false);
+      } else {
+        alert('Erreur lors du démarrage de la consultation');
+      }
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      alert('Erreur lors du démarrage de la consultation');
+    }
   };
 
   const saveConsultation = async () => {
     if (!activeConsultation) return;
     setSaving(true);
     try {
-      // Simulation sauvegarde - en production, appeler l'API
-      // await fetch(`${API_BASE_URL}/consultations/${activeConsultation.id}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      //   body: JSON.stringify({ motif, interrogatoire, examen, notes, prescriptions, analyses, courriers, imageries }),
-      // });
-
-      setActiveConsultation({
-        ...activeConsultation,
-        motif,
-        interrogatoire,
-        examen,
-        notes,
-        prescriptions,
-        analyses,
-        courriers,
-        imageries,
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations/${activeConsultation.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ motif, interrogatoire, examen, notes }),
       });
-      // Afficher notification succès
+
+      if (response.ok) {
+        const updated = await response.json();
+        setActiveConsultation({
+          ...activeConsultation,
+          ...updated,
+          prescriptions,
+          analyses,
+          courriers,
+          imageries,
+        });
+      } else {
+        alert('Erreur lors de la sauvegarde');
+      }
     } catch (error) {
       console.error('Error saving consultation:', error);
+      alert('Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
@@ -4713,33 +4663,44 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     if (!activeConsultation) return;
     setSaving(true);
     try {
-      const completedConsultation: Consultation = {
-        ...activeConsultation,
-        motif,
-        interrogatoire,
-        examen,
-        notes,
-        prescriptions,
-        analyses,
-        courriers,
-        imageries,
-        endedAt: new Date().toISOString(),
-        status: 'COMPLETED',
-        doctor: { fullName: 'Dr. Martin Dupont' }
-      };
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations/${activeConsultation.id}/end`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ motif, interrogatoire, examen, notes }),
+      });
 
-      setConsultationHistory([completedConsultation, ...consultationHistory]);
-      setActiveConsultation(null);
-      setMotif('');
-      setInterrogatoire('');
-      setExamen('');
-      setNotes('');
-      setPrescriptions([]);
-      setAnalyses([]);
-      setCourriers([]);
-      setImageries([]);
+      if (response.ok) {
+        const completed = await response.json();
+        const completedConsultation: Consultation = {
+          ...activeConsultation,
+          ...completed,
+          prescriptions,
+          analyses,
+          courriers,
+          imageries,
+          status: 'COMPLETED',
+        };
+
+        setConsultationHistory([completedConsultation, ...consultationHistory]);
+        setActiveConsultation(null);
+        setMotif('');
+        setInterrogatoire('');
+        setExamen('');
+        setNotes('');
+        setPrescriptions([]);
+        setAnalyses([]);
+        setCourriers([]);
+        setImageries([]);
+      } else {
+        alert('Erreur lors de la clôture de la consultation');
+      }
     } catch (error) {
       console.error('Error ending consultation:', error);
+      alert('Erreur lors de la clôture de la consultation');
     } finally {
       setSaving(false);
     }
