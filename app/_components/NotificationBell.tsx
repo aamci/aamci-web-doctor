@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Loader2,
   ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Notification {
@@ -48,7 +49,7 @@ interface Notification {
   };
 }
 
-type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts';
+type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts' | 'messages';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -205,6 +206,8 @@ export default function NotificationBell() {
         return <Pill className="w-4 h-4 text-red-500" />;
       case 'ALERT':
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      case 'NEW_MESSAGE':
+        return <MessageSquare className="w-4 h-4 text-teal-500" />;
       case 'INFO':
         return <Info className="w-4 h-4 text-blue-500" />;
       default:
@@ -224,6 +227,8 @@ export default function NotificationBell() {
         return 'bg-red-50 hover:bg-red-100';
       case 'APPOINTMENT_PENDING':
         return 'bg-amber-50 hover:bg-amber-100';
+      case 'NEW_MESSAGE':
+        return 'bg-teal-50 hover:bg-teal-100';
       default:
         return 'bg-blue-50 hover:bg-blue-100';
     }
@@ -254,6 +259,7 @@ export default function NotificationBell() {
     if (filter === 'unread') return !n.read;
     if (filter === 'appointments') return n.type.includes('APPOINTMENT');
     if (filter === 'alerts') return n.type === 'ALERT' || n.type.includes('CANCELLED');
+    if (filter === 'messages') return n.type === 'NEW_MESSAGE';
     return true;
   });
 
@@ -262,7 +268,10 @@ export default function NotificationBell() {
       markAsRead(notification.id);
     }
 
-    if (notification.relatedAppointmentId) {
+    if (notification.type === 'NEW_MESSAGE') {
+      router.push('/messages');
+      setIsOpen(false);
+    } else if (notification.relatedAppointmentId) {
       router.push('/reservations');
       setIsOpen(false);
     }
@@ -329,6 +338,7 @@ export default function NotificationBell() {
                 { value: 'unread', label: 'Non lues' },
                 { value: 'appointments', label: 'RDV' },
                 { value: 'alerts', label: 'Alertes' },
+                { value: 'messages', label: 'Messages' },
               ].map((f) => (
                 <button
                   key={f.value}

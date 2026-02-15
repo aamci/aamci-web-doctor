@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar,
   Clock,
@@ -12,7 +13,8 @@ import {
   Receipt,
   Settings,
   User,
-  Activity
+  Activity,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -23,9 +25,32 @@ interface NavItem {
   badge?: number;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+
 export default function DoctorSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  const fetchUnreadMessages = useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/messages/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadMessages(data.count || 0);
+      }
+    } catch { /* silent */ }
+  }, [user]);
+
+  useEffect(() => {
+    fetchUnreadMessages();
+    const interval = setInterval(fetchUnreadMessages, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadMessages]);
 
   // Ne pas afficher la sidebar si l'utilisateur n'est pas connecté
   if (!user) {
@@ -73,6 +98,12 @@ export default function DoctorSidebar() {
       label: 'Activité',
       href: '/activity',
       icon: <Activity className="w-6 h-6" />,
+    },
+    {
+      label: 'Messages',
+      href: '/messages',
+      icon: <MessageSquare className="w-6 h-6" />,
+      badge: unreadMessages || undefined,
     },
   ];
 
