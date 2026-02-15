@@ -55,6 +55,16 @@ interface SyncSettings {
   conflictResolution: 'local' | 'remote' | 'manual';
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export default function CalendarSyncPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -72,8 +82,7 @@ export default function CalendarSyncPage() {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // iCal URL for sharing
-  const icalUrl = 'https://api.healthplatform.com/calendar/ical/abc123xyz';
+  const [icalUrl, setIcalUrl] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -86,80 +95,78 @@ export default function CalendarSyncPage() {
 
   const loadCalendarData = async () => {
     setLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const [connectionsRes, settingsRes, icalRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/calendar-sync`, { headers }),
+        fetch(`${API_BASE_URL}/calendar-sync/settings`, { headers }),
+        fetch(`${API_BASE_URL}/calendar-sync/ical-url`, { headers }),
+      ]);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    setProviders([
-      {
-        id: 'google',
-        name: 'Google Calendar',
-        icon: '📅',
-        color: '#4285F4',
-        connected: true,
-        email: 'dr.dupont@gmail.com',
-        lastSyncAt: '2026-02-05T10:30:00',
-        calendars: [
-          { id: 'primary', name: 'Calendrier principal', color: '#4285F4', primary: true, syncEnabled: true, direction: 'both' },
-          { id: 'work', name: 'Travail', color: '#0B8043', primary: false, syncEnabled: true, direction: 'export' },
-          { id: 'personal', name: 'Personnel', color: '#D50000', primary: false, syncEnabled: false, direction: 'import' },
-        ],
-      },
-      {
-        id: 'outlook',
-        name: 'Microsoft Outlook',
-        icon: '📧',
-        color: '#0078D4',
-        connected: false,
-      },
-      {
-        id: 'apple',
-        name: 'Apple Calendar (iCal)',
-        icon: '🍎',
-        color: '#000000',
-        connected: false,
-      },
-    ]);
-
-    setLoading(false);
+      if (connectionsRes.ok) {
+        const data = await connectionsRes.json();
+        setProviders(Array.isArray(data) ? data : []);
+      }
+      if (settingsRes.ok) {
+        const data = await settingsRes.json();
+        setSettings(prev => ({ ...prev, ...data }));
+      }
+      if (icalRes.ok) {
+        const data = await icalRes.json();
+        setIcalUrl(data.url || data.icalUrl || '');
+      }
+    } catch (error) {
+      console.error('Failed to load calendar data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleConnect = async (providerId: string) => {
     setConnecting(providerId);
-
-    // Simulate OAuth flow
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    setProviders(prev => prev.map(p => {
-      if (p.id === providerId) {
-        return {
-          ...p,
-          connected: true,
-          email: providerId === 'outlook' ? 'dr.dupont@outlook.com' : 'dr.dupont@icloud.com',
-          lastSyncAt: new Date().toISOString(),
-          calendars: [
-            { id: 'default', name: 'Calendrier', color: p.color, primary: true, syncEnabled: true, direction: 'both' as const },
-          ],
-        };
+    try {
+      const res = await fetch(`${API_BASE_URL}/calendar-sync/connect`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ provider: providerId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProviders(prev => prev.map(p => {
+          if (p.id === providerId) {
+            return {
+              ...p,
+              connected: true,
+              email: data.email || p.email,
+              lastSyncAt: data.lastSyncAt || new Date().toISOString(),
+              calendars: data.calendars || [
+                { id: 'default', name: 'Calendrier', color: p.color, primary: true, syncEnabled: true, direction: 'both' as const },
+              ],
+            };
+          }
+          return p;
+        }));
       }
-      return p;
-    }));
-
-    setConnecting(null);
+    } catch (error) {
+      console.error('Failed to connect provider:', error);
+    } finally {
+      setConnecting(null);
+    }
   };
 
   const handleDisconnect = async (providerId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir déconnecter ce calendrier ?')) return;
-
+    try {
+      await fetch(`${API_BASE_URL}/calendar-sync/${providerId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+    } catch (error) {
+      console.error('Failed to disconnect provider:', error);
+    }
     setProviders(prev => prev.map(p => {
       if (p.id === providerId) {
-        return {
-          ...p,
-          connected: false,
-          email: undefined,
-          lastSyncAt: undefined,
-          calendars: undefined,
-        };
+        return { ...p, connected: false, email: undefined, lastSyncAt: undefined, calendars: undefined };
       }
       return p;
     }));
@@ -167,21 +174,29 @@ export default function CalendarSyncPage() {
 
   const handleSync = async (providerId?: string) => {
     setSyncing(true);
-
-    // Simulate sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    setProviders(prev => prev.map(p => {
-      if (!providerId || p.id === providerId) {
-        return {
-          ...p,
-          lastSyncAt: new Date().toISOString(),
-        };
-      }
-      return p;
-    }));
-
-    setSyncing(false);
+    try {
+      const providersToSync = providerId
+        ? providers.filter(p => p.id === providerId && p.connected)
+        : providers.filter(p => p.connected);
+      await Promise.all(
+        providersToSync.map(p =>
+          fetch(`${API_BASE_URL}/calendar-sync/${p.id}/sync`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+          })
+        )
+      );
+      setProviders(prev => prev.map(p => {
+        if (!providerId || p.id === providerId) {
+          return { ...p, lastSyncAt: new Date().toISOString() };
+        }
+        return p;
+      }));
+    } catch (error) {
+      console.error('Failed to sync:', error);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleCalendarToggle = (providerId: string, calendarId: string) => {

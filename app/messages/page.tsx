@@ -556,7 +556,11 @@ export default function MessagesPage() {
                                   <p className="text-sm font-medium truncate">{message.fileName}</p>
                                   <p className={`text-xs ${isOwn ? 'text-teal-200' : 'text-gray-500'}`}>Document PDF</p>
                                 </div>
-                                <button className={`p-1.5 rounded-lg ${isOwn ? 'hover:bg-teal-500' : 'hover:bg-gray-100'}`}>
+                                <button
+                                  onClick={() => message.fileUrl ? window.open(message.fileUrl, '_blank') : alert('Fichier non disponible')}
+                                  className={`p-1.5 rounded-lg ${isOwn ? 'hover:bg-teal-500' : 'hover:bg-gray-100'}`}
+                                  title="Télécharger"
+                                >
                                   <Download className="w-4 h-4" />
                                 </button>
                               </div>
@@ -595,7 +599,11 @@ export default function MessagesPage() {
             {/* Input */}
             <div className="bg-white border-t border-gray-200 p-3">
               <div className="flex items-end gap-2">
-                <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                <button
+                  onClick={() => alert('La fonctionnalité de pièces jointes sera bientôt disponible.')}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Joindre un fichier"
+                >
                   <Paperclip className="w-5 h-5" />
                 </button>
 

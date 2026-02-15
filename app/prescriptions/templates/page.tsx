@@ -83,6 +83,16 @@ const DURATION_OPTIONS = [
   'Traitement continu',
 ];
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export default function PrescriptionTemplatesPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -123,73 +133,34 @@ export default function PrescriptionTemplatesPage() {
 
   const loadTemplates = async () => {
     setLoading(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    setTemplates([
-      {
-        id: '1',
-        name: 'Infection respiratoire standard',
-        description: 'Traitement antibiotique classique pour infection ORL',
-        category: 'general',
-        medications: [
-          { id: '1', name: 'Amoxicilline', dosage: '1g', frequency: '3 fois par jour', duration: '7 jours', instructions: 'Pendant les repas' },
-          { id: '2', name: 'Paracétamol', dosage: '1000mg', frequency: 'Si besoin', duration: '7 jours', instructions: 'Maximum 4g/jour' },
-        ],
-        notes: 'Contrôle à J+7 si pas d\'amélioration',
-        isFavorite: true,
-        usageCount: 45,
-        createdAt: '2025-06-15',
-        updatedAt: '2026-01-20',
-      },
-      {
-        id: '2',
-        name: 'Hypertension - Initiation',
-        description: 'Premier traitement antihypertenseur',
-        category: 'cardio',
-        medications: [
-          { id: '1', name: 'Ramipril', dosage: '5mg', frequency: '1 fois par jour', duration: '3 mois', instructions: 'Le matin' },
-        ],
-        notes: 'Contrôle tensionnel à 1 mois. Surveillance kaliémie et créatinine à J15.',
-        isFavorite: true,
-        usageCount: 32,
-        createdAt: '2025-08-10',
-        updatedAt: '2026-01-15',
-      },
-      {
-        id: '3',
-        name: 'Reflux gastro-oesophagien',
-        description: 'Traitement RGO standard',
-        category: 'gastro',
-        medications: [
-          { id: '1', name: 'Oméprazole', dosage: '20mg', frequency: '1 fois par jour', duration: '1 mois', instructions: 'Avant le petit-déjeuner' },
-          { id: '2', name: 'Gaviscon', dosage: '1 sachet', frequency: 'Si besoin', duration: '1 mois', instructions: 'Après les repas' },
-        ],
-        notes: 'RHD: éviter les repas copieux le soir, surélever la tête du lit',
-        isFavorite: false,
-        usageCount: 28,
-        createdAt: '2025-09-01',
-        updatedAt: '2025-12-10',
-      },
-      {
-        id: '4',
-        name: 'Douleur neuropathique',
-        description: 'Traitement de fond des douleurs neuropathiques',
-        category: 'neuro',
-        medications: [
-          { id: '1', name: 'Pregabaline', dosage: '75mg', frequency: '2 fois par jour', duration: '3 mois', instructions: 'Augmentation progressive possible' },
-          { id: '2', name: 'Tramadol LP', dosage: '100mg', frequency: 'Matin et soir', duration: '1 mois', instructions: 'En cas de crise douloureuse' },
-        ],
-        notes: 'Réévaluation à 1 mois. Attention somnolence.',
-        isFavorite: false,
-        usageCount: 15,
-        createdAt: '2025-10-20',
-        updatedAt: '2026-01-05',
-      },
-    ]);
-
-    setLoading(false);
+    try {
+      const res = await fetch(`${API_BASE_URL}/prescription-templates`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = (Array.isArray(data) ? data : []).map((t: any) => ({
+          id: t.id,
+          name: t.name || '',
+          description: t.description || '',
+          category: t.category || 'general',
+          medications: Array.isArray(t.medications) ? t.medications : [],
+          notes: t.notes || '',
+          isFavorite: t.isFavorite ?? false,
+          usageCount: t.usageCount ?? 0,
+          createdAt: t.createdAt || new Date().toISOString(),
+          updatedAt: t.updatedAt || new Date().toISOString(),
+        }));
+        setTemplates(mapped);
+      } else {
+        setTemplates([]);
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      setTemplates([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddMedication = () => {
@@ -225,43 +196,50 @@ export default function PrescriptionTemplatesPage() {
     if (!formData.name || formData.medications.length === 0) return;
 
     setSaving(true);
+    try {
+      const url = editingTemplate
+        ? `${API_BASE_URL}/prescription-templates/${editingTemplate.id}`
+        : `${API_BASE_URL}/prescription-templates`;
+      const method = editingTemplate ? 'PUT' : 'POST';
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
+      const res = await fetch(url, {
+        method,
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData),
+      });
 
-    if (editingTemplate) {
-      setTemplates(prev => prev.map(t => {
-        if (t.id === editingTemplate.id) {
-          return {
-            ...t,
+      if (res.ok) {
+        const saved = await res.json();
+        if (editingTemplate) {
+          setTemplates(prev => prev.map(t =>
+            t.id === editingTemplate.id
+              ? { ...t, ...formData, ...saved, updatedAt: saved.updatedAt || new Date().toISOString() }
+              : t
+          ));
+        } else {
+          const newTemplate: PrescriptionTemplate = {
+            id: saved.id || Date.now().toString(),
             ...formData,
-            updatedAt: new Date().toISOString(),
+            isFavorite: saved.isFavorite ?? false,
+            usageCount: saved.usageCount ?? 0,
+            createdAt: saved.createdAt || new Date().toISOString(),
+            updatedAt: saved.updatedAt || new Date().toISOString(),
           };
+          setTemplates(prev => [newTemplate, ...prev]);
         }
-        return t;
-      }));
-    } else {
-      const newTemplate: PrescriptionTemplate = {
-        id: Date.now().toString(),
-        ...formData,
-        isFavorite: false,
-        usageCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setTemplates(prev => [newTemplate, ...prev]);
+        setShowModal(false);
+        setEditingTemplate(null);
+        setFormData({ name: '', description: '', category: 'general', medications: [], notes: '' });
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.message || 'Erreur lors de l\'enregistrement');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Erreur réseau. Veuillez réessayer.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    setShowModal(false);
-    setEditingTemplate(null);
-    setFormData({
-      name: '',
-      description: '',
-      category: 'general',
-      medications: [],
-      notes: '',
-    });
   };
 
   const handleEditTemplate = (template: PrescriptionTemplate) => {
@@ -277,33 +255,72 @@ export default function PrescriptionTemplatesPage() {
     setShowMenuId(null);
   };
 
-  const handleDuplicateTemplate = (template: PrescriptionTemplate) => {
-    const duplicate: PrescriptionTemplate = {
-      ...template,
-      id: Date.now().toString(),
-      name: `${template.name} (copie)`,
-      usageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setTemplates(prev => [duplicate, ...prev]);
+  const handleDuplicateTemplate = async (template: PrescriptionTemplate) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/prescription-templates`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: `${template.name} (copie)`,
+          description: template.description,
+          category: template.category,
+          medications: template.medications,
+          notes: template.notes,
+        }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        const duplicate: PrescriptionTemplate = {
+          ...template,
+          id: saved.id || Date.now().toString(),
+          name: saved.name || `${template.name} (copie)`,
+          usageCount: 0,
+          createdAt: saved.createdAt || new Date().toISOString(),
+          updatedAt: saved.updatedAt || new Date().toISOString(),
+        };
+        setTemplates(prev => [duplicate, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error duplicating template:', error);
+    }
     setShowMenuId(null);
   };
 
   const handleDeleteTemplate = async (id: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce modèle ?')) return;
 
+    try {
+      await fetch(`${API_BASE_URL}/prescription-templates/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+    } catch (error) {
+      console.error('Error deleting template:', error);
+    }
     setTemplates(prev => prev.filter(t => t.id !== id));
     setShowMenuId(null);
   };
 
-  const handleToggleFavorite = (id: string) => {
-    setTemplates(prev => prev.map(t => {
-      if (t.id === id) {
-        return { ...t, isFavorite: !t.isFavorite };
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/prescription-templates/${id}/toggle-favorite`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(prev => prev.map(t =>
+          t.id === id ? { ...t, isFavorite: data.isFavorite ?? !t.isFavorite } : t
+        ));
+        return;
       }
-      return t;
-    }));
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+    // Optimistic fallback
+    setTemplates(prev => prev.map(t =>
+      t.id === id ? { ...t, isFavorite: !t.isFavorite } : t
+    ));
   };
 
   const getCategoryInfo = (categoryId: string) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -443,177 +443,10 @@ export default function PatientRecordPage() {
   });
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
 
-  // Mock data pour les nouvelles sections
-  const [certificates] = useState<MedicalCertificate[]>([
-    {
-      id: '1',
-      type: 'ARRET_TRAVAIL',
-      title: 'Arrêt de travail',
-      description: 'Arrêt maladie pour syndrome grippal',
-      startDate: '2026-01-15',
-      endDate: '2026-01-20',
-      issuedAt: '2026-01-15',
-      recipient: 'Employeur',
-      doctor: { id: 'd1', fullName: 'Dr. Martin Dupont' }
-    },
-    {
-      id: '2',
-      type: 'SPORT',
-      title: 'Certificat de non contre-indication sportive',
-      description: 'Apte à la pratique du football en compétition',
-      startDate: '2026-01-10',
-      endDate: '2027-01-10',
-      issuedAt: '2026-01-10',
-      recipient: 'Club sportif',
-      doctor: { id: 'd1', fullName: 'Dr. Martin Dupont' }
-    },
-    {
-      id: '3',
-      type: 'APTITUDE',
-      title: 'Certificat d\'aptitude au travail',
-      description: 'Apte au poste de travail sans restriction',
-      startDate: '2025-12-01',
-      endDate: null,
-      issuedAt: '2025-12-01',
-      recipient: 'Médecine du travail',
-      doctor: { id: 'd1', fullName: 'Dr. Martin Dupont' }
-    }
-  ]);
-
-  const [correspondences] = useState<MedicalCorrespondence[]>([
-    {
-      id: '1',
-      type: 'INCOMING',
-      category: 'COMPTE_RENDU',
-      subject: 'Compte-rendu de consultation cardiologique',
-      content: 'Suite à votre demande, j\'ai examiné M. Dupont le 10 janvier 2026. L\'examen cardiovasculaire est rassurant. ECG normal, échographie cardiaque sans anomalie.',
-      senderName: 'Dr. Sophie Cardio',
-      senderSpecialty: 'Cardiologie',
-      recipientName: 'Dr. Martin Dupont',
-      recipientSpecialty: 'Médecine générale',
-      date: '2026-01-12',
-      isRead: true,
-      attachments: ['ecg_2026-01-10.pdf']
-    },
-    {
-      id: '2',
-      type: 'OUTGOING',
-      category: 'DEMANDE_AVIS',
-      subject: 'Demande d\'avis dermatologique',
-      content: 'Cher confrère, je vous adresse M. Dupont pour un avis concernant une lésion cutanée suspecte au niveau du dos.',
-      senderName: 'Dr. Martin Dupont',
-      senderSpecialty: 'Médecine générale',
-      recipientName: 'Dr. Pierre Dermato',
-      recipientSpecialty: 'Dermatologie',
-      date: '2026-01-08',
-      isRead: true,
-      attachments: []
-    },
-    {
-      id: '3',
-      type: 'INCOMING',
-      category: 'REPONSE_AVIS',
-      subject: 'Réponse - Avis dermatologique',
-      content: 'J\'ai examiné votre patient. La lésion est bénigne (naevus dysplasique). Surveillance annuelle recommandée.',
-      senderName: 'Dr. Pierre Dermato',
-      senderSpecialty: 'Dermatologie',
-      recipientName: 'Dr. Martin Dupont',
-      recipientSpecialty: 'Médecine générale',
-      date: '2026-01-18',
-      isRead: false,
-      attachments: ['photos_dermato.pdf']
-    }
-  ]);
-
-  const [messages] = useState<PatientMessage[]>([
-    {
-      id: '1',
-      type: 'SMS',
-      direction: 'OUTGOING',
-      subject: null,
-      content: 'Rappel: Votre RDV avec Dr. Dupont est prévu demain à 10h00. Pensez à apporter vos résultats d\'analyses.',
-      sentAt: '2026-01-14T09:00:00',
-      readAt: '2026-01-14T09:15:00',
-      status: 'READ'
-    },
-    {
-      id: '2',
-      type: 'EMAIL',
-      direction: 'OUTGOING',
-      subject: 'Résultats d\'analyses disponibles',
-      content: 'Bonjour, vos résultats d\'analyses sont disponibles. Je vous invite à prendre RDV pour en discuter.',
-      sentAt: '2026-01-10T14:30:00',
-      readAt: '2026-01-10T18:45:00',
-      status: 'READ'
-    },
-    {
-      id: '3',
-      type: 'APP',
-      direction: 'INCOMING',
-      subject: 'Question sur ordonnance',
-      content: 'Bonjour Docteur, j\'ai une question concernant mon traitement. Dois-je prendre le médicament avant ou après le repas ?',
-      sentAt: '2026-01-16T11:20:00',
-      readAt: null,
-      status: 'DELIVERED'
-    },
-    {
-      id: '4',
-      type: 'APP',
-      direction: 'OUTGOING',
-      subject: 'RE: Question sur ordonnance',
-      content: 'Bonjour, vous pouvez prendre le médicament pendant le repas pour une meilleure tolérance digestive.',
-      sentAt: '2026-01-16T14:00:00',
-      readAt: '2026-01-16T14:30:00',
-      status: 'READ'
-    }
-  ]);
-
-  const [protocols] = useState<CareProtocol[]>([
-    {
-      id: '1',
-      type: 'ALD',
-      title: 'ALD 30 - Diabète de type 2',
-      description: 'Protocole de soins pour affection longue durée',
-      pathology: 'Diabète de type 2',
-      startDate: '2024-03-15',
-      endDate: '2027-03-15',
-      renewalDate: '2027-02-15',
-      status: 'ACTIVE',
-      objectives: [
-        'HbA1c < 7%',
-        'Pression artérielle < 140/90 mmHg',
-        'LDL cholestérol < 1 g/L'
-      ],
-      interventions: [
-        { name: 'Consultation médecin traitant', frequency: 'Trimestrielle', responsible: 'Dr. Martin Dupont' },
-        { name: 'Bilan biologique (HbA1c)', frequency: 'Trimestrielle', responsible: 'Laboratoire' },
-        { name: 'Consultation ophtalmologique', frequency: 'Annuelle', responsible: 'Ophtalmologue' },
-        { name: 'ECG', frequency: 'Annuelle', responsible: 'Cardiologue' }
-      ],
-      doctor: { id: 'd1', fullName: 'Dr. Martin Dupont' }
-    },
-    {
-      id: '2',
-      type: 'PARCOURS_SOINS',
-      title: 'Parcours post-opératoire genou',
-      description: 'Rééducation suite à arthroscopie du genou droit',
-      pathology: 'Lésion méniscale',
-      startDate: '2025-11-01',
-      endDate: '2026-02-01',
-      renewalDate: null,
-      status: 'ACTIVE',
-      objectives: [
-        'Récupération mobilité complète',
-        'Reprise activité professionnelle',
-        'Reprise sport progressive'
-      ],
-      interventions: [
-        { name: 'Séances de kinésithérapie', frequency: '3x/semaine', responsible: 'Kinésithérapeute' },
-        { name: 'Consultation de suivi', frequency: 'Mensuelle', responsible: 'Chirurgien orthopédiste' }
-      ],
-      doctor: { id: 'd2', fullName: 'Dr. Jean Ortho' }
-    }
-  ]);
+  const [certificates, setCertificates] = useState<MedicalCertificate[]>([]);
+  const [correspondences, setCorrespondences] = useState<MedicalCorrespondence[]>([]);
+  const [messages] = useState<PatientMessage[]>([]);
+  const [protocols, setProtocols] = useState<CareProtocol[]>([]);
 
   // Fetch data
   useEffect(() => {
@@ -1110,6 +943,7 @@ export default function PatientRecordPage() {
               latestBiometrics={latestBiometrics}
               observations={observations}
               documents={documents}
+              onStartConsultation={() => setActiveSection('consultations')}
             />
           )}
 
@@ -1155,19 +989,20 @@ export default function PatientRecordPage() {
               patientId={patientId}
               onFetchHistory={fetchBiometricsHistory}
               biometricsHistory={biometricsHistory}
+              onRefresh={fetchPatientRecord}
             />
           )}
 
           {activeSection === 'vaccination' && (
-            <VaccinationSection vaccinations={vaccinations} />
+            <VaccinationSection vaccinations={vaccinations} patientId={patientId} onRefresh={fetchPatientRecord} />
           )}
 
           {activeSection === 'certificats' && (
-            <CertificatsSection certificates={certificates} />
+            <CertificatsSection certificates={certificates} onAdd={(cert: MedicalCertificate) => setCertificates(prev => [cert, ...prev])} />
           )}
 
           {activeSection === 'correspondances' && (
-            <CorrespondancesSection correspondences={correspondences} />
+            <CorrespondancesSection correspondences={correspondences} onAdd={(corr: MedicalCorrespondence) => setCorrespondences(prev => [corr, ...prev])} />
           )}
 
           {activeSection === 'messagerie' && (
@@ -1175,11 +1010,11 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'protocoles' && (
-            <ProtocolesSection protocols={protocols} />
+            <ProtocolesSection protocols={protocols} onAdd={(proto: CareProtocol) => setProtocols(prev => [proto, ...prev])} />
           )}
 
           {activeSection === 'factures' && (
-            <FacturesSection invoices={invoices} />
+            <FacturesSection invoices={invoices} patientId={patientId} onRefresh={fetchInvoices} />
           )}
 
           {activeSection === 'consultations' && (
@@ -1193,17 +1028,13 @@ export default function PatientRecordPage() {
         <div className="w-64 bg-white border-l border-gray-200 p-4 hidden xl:block">
           <h3 className="font-semibold text-gray-900 mb-4">ACTIONS</h3>
           <div className="space-y-2">
-            <ActionButton icon={Calendar} label="Prendre un rendez-vous" />
-            <ActionButton icon={Calendar} label="Planifier plusieurs rendez-vous" />
-            <ActionButton icon={Plus} label="Ajouter une tâche" />
-            <ActionButton icon={ClipboardList} label="Voir les tâches" />
-            <ActionButton icon={MessageSquare} label="Discuter d'un patient" />
-            <ActionButton icon={X} label="Bloquer la prise de rendez-vous" variant="secondary" />
-            <ActionButton icon={Calendar} label="Prendre un rendez-vous pour maintenant" />
-            <ActionButton icon={Users} label="Adresser chez un confrère" />
-            <ActionButton icon={Printer} label="Imprimer les rendez-vous" />
-            <ActionButton icon={Folder} label="Archiver le dossier" />
-            <ActionButton icon={AlertTriangle} label="Supprimer le patient" variant="danger" />
+            <ActionButton icon={Calendar} label="Prendre un rendez-vous" onClick={() => router.push('/reservations')} />
+            <ActionButton icon={Stethoscope} label="Nouvelle consultation" onClick={() => setActiveSection('consultations')} />
+            <ActionButton icon={MessageSquare} label="Envoyer un message" onClick={() => setActiveSection('messagerie')} />
+            <ActionButton icon={Pill} label="Créer une ordonnance" onClick={() => setShowQuickPrescriptionModal(true)} />
+            <ActionButton icon={Receipt} label="Créer une facture" onClick={() => setShowQuickInvoiceModal(true)} />
+            <ActionButton icon={Printer} label="Imprimer le dossier" onClick={() => window.print()} />
+            <ActionButton icon={Folder} label="Archiver le dossier" onClick={() => alert('Fonctionnalité à venir')} />
           </div>
         </div>
       )}
@@ -1408,7 +1239,7 @@ export default function PatientRecordPage() {
 }
 
 // Action Button Component
-function ActionButton({ icon: Icon, label, variant = 'default' }: { icon: any; label: string; variant?: 'default' | 'secondary' | 'danger' }) {
+function ActionButton({ icon: Icon, label, variant = 'default', onClick }: { icon: any; label: string; variant?: 'default' | 'secondary' | 'danger'; onClick?: () => void }) {
   const variantClasses = {
     default: 'text-gray-700 hover:bg-gray-50',
     secondary: 'text-gray-500 hover:bg-gray-50',
@@ -1416,7 +1247,7 @@ function ActionButton({ icon: Icon, label, variant = 'default' }: { icon: any; l
   };
 
   return (
-    <button className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${variantClasses[variant]}`}>
+    <button onClick={onClick} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${variantClasses[variant]}`}>
       <Icon className="w-4 h-4" />
       <span>{label}</span>
     </button>
@@ -1424,7 +1255,7 @@ function ActionButton({ icon: Icon, label, variant = 'default' }: { icon: any; l
 }
 
 // Section Components
-function HomeSection({ patient, profile, age, appointments, treatments, treatmentsStats, allergies, latestBiometrics, observations, documents }: any) {
+function HomeSection({ patient, profile, age, appointments, treatments, treatmentsStats, allergies, latestBiometrics, observations, documents, onStartConsultation }: any) {
   const upcomingAppointments = appointments.filter((a: Appointment) =>
     a.status !== 'CANCELLED' && new Date(a.slot.start) > new Date()
   ).slice(0, 3);
@@ -1438,7 +1269,7 @@ function HomeSection({ patient, profile, age, appointments, treatments, treatmen
           <p className="text-sm text-gray-500">{formatDate(patient.birthdate || profile?.birthDate)} ({age} ans)</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+          <button onClick={onStartConsultation} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Nouvelle consultation
           </button>
@@ -2302,11 +2133,34 @@ function AntecedentsSection({ medicalHistory, medicalHistoryStats, patientId, on
     setShowAddModal(true);
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleAddItem = async () => {
-    // TODO: Implement API call to add new medical history
-    console.log('Adding:', { category: addModalCategory, ...newItem });
-    setShowAddModal(false);
-    if (onRefresh) onRefresh();
+    if (!newItem.title) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/patient-record/${patientId}/medical-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          category: addModalCategory,
+          title: newItem.title,
+          description: newItem.description || undefined,
+          severity: newItem.severity || undefined,
+          diagnosedAt: newItem.date ? new Date(newItem.date).toISOString() : undefined,
+          isActive: true,
+        }),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('Error adding medical history:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const severityOptions = ['Faible', 'Modéré', 'Élevé', 'Sévère'];
@@ -3458,12 +3312,147 @@ function PrescriptionCard({
   );
 }
 
-function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHistory, biometricsHistory }: any) {
+function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHistory, biometricsHistory, onRefresh }: any) {
   const [tab, setTab] = useState<'biologie' | 'biometrie'>('biologie');
+  const [showLabModal, setShowLabModal] = useState(false);
+  const [showBioModal, setShowBioModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [labForm, setLabForm] = useState({ testName: '', category: 'BIOCHEMISTRY', value: '', unit: '', normalRange: '', interpretation: '', isAbnormal: false, resultDate: new Date().toISOString().split('T')[0], labName: '' });
+  const [bioForm, setBioForm] = useState({ weight: '', height: '', bpSystolic: '', bpDiastolic: '', heartRate: '', temperature: '' });
+  const [allBiometrics, setAllBiometrics] = useState<BiometricMeasurement[]>([]);
+
+  const BIOMETRIC_UNITS: Record<string, string> = { WEIGHT: 'kg', HEIGHT: 'cm', BLOOD_PRESSURE: 'mmHg', HEART_RATE: 'bpm', TEMPERATURE: '°C', OXYGEN_SATURATION: '%', BLOOD_GLUCOSE: 'g/L' };
+
+  // Fetch all biometrics for history
+  const fetchAllBiometrics = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/patient-record/${patientId}/biometrics`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAllBiometrics(data);
+      }
+    } catch (e) { console.error('Error fetching biometrics:', e); }
+  }, [patientId]);
+
+  useEffect(() => {
+    if (tab === 'biometrie') {
+      fetchAllBiometrics();
+    }
+  }, [tab, fetchAllBiometrics]);
+
+  // Group biometrics by date for history view
+  const biometricsGroupedByDate = useMemo(() => {
+    const groups: Record<string, { date: string; weight?: number; height?: number; bmi?: number; bp?: string; heartRate?: number; temperature?: number }> = {};
+    for (const b of allBiometrics) {
+      const d = new Date(b.measuredAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      if (!groups[key]) {
+        groups[key] = { date: b.measuredAt };
+      }
+      const g = groups[key];
+      if (b.type === 'WEIGHT') g.weight = b.value;
+      if (b.type === 'HEIGHT') g.height = b.value;
+      if (b.type === 'BMI') g.bmi = b.value;
+      if (b.type === 'BLOOD_PRESSURE') g.bp = `${b.value}/${b.valueSecondary}`;
+      if (b.type === 'HEART_RATE') g.heartRate = b.value;
+      if (b.type === 'TEMPERATURE') g.temperature = b.value;
+    }
+    // Compute BMI if weight and height present but BMI not stored
+    for (const g of Object.values(groups)) {
+      if (g.weight && g.height && !g.bmi) {
+        g.bmi = Math.round((g.weight / ((g.height / 100) ** 2)) * 10) / 10;
+      }
+    }
+    return Object.values(groups).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [allBiometrics]);
+
+  // Compute latest values for summary cards
+  const latestWeight = allBiometrics.find(b => b.type === 'WEIGHT')?.value;
+  const latestHeight = allBiometrics.find(b => b.type === 'HEIGHT')?.value;
+  const latestBP = allBiometrics.find(b => b.type === 'BLOOD_PRESSURE');
+  const latestHR = allBiometrics.find(b => b.type === 'HEART_RATE')?.value;
+  const latestTemp = allBiometrics.find(b => b.type === 'TEMPERATURE')?.value;
+  const latestBMI = latestWeight && latestHeight ? Math.round((latestWeight / ((latestHeight / 100) ** 2)) * 10) / 10 : null;
+
+  // Fallback to prop-based latestBiometrics if allBiometrics not loaded yet
+  const displayWeight = latestWeight ?? latestBiometrics.weight?.value;
+  const displayHeight = latestHeight ?? latestBiometrics.height?.value;
+  const displayBP = latestBP ? `${latestBP.value}/${latestBP.valueSecondary}` : (latestBiometrics.blood_pressure ? `${latestBiometrics.blood_pressure.value}/${latestBiometrics.blood_pressure.valueSecondary}` : null);
+  const displayIMC = latestBMI ?? (displayWeight && displayHeight ? Math.round((displayWeight / ((displayHeight / 100) ** 2)) * 10) / 10 : null);
+  const displayHR = latestHR ?? latestBiometrics.heart_rate?.value;
+  const displayTemp = latestTemp ?? latestBiometrics.temperature?.value;
+
+  const handleAddLabResult = async () => {
+    if (!labForm.testName || !labForm.value) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/patient-record/${patientId}/lab-results`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...labForm, resultDate: new Date(labForm.resultDate).toISOString() }),
+      });
+      if (res.ok) {
+        setShowLabModal(false);
+        setLabForm({ testName: '', category: 'BIOCHEMISTRY', value: '', unit: '', normalRange: '', interpretation: '', isAbnormal: false, resultDate: new Date().toISOString().split('T')[0], labName: '' });
+        onRefresh();
+      }
+    } catch (e) { console.error('Error adding lab result:', e); }
+    finally { setSaving(false); }
+  };
+
+  const handleAddConstants = async () => {
+    if (!bioForm.weight && !bioForm.height && !bioForm.bpSystolic && !bioForm.heartRate && !bioForm.temperature) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+      const measurements: { type: string; value: number; valueSecondary?: number; unit: string }[] = [];
+
+      if (bioForm.weight) measurements.push({ type: 'WEIGHT', value: parseFloat(bioForm.weight), unit: 'kg' });
+      if (bioForm.height) measurements.push({ type: 'HEIGHT', value: parseFloat(bioForm.height), unit: 'cm' });
+      if (bioForm.bpSystolic && bioForm.bpDiastolic) {
+        measurements.push({ type: 'BLOOD_PRESSURE', value: parseFloat(bioForm.bpSystolic), valueSecondary: parseFloat(bioForm.bpDiastolic), unit: 'mmHg' });
+      }
+      if (bioForm.heartRate) measurements.push({ type: 'HEART_RATE', value: parseFloat(bioForm.heartRate), unit: 'bpm' });
+      if (bioForm.temperature) measurements.push({ type: 'TEMPERATURE', value: parseFloat(bioForm.temperature), unit: '°C' });
+      // Auto-compute and store BMI
+      if (bioForm.weight && bioForm.height) {
+        const bmi = Math.round((parseFloat(bioForm.weight) / ((parseFloat(bioForm.height) / 100) ** 2)) * 10) / 10;
+        measurements.push({ type: 'BMI', value: bmi, unit: '' });
+      }
+
+      await Promise.all(measurements.map(m =>
+        fetch(`${API_BASE_URL}/patient-record/${patientId}/biometrics`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ ...m, isAbnormal: false }),
+        })
+      ));
+
+      setShowBioModal(false);
+      setBioForm({ weight: '', height: '', bpSystolic: '', bpDiastolic: '', heartRate: '', temperature: '' });
+      fetchAllBiometrics();
+      onRefresh();
+    } catch (e) { console.error('Error adding constants:', e); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900">Biologie et Biométrie</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">Biologie et Biométrie</h2>
+        <button
+          onClick={() => tab === 'biologie' ? setShowLabModal(true) : setShowBioModal(true)}
+          className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          {tab === 'biologie' ? 'Ajouter un résultat' : 'Ajouter des constantes'}
+        </button>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200">
@@ -3522,8 +3511,8 @@ function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHisto
           <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
             <TestTube className="w-12 h-12 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-600 mb-2">Aucun résultat biologique</p>
-            <p className="text-sm text-gray-500">Aucun résultat d'analyse n'a été enregistré pour ce patient.</p>
-            <button className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
+            <p className="text-sm text-gray-500">Aucun résultat d&apos;analyse n&apos;a été enregistré pour ce patient.</p>
+            <button onClick={() => setShowLabModal(true)} className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
               <Plus className="w-4 h-4" />
               Ajouter un résultat
             </button>
@@ -3531,44 +3520,222 @@ function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHisto
         )
       ) : (
         <div className="space-y-6">
-          {/* Summary cards */}
-          <div className="grid grid-cols-5 gap-4">
-            {latestBiometrics.weight && (
-              <BiometricCard icon={Scale} label="Poids" value={`${latestBiometrics.weight.value} kg`} date={latestBiometrics.weight.measuredAt} />
-            )}
-            {latestBiometrics.height && (
-              <BiometricCard icon={Ruler} label="Taille" value={`${latestBiometrics.height.value} cm`} date={latestBiometrics.height.measuredAt} />
-            )}
-            {latestBiometrics.blood_pressure && (
-              <BiometricCard
-                icon={Activity}
-                label="Tension"
-                value={`${latestBiometrics.blood_pressure.value}/${latestBiometrics.blood_pressure.valueSecondary}`}
-                date={latestBiometrics.blood_pressure.measuredAt}
-                isAbnormal={latestBiometrics.blood_pressure.isAbnormal}
-              />
-            )}
-            {latestBiometrics.temperature && (
-              <BiometricCard icon={Thermometer} label="Température" value={`${latestBiometrics.temperature.value}°C`} date={latestBiometrics.temperature.measuredAt} />
-            )}
-            {latestBiometrics.heart_rate && (
-              <BiometricCard icon={Heart} label="Fréq. cardiaque" value={`${latestBiometrics.heart_rate.value} bpm`} date={latestBiometrics.heart_rate.measuredAt} />
-            )}
-          </div>
+          {/* Dernières mesures */}
+          {(displayWeight || displayHeight || displayIMC || displayBP) ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Dernières mesures</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-900">{displayWeight ?? '-'}</p>
+                  <p className="text-sm text-gray-500">Poids (kg)</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-900">{displayHeight ?? '-'}</p>
+                  <p className="text-sm text-gray-500">Taille (cm)</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-900">{displayIMC ?? '-'}</p>
+                  <p className="text-sm text-gray-500">IMC</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-900">{displayBP ?? '-'}</p>
+                  <p className="text-sm text-gray-500">TA (mmHg)</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-          {Object.keys(latestBiometrics).length === 0 && (
+          {/* Historique des mesures */}
+          {biometricsGroupedByDate.length > 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Historique des mesures</h3>
+              <div className="space-y-3">
+                {biometricsGroupedByDate.map((entry, idx) => (
+                  <div key={idx} className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(entry.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à {new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                      {entry.weight != null && <span>Poids: <strong>{entry.weight} kg</strong></span>}
+                      {entry.height != null && <span>Taille: <strong>{entry.height} cm</strong></span>}
+                      {entry.bmi != null && <span>IMC: <strong>{entry.bmi}</strong></span>}
+                      {entry.bp && <span>TA: <strong>{entry.bp}</strong></span>}
+                      {entry.heartRate != null && <span>FC: <strong>{entry.heartRate} bpm</strong></span>}
+                      {entry.temperature != null && <span>T°: <strong>{entry.temperature}°C</strong></span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : allBiometrics.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
               <Activity className="w-12 h-12 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500">Aucune mesure biométrique enregistrée</p>
+              <button onClick={() => setShowBioModal(true)} className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
+                <Plus className="w-4 h-4" />
+                Ajouter des constantes
+              </button>
             </div>
-          )}
+          ) : null}
+        </div>
+      )}
+
+      {/* Modal Ajouter résultat biologique */}
+      {showLabModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Ajouter un résultat biologique</h3>
+              <button onClick={() => setShowLabModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l&apos;analyse *</label>
+                <input value={labForm.testName} onChange={e => setLabForm(f => ({ ...f, testName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Glycémie à jeun" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                  <select value={labForm.category} onChange={e => setLabForm(f => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                    <option value="HEMATOLOGY">Hématologie</option>
+                    <option value="BIOCHEMISTRY">Biochimie</option>
+                    <option value="IMMUNOLOGY">Immunologie</option>
+                    <option value="MICROBIOLOGY">Microbiologie</option>
+                    <option value="URINALYSIS">Analyse urinaire</option>
+                    <option value="HORMONES">Hormones</option>
+                    <option value="OTHER">Autre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date du résultat *</label>
+                  <input type="date" value={labForm.resultDate} onChange={e => setLabForm(f => ({ ...f, resultDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valeur *</label>
+                  <input value={labForm.value} onChange={e => setLabForm(f => ({ ...f, value: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="1.05" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unité</label>
+                  <input value={labForm.unit} onChange={e => setLabForm(f => ({ ...f, unit: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="g/L" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Norme</label>
+                  <input value={labForm.normalRange} onChange={e => setLabForm(f => ({ ...f, normalRange: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="0.7 - 1.1" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Laboratoire</label>
+                  <input value={labForm.labName} onChange={e => setLabForm(f => ({ ...f, labName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Labo central" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Interprétation</label>
+                  <select value={labForm.interpretation} onChange={e => setLabForm(f => ({ ...f, interpretation: e.target.value, isAbnormal: e.target.value === 'Abnormal' || e.target.value === 'Critical' }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                    <option value="">-</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Abnormal">Anormal</option>
+                    <option value="Critical">Critique</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowLabModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={handleAddLabResult} disabled={saving || !labForm.testName || !labForm.value} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajouter des constantes */}
+      {showBioModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Ajouter des constantes</h3>
+              <button onClick={() => setShowBioModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
+                  <input type="number" step="0.1" value={bioForm.weight} onChange={e => setBioForm(f => ({ ...f, weight: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 72" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Taille (cm)</label>
+                  <input type="number" step="0.1" value={bioForm.height} onChange={e => setBioForm(f => ({ ...f, height: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 175" />
+                </div>
+              </div>
+              {bioForm.weight && bioForm.height && (
+                <div className="px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  IMC calculé : <strong>{(parseFloat(bioForm.weight) / ((parseFloat(bioForm.height) / 100) ** 2)).toFixed(1)}</strong>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">TA Systolique (mmHg)</label>
+                  <input type="number" value={bioForm.bpSystolic} onChange={e => setBioForm(f => ({ ...f, bpSystolic: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 120" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">TA Diastolique (mmHg)</label>
+                  <input type="number" value={bioForm.bpDiastolic} onChange={e => setBioForm(f => ({ ...f, bpDiastolic: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 80" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fréquence cardiaque (bpm)</label>
+                  <input type="number" value={bioForm.heartRate} onChange={e => setBioForm(f => ({ ...f, heartRate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 75" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Température (°C)</label>
+                  <input type="number" step="0.1" value={bioForm.temperature} onChange={e => setBioForm(f => ({ ...f, temperature: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: 37.0" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowBioModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={handleAddConstants} disabled={saving || (!bioForm.weight && !bioForm.height && !bioForm.bpSystolic && !bioForm.heartRate && !bioForm.temperature)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Enregistrer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function VaccinationSection({ vaccinations }: { vaccinations: Vaccination[] }) {
+function VaccinationSection({ vaccinations, patientId, onRefresh }: { vaccinations: Vaccination[]; patientId: string; onRefresh: () => void }) {
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ vaccineName: '', vaccineType: '', lotNumber: '', manufacturer: '', doseNumber: 1, injectionSite: '', administeredAt: new Date().toISOString().split('T')[0], nextDoseAt: '', administeredBy: '', facilityName: '' });
+
+  const handleAdd = async () => {
+    if (!form.vaccineName || !form.administeredAt) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/patient-record/${patientId}/vaccinations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...form, doseNumber: Number(form.doseNumber), administeredAt: new Date(form.administeredAt).toISOString(), nextDoseAt: form.nextDoseAt ? new Date(form.nextDoseAt).toISOString() : undefined }),
+      });
+      if (res.ok) {
+        setShowModal(false);
+        setForm({ vaccineName: '', vaccineType: '', lotNumber: '', manufacturer: '', doseNumber: 1, injectionSite: '', administeredAt: new Date().toISOString().split('T')[0], nextDoseAt: '', administeredBy: '', facilityName: '' });
+        onRefresh();
+      }
+    } catch (e) { console.error('Error adding vaccination:', e); }
+    finally { setSaving(false); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -3577,7 +3744,7 @@ function VaccinationSection({ vaccinations }: { vaccinations: Vaccination[] }) {
           <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
             Exporter
           </button>
-          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Ajouter une vaccination
           </button>
@@ -3627,21 +3794,114 @@ function VaccinationSection({ vaccinations }: { vaccinations: Vaccination[] }) {
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Syringe className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500">Aucune vaccination enregistrée</p>
+          <button onClick={() => setShowModal(true)} className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
+            <Plus className="w-4 h-4" />
+            Ajouter une vaccination
+          </button>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Ajouter une vaccination</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du vaccin *</label>
+                <input value={form.vaccineName} onChange={e => setForm(f => ({ ...f, vaccineName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Vaccin anti-grippal" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date d&apos;administration *</label>
+                  <input type="date" value={form.administeredAt} onChange={e => setForm(f => ({ ...f, administeredAt: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">N° de dose</label>
+                  <input type="number" min="1" value={form.doseNumber} onChange={e => setForm(f => ({ ...f, doseNumber: parseInt(e.target.value) || 1 }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">N° de lot</label>
+                  <input value={form.lotNumber} onChange={e => setForm(f => ({ ...f, lotNumber: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fabricant</label>
+                  <input value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Pfizer" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Site d&apos;injection</label>
+                  <input value={form.injectionSite} onChange={e => setForm(f => ({ ...f, injectionSite: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Bras gauche" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Prochaine dose</label>
+                  <input type="date" value={form.nextDoseAt} onChange={e => setForm(f => ({ ...f, nextDoseAt: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Administré par</label>
+                  <input value={form.administeredBy} onChange={e => setForm(f => ({ ...f, administeredBy: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Établissement</label>
+                  <input value={form.facilityName} onChange={e => setForm(f => ({ ...f, facilityName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={handleAdd} disabled={saving || !form.vaccineName} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Enregistrer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function FacturesSection({ invoices }: { invoices: Invoice[] }) {
+function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice[]; patientId: string; onRefresh: () => void }) {
   const totalPaid = invoices.filter((i) => i.status === 'PAID').reduce((sum, i) => sum + Number(i.total), 0);
   const totalPending = invoices.filter((i) => i.status !== 'PAID' && i.status !== 'CANCELLED').reduce((sum, i) => sum + Number(i.total), 0);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState([{ description: '', quantity: 1, unitPrice: '' }]);
+  const [notes, setNotes] = useState('');
+
+  const handleAddInvoice = async () => {
+    const validItems = items.filter(i => i.description && i.unitPrice);
+    if (validItems.length === 0) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/invoices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ patientId, items: validItems.map(i => ({ ...i, unitPrice: parseFloat(i.unitPrice as string) })), notes: notes || undefined }),
+      });
+      if (res.ok) {
+        setShowModal(false);
+        setItems([{ description: '', quantity: 1, unitPrice: '' }]);
+        setNotes('');
+        onRefresh();
+      }
+    } catch (e) { console.error('Error creating invoice:', e); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Factures</h2>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouvelle facture
         </button>
@@ -3722,6 +3982,54 @@ function FacturesSection({ invoices }: { invoices: Invoice[] }) {
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Receipt className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500">Aucune facture</p>
+          <button onClick={() => setShowModal(true)} className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
+            <Plus className="w-4 h-4" />
+            Nouvelle facture
+          </button>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Nouvelle facture</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lignes de facturation</label>
+                {items.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2">
+                    <input value={item.description} onChange={e => { const n = [...items]; n[idx].description = e.target.value; setItems(n); }} className="flex-1 px-3 py-2 border rounded-lg text-sm" placeholder="Description" />
+                    <input type="number" min="1" value={item.quantity} onChange={e => { const n = [...items]; n[idx].quantity = parseInt(e.target.value) || 1; setItems(n); }} className="w-16 px-3 py-2 border rounded-lg text-sm" />
+                    <input type="number" step="0.01" value={item.unitPrice} onChange={e => { const n = [...items]; n[idx].unitPrice = e.target.value; setItems(n); }} className="w-24 px-3 py-2 border rounded-lg text-sm" placeholder="Prix €" />
+                    {items.length > 1 && (
+                      <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded"><X className="w-4 h-4" /></button>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setItems([...items, { description: '', quantity: 1, unitPrice: '' }])} className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1 mt-1">
+                  <Plus className="w-3 h-3" /> Ajouter une ligne
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} placeholder="Notes optionnelles..." />
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-right">
+                <span className="text-sm text-gray-600">Total: </span>
+                <span className="text-lg font-bold text-gray-900">{items.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} €</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={handleAddInvoice} disabled={saving || items.every(i => !i.description || !i.unitPrice)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Créer la facture
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -3729,7 +4037,9 @@ function FacturesSection({ invoices }: { invoices: Invoice[] }) {
 }
 
 // Certificats médicaux Section
-function CertificatsSection({ certificates }: { certificates: MedicalCertificate[] }) {
+function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCertificate[]; onAdd: (cert: MedicalCertificate) => void }) {
+  const [showModal, setShowModal] = useState(false);
+  const [certForm, setCertForm] = useState({ type: 'MEDICAL' as MedicalCertificate['type'], title: '', description: '', startDate: '', endDate: '', recipient: '' });
   const CERT_TYPE_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     APTITUDE: { label: 'Aptitude', color: 'bg-green-100 text-green-700', icon: CheckCircle },
     ARRET_TRAVAIL: { label: 'Arrêt de travail', color: 'bg-red-100 text-red-700', icon: Briefcase },
@@ -3743,7 +4053,7 @@ function CertificatsSection({ certificates }: { certificates: MedicalCertificate
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Certificats médicaux</h2>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouveau certificat
         </button>
@@ -3832,9 +4142,78 @@ function CertificatsSection({ certificates }: { certificates: MedicalCertificate
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Award className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500 mb-4">Aucun certificat médical</p>
-          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
             Créer un certificat
           </button>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Nouveau certificat médical</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type de certificat</label>
+                <select value={certForm.type} onChange={e => setCertForm(f => ({ ...f, type: e.target.value as MedicalCertificate['type'] }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="APTITUDE">Aptitude</option>
+                  <option value="ARRET_TRAVAIL">Arrêt de travail</option>
+                  <option value="SPORT">Sport</option>
+                  <option value="MEDICAL">Médical</option>
+                  <option value="VACCINATION">Vaccination</option>
+                  <option value="AUTRE">Autre</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                <input value={certForm.title} onChange={e => setCertForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Certificat de non contre-indication" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea value={certForm.description} onChange={e => setCertForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                  <input type="date" value={certForm.startDate} onChange={e => setCertForm(f => ({ ...f, startDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                  <input type="date" value={certForm.endDate} onChange={e => setCertForm(f => ({ ...f, endDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire</label>
+                <input value={certForm.recipient} onChange={e => setCertForm(f => ({ ...f, recipient: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Employeur, Club sportif" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button
+                disabled={!certForm.title}
+                onClick={() => {
+                  onAdd({
+                    id: Date.now().toString(),
+                    type: certForm.type,
+                    title: certForm.title,
+                    description: certForm.description || null,
+                    startDate: certForm.startDate || null,
+                    endDate: certForm.endDate || null,
+                    issuedAt: new Date().toISOString(),
+                    recipient: certForm.recipient || null,
+                  });
+                  setShowModal(false);
+                  setCertForm({ type: 'MEDICAL', title: '', description: '', startDate: '', endDate: '', recipient: '' });
+                }}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+              >
+                Créer le certificat
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -3842,8 +4221,10 @@ function CertificatsSection({ certificates }: { certificates: MedicalCertificate
 }
 
 // Correspondances médicales Section
-function CorrespondancesSection({ correspondences }: { correspondences: MedicalCorrespondence[] }) {
+function CorrespondancesSection({ correspondences, onAdd }: { correspondences: MedicalCorrespondence[]; onAdd: (corr: MedicalCorrespondence) => void }) {
   const [filter, setFilter] = useState<'ALL' | 'INCOMING' | 'OUTGOING'>('ALL');
+  const [showModal, setShowModal] = useState(false);
+  const [corrForm, setCorrForm] = useState({ category: 'COMPTE_RENDU' as MedicalCorrespondence['category'], subject: '', content: '', recipientName: '', recipientSpecialty: '' });
 
   const CATEGORY_LABELS: Record<string, string> = {
     COMPTE_RENDU: 'Compte-rendu',
@@ -3870,7 +4251,7 @@ function CorrespondancesSection({ correspondences }: { correspondences: MedicalC
             </span>
           )}
         </div>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouveau courrier
         </button>
@@ -3973,9 +4354,77 @@ function CorrespondancesSection({ correspondences }: { correspondences: MedicalC
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <FileSignature className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500 mb-4">Aucune correspondance</p>
-          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
             Rédiger un courrier
           </button>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Nouveau courrier</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                <select value={corrForm.category} onChange={e => setCorrForm(f => ({ ...f, category: e.target.value as MedicalCorrespondence['category'] }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="COMPTE_RENDU">Compte-rendu</option>
+                  <option value="DEMANDE_AVIS">Demande d&apos;avis</option>
+                  <option value="REPONSE_AVIS">Réponse</option>
+                  <option value="TRANSFERT">Transfert</option>
+                  <option value="AUTRE">Autre</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Objet *</label>
+                <input value={corrForm.subject} onChange={e => setCorrForm(f => ({ ...f, subject: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Objet du courrier" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire *</label>
+                  <input value={corrForm.recipientName} onChange={e => setCorrForm(f => ({ ...f, recipientName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Dr. ..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                  <input value={corrForm.recipientSpecialty} onChange={e => setCorrForm(f => ({ ...f, recipientSpecialty: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Cardiologie..." />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contenu *</label>
+                <textarea value={corrForm.content} onChange={e => setCorrForm(f => ({ ...f, content: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" rows={4} placeholder="Cher confrère..." />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button
+                disabled={!corrForm.subject || !corrForm.content || !corrForm.recipientName}
+                onClick={() => {
+                  onAdd({
+                    id: Date.now().toString(),
+                    type: 'OUTGOING',
+                    category: corrForm.category,
+                    subject: corrForm.subject,
+                    content: corrForm.content,
+                    senderName: 'Moi',
+                    senderSpecialty: null,
+                    recipientName: corrForm.recipientName,
+                    recipientSpecialty: corrForm.recipientSpecialty || null,
+                    date: new Date().toISOString(),
+                    isRead: true,
+                    attachments: [],
+                  });
+                  setShowModal(false);
+                  setCorrForm({ category: 'COMPTE_RENDU', subject: '', content: '', recipientName: '', recipientSpecialty: '' });
+                }}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+              >
+                Envoyer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -3983,41 +4432,78 @@ function CorrespondancesSection({ correspondences }: { correspondences: MedicalC
 }
 
 // Messagerie patient Section
-function MessagerieSection({ messages, patient }: { messages: PatientMessage[]; patient: Patient }) {
+function MessagerieSection({ patient }: { messages?: PatientMessage[]; patient: Patient }) {
   const [newMessage, setNewMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const currentUserId = typeof window !== 'undefined' ? (() => { try { const t = localStorage.getItem('token'); if (!t) return ''; const p = JSON.parse(atob(t.split('.')[1])); return p.sub || p.id || ''; } catch { return ''; } })() : '';
 
-  const TYPE_ICONS: Record<string, any> = {
-    SMS: Phone,
-    EMAIL: Mail,
-    APP: MessageSquare,
+  useEffect(() => {
+    const loadConversation = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/messages/conversations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const conversations = await res.json();
+          const conv = conversations.find((c: any) =>
+            c.otherParticipant?.id === patient.id
+          );
+          if (conv) {
+            setConversationId(conv.id);
+            const msgRes = await fetch(`${API_BASE_URL}/messages/conversations/${conv.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (msgRes.ok) {
+              const data = await msgRes.json();
+              setChatMessages(Array.isArray(data) ? data : data.messages || []);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error loading messages:', e);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+    loadConversation();
+  }, [patient.id]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim()) return;
+    setSending(true);
+    try {
+      const token = localStorage.getItem('token');
+      const body: any = { content: newMessage.trim(), recipientId: patient.id };
+      if (conversationId) body.conversationId = conversationId;
+      const res = await fetch(`${API_BASE_URL}/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const sent = await res.json();
+        setChatMessages(prev => [...prev, sent]);
+        if (!conversationId && sent.conversationId) setConversationId(sent.conversationId);
+        setNewMessage('');
+      }
+    } catch (e) {
+      console.error('Error sending message:', e);
+    } finally {
+      setSending(false);
+    }
   };
-
-  const groupedMessages = messages.reduce((groups, msg) => {
-    const date = new Date(msg.sentAt).toLocaleDateString('fr-FR');
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(msg);
-    return groups;
-  }, {} as Record<string, PatientMessage[]>);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Messagerie</h2>
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 flex items-center gap-2">
-            <Phone className="w-4 h-4" />
-            SMS
-          </button>
-          <button className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            Email
-          </button>
-        </div>
       </div>
 
-      {/* Conversation */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
@@ -4032,72 +4518,61 @@ function MessagerieSection({ messages, patient }: { messages: PatientMessage[]; 
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {Object.entries(groupedMessages).map(([date, msgs]) => (
-            <div key={date}>
-              <div className="flex items-center justify-center mb-4">
-                <span className="px-3 py-1 bg-white text-gray-500 text-xs rounded-full border border-gray-200">
-                  {date}
-                </span>
-              </div>
-              <div className="space-y-3">
-                {msgs.map((msg) => {
-                  const TypeIcon = TYPE_ICONS[msg.type];
-                  const isOutgoing = msg.direction === 'OUTGOING';
-
-                  return (
-                    <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] ${isOutgoing ? 'order-1' : 'order-2'}`}>
-                        <div className={`rounded-2xl px-4 py-2.5 ${
-                          isOutgoing
-                            ? 'bg-teal-600 text-white rounded-br-md'
-                            : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'
-                        }`}>
-                          {msg.subject && (
-                            <p className={`text-xs font-medium mb-1 ${isOutgoing ? 'text-teal-200' : 'text-gray-500'}`}>
-                              {msg.subject}
-                            </p>
-                          )}
-                          <p className="text-sm">{msg.content}</p>
-                        </div>
-                        <div className={`flex items-center gap-2 mt-1 text-xs text-gray-400 ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                          <TypeIcon className="w-3 h-3" />
-                          <span>
-                            {new Date(msg.sentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          {isOutgoing && (
-                            <span className={msg.status === 'READ' ? 'text-teal-500' : ''}>
-                              {msg.status === 'READ' ? '✓✓' : msg.status === 'DELIVERED' ? '✓' : '○'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+        <div className="h-96 overflow-y-auto p-4 space-y-3 bg-gray-50">
+          {loadingMessages ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : chatMessages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <MessageSquare className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+                <p className="text-sm text-gray-500">Aucun message. Envoyez le premier message à {patient.fullName}.</p>
               </div>
             </div>
-          ))}
+          ) : (
+            chatMessages.map((msg: any) => {
+              const isMe = msg.senderId === currentUserId;
+              return (
+                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%]`}>
+                    <div className={`rounded-2xl px-4 py-2.5 ${
+                      isMe
+                        ? 'bg-teal-600 text-white rounded-br-md'
+                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'
+                    }`}>
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                    <div className={`flex items-center gap-2 mt-1 text-xs text-gray-400 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <span>
+                        {new Date(msg.createdAt || msg.sentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
-        {/* Input */}
         <div className="px-4 py-3 border-t border-gray-200 bg-white">
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 placeholder="Écrire un message..."
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 rows={2}
               />
             </div>
             <button
+              onClick={handleSend}
               className="px-4 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50"
-              disabled={!newMessage.trim()}
+              disabled={!newMessage.trim() || sending}
             >
-              <Send className="w-4 h-4" />
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               Envoyer
             </button>
           </div>
@@ -4108,7 +4583,9 @@ function MessagerieSection({ messages, patient }: { messages: PatientMessage[]; 
 }
 
 // Protocoles de soins Section
-function ProtocolesSection({ protocols }: { protocols: CareProtocol[] }) {
+function ProtocolesSection({ protocols, onAdd }: { protocols: CareProtocol[]; onAdd: (proto: CareProtocol) => void }) {
+  const [showModal, setShowModal] = useState(false);
+  const [protoForm, setProtoForm] = useState({ type: 'PLAN_TRAITEMENT' as CareProtocol['type'], title: '', pathology: '', description: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
   const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     ACTIVE: { label: 'Actif', color: 'bg-green-100 text-green-700' },
     PENDING: { label: 'En attente', color: 'bg-yellow-100 text-yellow-700' },
@@ -4136,7 +4613,7 @@ function ProtocolesSection({ protocols }: { protocols: CareProtocol[] }) {
             </span>
           )}
         </div>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouveau protocole
         </button>
@@ -4244,9 +4721,79 @@ function ProtocolesSection({ protocols }: { protocols: CareProtocol[] }) {
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Target className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500 mb-4">Aucun protocole de soins</p>
-          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
+          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
             Créer un protocole
           </button>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Nouveau protocole de soins</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select value={protoForm.type} onChange={e => setProtoForm(f => ({ ...f, type: e.target.value as CareProtocol['type'] }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="ALD">ALD</option>
+                  <option value="PARCOURS_SOINS">Parcours de soins</option>
+                  <option value="PLAN_TRAITEMENT">Plan de traitement</option>
+                  <option value="SUIVI_CHRONIQUE">Suivi chronique</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                <input value={protoForm.title} onChange={e => setProtoForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: ALD 30 - Diabète" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pathologie *</label>
+                <input value={protoForm.pathology} onChange={e => setProtoForm(f => ({ ...f, pathology: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Diabète de type 2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea value={protoForm.description} onChange={e => setProtoForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de début *</label>
+                  <input type="date" value={protoForm.startDate} onChange={e => setProtoForm(f => ({ ...f, startDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                  <input type="date" value={protoForm.endDate} onChange={e => setProtoForm(f => ({ ...f, endDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button
+                disabled={!protoForm.title || !protoForm.pathology}
+                onClick={() => {
+                  onAdd({
+                    id: Date.now().toString(),
+                    type: protoForm.type,
+                    title: protoForm.title,
+                    description: protoForm.description || null,
+                    pathology: protoForm.pathology,
+                    startDate: protoForm.startDate,
+                    endDate: protoForm.endDate || null,
+                    renewalDate: null,
+                    status: 'ACTIVE',
+                    objectives: [],
+                    interventions: [],
+                  });
+                  setShowModal(false);
+                  setProtoForm({ type: 'PLAN_TRAITEMENT', title: '', pathology: '', description: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+                }}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+              >
+                Créer le protocole
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -4481,6 +5028,14 @@ function ConsultationSection({ patient }: { patient: Patient }) {
   const [viewingHistoryItem, setViewingHistoryItem] = useState<Consultation | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  // États pour l'édition de consultations passées
+  const [isEditingHistory, setIsEditingHistory] = useState(false);
+  const [editMotif, setEditMotif] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editInterrogatoire, setEditInterrogatoire] = useState('');
+  const [editExamen, setEditExamen] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
   // États pour les onglets
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [analyses, setAnalyses] = useState<AnalyseBiologie[]>([]);
@@ -4695,6 +5250,7 @@ function ConsultationSection({ patient }: { patient: Patient }) {
         setAnalyses([]);
         setCourriers([]);
         setImageries([]);
+        setShowHistory(true);
       } else {
         alert('Erreur lors de la clôture de la consultation');
       }
@@ -4703,6 +5259,46 @@ function ConsultationSection({ patient }: { patient: Patient }) {
       alert('Erreur lors de la clôture de la consultation');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteConsultation = async (consultationId: string) => {
+    if (!confirm('Supprimer cette consultation ?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations/${consultationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        setConsultationHistory(prev => prev.filter(c => c.id !== consultationId));
+        setSelectedHistoryItem(null);
+      } else {
+        alert('Erreur lors de la suppression');
+      }
+    } catch (error) {
+      console.error('Error deleting consultation:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  const editPastConsultation = async (consultationId: string, data: { motif?: string; notes?: string; interrogatoire?: string; examen?: string }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations/${consultationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setConsultationHistory(prev => prev.map(c => c.id === consultationId ? { ...c, ...updated } : c));
+        setSelectedHistoryItem(prev => prev && prev.id === consultationId ? { ...prev, ...updated } : prev);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   };
 
@@ -4719,6 +5315,7 @@ function ConsultationSection({ patient }: { patient: Patient }) {
   const formatDuration = (start: string, end: string | null) => {
     if (!end) return 'En cours';
     const duration = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000);
+    if (duration < 1) return '< 1 min';
     return `${duration} min`;
   };
 
@@ -4855,23 +5452,20 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     if (!emailRecipient) return;
     setSendingEmail(true);
     try {
-      // En production, appeler l'API pour envoyer l'email
-      // await fetch(`${API_BASE_URL}/documents/send-email`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      //   body: JSON.stringify({
-      //     recipient: emailRecipient,
-      //     documentType: emailDocumentType,
-      //     patientId: patient.id,
-      //     prescriptions,
-      //     analyses,
-      //     courriers,
-      //     imageries,
-      //   }),
-      // });
-
-      // Simulation d'envoi
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/documents/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          recipient: emailRecipient,
+          documentType: emailDocumentType,
+          patientId: patient.id,
+          prescriptions,
+          analyses,
+          courriers,
+          imageries,
+        }),
+      });
 
       alert(`Email envoyé avec succès à ${emailRecipient}`);
       setShowEmailModal(false);
@@ -5119,16 +5713,55 @@ function ConsultationSection({ patient }: { patient: Patient }) {
 
   // Vue historique détaillée
   if (selectedHistoryItem) {
+    const handleStartEdit = () => {
+      setEditMotif(selectedHistoryItem.motif || '');
+      setEditNotes(selectedHistoryItem.notes || '');
+      setEditInterrogatoire(selectedHistoryItem.interrogatoire || '');
+      setEditExamen(selectedHistoryItem.examen || '');
+      setIsEditingHistory(true);
+    };
+
+    const handleSaveEdit = async () => {
+      setEditSaving(true);
+      const success = await editPastConsultation(selectedHistoryItem.id, {
+        motif: editMotif,
+        notes: editNotes,
+        interrogatoire: editInterrogatoire,
+        examen: editExamen,
+      });
+      setEditSaving(false);
+      if (success) setIsEditingHistory(false);
+      else alert('Erreur lors de la sauvegarde');
+    };
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setSelectedHistoryItem(null)}
+            onClick={() => { setSelectedHistoryItem(null); setIsEditingHistory(false); }}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Retour à l'historique</span>
           </button>
+          <div className="flex items-center gap-2">
+            {!isEditingHistory && (
+              <button
+                onClick={handleStartEdit}
+                className="px-3 py-1.5 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Modifier
+              </button>
+            )}
+            <button
+              onClick={() => deleteConsultation(selectedHistoryItem.id)}
+              className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 flex items-center gap-1.5"
+            >
+              <X className="w-3.5 h-3.5" />
+              Supprimer
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -5145,17 +5778,48 @@ function ConsultationSection({ patient }: { patient: Patient }) {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Motif de consultation</label>
-              <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800">
-                {selectedHistoryItem.motif || 'Non renseigné'}
-              </div>
+              {isEditingHistory ? (
+                <textarea value={editMotif} onChange={(e) => setEditMotif(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y" rows={2} />
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800">{selectedHistoryItem.motif || 'Non renseigné'}</div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Interrogatoire</label>
+              {isEditingHistory ? (
+                <textarea value={editInterrogatoire} onChange={(e) => setEditInterrogatoire(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y" rows={3} />
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap">{selectedHistoryItem.interrogatoire || 'Non renseigné'}</div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Examen</label>
+              {isEditingHistory ? (
+                <textarea value={editExamen} onChange={(e) => setEditExamen(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y" rows={3} />
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap">{selectedHistoryItem.examen || 'Non renseigné'}</div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes cliniques</label>
-              <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap">
-                {selectedHistoryItem.notes || 'Aucune note'}
-              </div>
+              {isEditingHistory ? (
+                <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y" rows={3} />
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap">{selectedHistoryItem.notes || 'Aucune note'}</div>
+              )}
             </div>
+
+            {isEditingHistory && (
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setIsEditingHistory(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Annuler</button>
+                <button onClick={handleSaveEdit} disabled={editSaving} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 disabled:opacity-50">
+                  {editSaving ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -5195,11 +5859,10 @@ function ConsultationSection({ patient }: { patient: Patient }) {
             {consultationHistory.map((consultation) => (
               <div
                 key={consultation.id}
-                onClick={() => setSelectedHistoryItem(consultation)}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
+                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-teal-300 hover:shadow-sm transition-all"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div className="flex-1 cursor-pointer" onClick={() => setSelectedHistoryItem(consultation)}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-gray-900">
                         {formatConsultationDate(consultation.startedAt)}
@@ -5211,7 +5874,22 @@ function ConsultationSection({ patient }: { patient: Patient }) {
                     <p className="text-sm text-gray-700 font-medium mb-1">{consultation.motif || 'Motif non renseigné'}</p>
                     <p className="text-xs text-gray-500 line-clamp-2">{consultation.notes}</p>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <div className="flex items-center gap-1 ml-2">
+                    <button
+                      onClick={() => setSelectedHistoryItem(consultation)}
+                      className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                      title="Voir / Modifier"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteConsultation(consultation.id); }}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      title="Supprimer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -6606,16 +7284,9 @@ function ConsultationSection({ patient }: { patient: Patient }) {
       <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
         <Stethoscope className="w-12 h-12 mx-auto text-gray-300 mb-4" />
         <p className="text-gray-600 mb-2">Aucune consultation en cours</p>
-        <p className="text-sm text-gray-500 mb-6">
-          Démarrez une nouvelle consultation pour {patient.fullName}
+        <p className="text-sm text-gray-500">
+          Cliquez sur « Nouvelle consultation » pour démarrer
         </p>
-        <button
-          onClick={startConsultation}
-          className="px-6 py-3 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 inline-flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Démarrer une consultation
-        </button>
       </div>
 
       {/* Aperçu historique */}

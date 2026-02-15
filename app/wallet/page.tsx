@@ -45,6 +45,10 @@ export default function WalletPage() {
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutSuccess, setPayoutSuccess] = useState(false);
 
   useEffect(() => {
     const token =
@@ -132,6 +136,7 @@ export default function WalletPage() {
         <button
           type="button"
           disabled={summary.balance <= 0}
+          onClick={() => { setPayoutAmount(summary.balance.toFixed(2)); setPayoutSuccess(false); setShowPayoutModal(true); }}
           className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium shadow-sm ${
             summary.balance > 0
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -243,6 +248,79 @@ export default function WalletPage() {
           )}
         </div>
       </section>
+
+      {/* Payout Modal */}
+      {showPayoutModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+            <div className="p-6">
+              {payoutSuccess ? (
+                <div className="text-center py-4">
+                  <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Demande envoyée</h3>
+                  <p className="text-sm text-slate-500 mb-4">Votre demande de retrait de {payoutAmount} € a été enregistrée. Le virement sera effectué sous 2-3 jours ouvrés.</p>
+                  <button onClick={() => setShowPayoutModal(false)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Demander un retrait</h3>
+                  <p className="text-sm text-slate-500 mb-4">Solde disponible : {summary.balance.toFixed(2)} €</p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Montant (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      max={summary.balance}
+                      value={payoutAmount}
+                      onChange={(e) => setPayoutAmount(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowPayoutModal(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      Annuler
+                    </button>
+                    <button
+                      disabled={payoutLoading || !payoutAmount || parseFloat(payoutAmount) <= 0 || parseFloat(payoutAmount) > summary.balance}
+                      onClick={async () => {
+                        setPayoutLoading(true);
+                        try {
+                          const token = localStorage.getItem('token');
+                          const base = getApiBase();
+                          const url = base ? `${base}/wallet/payout` : '/wallet/payout';
+                          const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ amount: parseFloat(payoutAmount) }),
+                          });
+                          if (res.ok) {
+                            setPayoutSuccess(true);
+                          } else {
+                            const errData = await res.json().catch(() => ({}));
+                            alert(errData.message || 'Erreur lors de la demande de retrait');
+                          }
+                        } catch {
+                          alert('Erreur réseau. Veuillez réessayer.');
+                        } finally {
+                          setPayoutLoading(false);
+                        }
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {payoutLoading ? 'Envoi...' : 'Confirmer le retrait'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

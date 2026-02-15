@@ -82,43 +82,46 @@ export default function AnalyticsPage() {
 
   const loadAnalytics = async () => {
     setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
+      const response = await fetch(`${apiBaseUrl}/analytics/dashboard?period=${period}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      const typeColors = ['#0d9488', '#3b82f6', '#ef4444', '#8b5cf6', '#f59e0b', '#ec4899'];
 
-    // Simulate API call with mock data
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Generate mock data based on period
-    const multiplier = period === '7d' ? 1 : period === '30d' ? 4 : period === '90d' ? 12 : 52;
-
-    setAnalytics({
-      totalPatients: 156,
-      newPatients: Math.floor(12 * multiplier / 4),
-      totalAppointments: Math.floor(45 * multiplier / 4),
-      completedAppointments: Math.floor(38 * multiplier / 4),
-      cancelledAppointments: Math.floor(7 * multiplier / 4),
-      totalRevenue: Math.floor(2850 * multiplier / 4),
-      avgConsultationTime: 28,
-      patientsChange: 15.3,
-      appointmentsChange: 8.7,
-      revenueChange: 12.4,
-      weeklyAppointments: [12, 18, 15, 22, 19, 8, 14],
-      weeklyRevenue: [720, 1080, 900, 1320, 1140, 480, 840],
-      appointmentsByType: [
-        { name: 'Consultation', count: 45, color: '#0d9488' },
-        { name: 'Suivi', count: 28, color: '#3b82f6' },
-        { name: 'Urgence', count: 12, color: '#ef4444' },
-        { name: 'Téléconsultation', count: 15, color: '#8b5cf6' },
-      ],
-      patientsByAge: [
-        { range: '0-18', count: 18 },
-        { range: '19-35', count: 42 },
-        { range: '36-50', count: 38 },
-        { range: '51-65', count: 35 },
-        { range: '65+', count: 23 },
-      ],
-      hourlyDistribution: [0, 0, 0, 0, 0, 0, 0, 0, 8, 15, 22, 18, 12, 20, 25, 18, 14, 10, 5, 0, 0, 0, 0, 0],
-    });
-
-    setLoading(false);
+      setAnalytics({
+        totalPatients: data.totalPatients ?? 0,
+        newPatients: data.newPatients ?? 0,
+        totalAppointments: data.totalAppointments ?? 0,
+        completedAppointments: data.completedAppointments ?? 0,
+        cancelledAppointments: data.cancelledAppointments ?? 0,
+        totalRevenue: data.totalRevenue ?? 0,
+        avgConsultationTime: data.avgConsultationTime ?? 0,
+        patientsChange: data.patientsChange ?? 0,
+        appointmentsChange: data.appointmentsChange ?? 0,
+        revenueChange: data.revenueChange ?? 0,
+        weeklyAppointments: data.weeklyAppointments ?? [],
+        weeklyRevenue: data.weeklyRevenue ?? [],
+        appointmentsByType: Array.isArray(data.appointmentsByType)
+          ? data.appointmentsByType.map((t: any, i: number) => ({
+              name: t.name ?? t.label ?? 'Autre',
+              count: t.count ?? t.value ?? 0,
+              color: t.color ?? typeColors[i % typeColors.length],
+            }))
+          : [],
+        patientsByAge: Array.isArray(data.patientsByAge)
+          ? data.patientsByAge.map((p: any) => ({ range: p.range ?? p.ageRange ?? '', count: p.count ?? 0 }))
+          : [],
+        hourlyDistribution: Array.isArray(data.hourlyDistribution) ? data.hourlyDistribution : new Array(24).fill(0),
+      });
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const periodLabels: Record<Period, string> = {

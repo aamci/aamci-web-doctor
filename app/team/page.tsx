@@ -117,100 +117,109 @@ export default function TeamPage() {
     loadTeamMembers();
   }, [router]);
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
+
   const loadTeamMembers = async () => {
     setLoading(true);
-
-    // Simulate API call with mock data
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    setMembers([
-      {
-        id: '1',
-        fullName: 'Marie Dupont',
-        email: 'marie.dupont@cabinet.fr',
-        phone: '+33 6 12 34 56 78',
-        role: 'SECRETARY',
-        status: 'ACTIVE',
-        permissions: AVAILABLE_PERMISSIONS.filter(p =>
-          ['view_appointments', 'manage_appointments', 'view_patients'].includes(p.id)
-        ),
-        joinedAt: '2024-03-15',
-        lastActiveAt: '2026-02-05T09:30:00',
-      },
-      {
-        id: '2',
-        fullName: 'Sophie Martin',
-        email: 'sophie.martin@cabinet.fr',
-        role: 'NURSE',
-        status: 'ACTIVE',
-        permissions: AVAILABLE_PERMISSIONS.filter(p =>
-          ['view_appointments', 'view_patients', 'edit_patients'].includes(p.id)
-        ),
-        joinedAt: '2024-06-01',
-        lastActiveAt: '2026-02-04T16:45:00',
-      },
-      {
-        id: '3',
-        fullName: 'Lucas Bernard',
-        email: 'lucas.bernard@email.com',
-        role: 'INTERN',
-        status: 'PENDING',
-        permissions: AVAILABLE_PERMISSIONS.filter(p =>
-          ['view_appointments', 'view_patients'].includes(p.id)
-        ),
-        invitedAt: '2026-02-01',
-      },
-    ]);
-
-    setLoading(false);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/team`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = (Array.isArray(data) ? data : []).map((m: any) => ({
+          id: m.id,
+          fullName: m.fullName || m.user?.fullName || 'Sans nom',
+          email: m.email || m.user?.email || '',
+          phone: m.phone || m.user?.phone || undefined,
+          role: m.role || 'ASSISTANT',
+          status: m.status || 'ACTIVE',
+          permissions: (m.permissions || []).map((p: string) => AVAILABLE_PERMISSIONS.find(ap => ap.id === p)).filter(Boolean),
+          avatarUrl: m.avatarUrl || m.user?.avatarUrl || undefined,
+          invitedAt: m.invitedAt,
+          joinedAt: m.joinedAt,
+          lastActiveAt: m.lastActiveAt,
+        }));
+        setMembers(mapped);
+      }
+    } catch (error) {
+      console.error('Error loading team:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInviteMember = async () => {
     if (!newMember.email || !newMember.fullName) return;
 
     setInviting(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const member: TeamMember = {
-      id: Date.now().toString(),
-      fullName: newMember.fullName,
-      email: newMember.email,
-      phone: newMember.phone || undefined,
-      role: newMember.role,
-      status: 'PENDING',
-      permissions: AVAILABLE_PERMISSIONS.filter(p => newMember.permissions.includes(p.id)),
-      invitedAt: new Date().toISOString(),
-    };
-
-    setMembers(prev => [...prev, member]);
-    setInviting(false);
-    setInviteSuccess(true);
-
-    setTimeout(() => {
-      setShowAddModal(false);
-      setInviteSuccess(false);
-      setNewMember({
-        fullName: '',
-        email: '',
-        phone: '',
-        role: 'SECRETARY',
-        permissions: [],
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/team/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          fullName: newMember.fullName,
+          email: newMember.email,
+          phone: newMember.phone || undefined,
+          role: newMember.role,
+          permissions: newMember.permissions,
+        }),
       });
-    }, 1500);
+
+      if (res.ok) {
+        setInviteSuccess(true);
+        setTimeout(() => {
+          setShowAddModal(false);
+          setInviteSuccess(false);
+          setNewMember({ fullName: '', email: '', phone: '', role: 'SECRETARY', permissions: [] });
+          loadTeamMembers();
+        }, 1500);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.message || 'Erreur lors de l\'invitation');
+      }
+    } catch (error) {
+      console.error('Error inviting member:', error);
+    } finally {
+      setInviting(false);
+    }
   };
 
   const handleRemoveMember = async (memberId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir retirer ce membre de l\'équipe ?')) return;
 
-    setMembers(prev => prev.filter(m => m.id !== memberId));
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/team/${memberId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setMembers(prev => prev.filter(m => m.id !== memberId));
+      }
+    } catch (error) {
+      console.error('Error removing member:', error);
+    }
     setShowMemberMenu(null);
   };
 
   const handleResendInvite = async (memberId: string) => {
-    // Simulate resending invite
-    alert('Invitation renvoyée !');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/team/${memberId}/resend-invitation`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        alert('Invitation renvoyée !');
+      } else {
+        alert('Erreur lors du renvoi de l\'invitation');
+      }
+    } catch (error) {
+      console.error('Error resending invite:', error);
+    }
     setShowMemberMenu(null);
   };
 
@@ -238,10 +247,21 @@ export default function TeamPage() {
   const handleSavePermissions = async () => {
     if (!selectedMember) return;
 
-    // Update member in list
-    setMembers(prev => prev.map(m =>
-      m.id === selectedMember.id ? selectedMember : m
-    ));
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/team/${selectedMember.id}/permissions`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ permissions: selectedMember.permissions.map(p => p.id) }),
+      });
+      if (res.ok) {
+        setMembers(prev => prev.map(m =>
+          m.id === selectedMember.id ? selectedMember : m
+        ));
+      }
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+    }
 
     setShowPermissionsModal(false);
     setSelectedMember(null);

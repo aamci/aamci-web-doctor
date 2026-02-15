@@ -74,6 +74,16 @@ interface AdvancedMetrics {
 
 type ComparisonPeriod = 'previous' | 'lastYear';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export default function AdvancedAnalyticsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -92,72 +102,58 @@ export default function AdvancedAnalyticsPage() {
 
   const loadMetrics = async () => {
     setLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const [advancedRes, retentionRes, trendsRes, servicesRes, perfRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/analytics/advanced`, { headers }),
+        fetch(`${API_BASE_URL}/analytics/retention`, { headers }),
+        fetch(`${API_BASE_URL}/analytics/trends`, { headers }),
+        fetch(`${API_BASE_URL}/analytics/top-services`, { headers }),
+        fetch(`${API_BASE_URL}/analytics/performance-by-day`, { headers }),
+      ]);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
+      const advanced = advancedRes.ok ? await advancedRes.json() : {};
+      const retention = retentionRes.ok ? await retentionRes.json() : {};
+      const trends = trendsRes.ok ? await trendsRes.json() : {};
+      const services = servicesRes.ok ? await servicesRes.json() : {};
+      const perf = perfRes.ok ? await perfRes.json() : {};
 
-    setMetrics({
-      // Rétention
-      retentionRate: 78.5,
-      churnRate: 21.5,
-      avgVisitsPerPatient: 2.4,
-      returningPatients: 89,
-      newVsReturning: { new: 34, returning: 89 },
+      setMetrics({
+        retentionRate: retention.retentionRate ?? advanced.retentionRate ?? 0,
+        churnRate: retention.churnRate ?? advanced.churnRate ?? 0,
+        avgVisitsPerPatient: retention.avgVisitsPerPatient ?? advanced.avgVisitsPerPatient ?? 0,
+        returningPatients: retention.returningPatients ?? advanced.returningPatients ?? 0,
+        newVsReturning: retention.newVsReturning ?? advanced.newVsReturning ?? { new: 0, returning: 0 },
 
-      // No-shows
-      noShowRate: 8.2,
-      cancellationRate: 12.4,
-      lastMinuteCancellations: 5,
-      noShowTrend: [12, 10, 8, 11, 7, 9, 6],
+        noShowRate: advanced.noShowRate ?? 0,
+        cancellationRate: advanced.cancellationRate ?? 0,
+        lastMinuteCancellations: advanced.lastMinuteCancellations ?? 0,
+        noShowTrend: Array.isArray(advanced.noShowTrend) ? advanced.noShowTrend : [],
 
-      // Objectifs
-      revenueGoal: 5000,
-      revenueActual: 3850,
-      appointmentsGoal: 60,
-      appointmentsActual: 48,
-      newPatientsGoal: 15,
-      newPatientsActual: 12,
+        revenueGoal: advanced.revenueGoal ?? 0,
+        revenueActual: advanced.revenueActual ?? 0,
+        appointmentsGoal: advanced.appointmentsGoal ?? 0,
+        appointmentsActual: advanced.appointmentsActual ?? 0,
+        newPatientsGoal: advanced.newPatientsGoal ?? 0,
+        newPatientsActual: advanced.newPatientsActual ?? 0,
 
-      // Comparaisons
-      currentPeriodRevenue: 3850,
-      previousPeriodRevenue: 3420,
-      currentPeriodAppointments: 48,
-      previousPeriodAppointments: 42,
+        currentPeriodRevenue: advanced.currentPeriodRevenue ?? 0,
+        previousPeriodRevenue: advanced.previousPeriodRevenue ?? 0,
+        currentPeriodAppointments: advanced.currentPeriodAppointments ?? 0,
+        previousPeriodAppointments: advanced.previousPeriodAppointments ?? 0,
 
-      // Prévisions
-      projectedMonthlyRevenue: 4800,
-      projectedMonthlyAppointments: 58,
+        projectedMonthlyRevenue: advanced.projectedMonthlyRevenue ?? 0,
+        projectedMonthlyAppointments: advanced.projectedMonthlyAppointments ?? 0,
 
-      // Performance par jour
-      performanceByDay: [
-        { day: 'Lundi', appointments: 12, revenue: 720, noShows: 1 },
-        { day: 'Mardi', appointments: 14, revenue: 840, noShows: 2 },
-        { day: 'Mercredi', appointments: 10, revenue: 600, noShows: 0 },
-        { day: 'Jeudi', appointments: 15, revenue: 900, noShows: 1 },
-        { day: 'Vendredi', appointments: 11, revenue: 660, noShows: 1 },
-        { day: 'Samedi', appointments: 4, revenue: 240, noShows: 0 },
-      ],
-
-      // Top services
-      topServices: [
-        { name: 'Consultation générale', count: 45, revenue: 2250, growth: 12 },
-        { name: 'Suivi', count: 28, revenue: 1120, growth: 8 },
-        { name: 'Urgence', count: 15, revenue: 1050, growth: -5 },
-        { name: 'Téléconsultation', count: 18, revenue: 720, growth: 25 },
-      ],
-
-      // Tendances mensuelles
-      monthlyTrends: [
-        { month: 'Sept', revenue: 3200, appointments: 40, patients: 28 },
-        { month: 'Oct', revenue: 3450, appointments: 43, patients: 32 },
-        { month: 'Nov', revenue: 3100, appointments: 38, patients: 25 },
-        { month: 'Déc', revenue: 2800, appointments: 35, patients: 22 },
-        { month: 'Jan', revenue: 3420, appointments: 42, patients: 30 },
-        { month: 'Fév', revenue: 3850, appointments: 48, patients: 34 },
-      ],
-    });
-
-    setLoading(false);
+        performanceByDay: Array.isArray(perf.performanceByDay ?? perf) ? (perf.performanceByDay ?? perf) : [],
+        topServices: Array.isArray(services.topServices ?? services) ? (services.topServices ?? services) : [],
+        monthlyTrends: Array.isArray(trends.monthlyTrends ?? trends) ? (trends.monthlyTrends ?? trends) : [],
+      });
+    } catch (error) {
+      console.error('Error loading advanced metrics:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (value: number) => {

@@ -91,117 +91,72 @@ export default function NotificationsPage() {
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      // Mock data for development
-      setNotifications([
-        {
-          id: '1',
-          type: 'APPOINTMENT_REMINDER',
-          title: 'Rappel de rendez-vous',
-          message: 'Vous avez un rendez-vous avec Marie Dupont demain à 10h00',
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        },
-        {
-          id: '2',
-          type: 'APPOINTMENT_CONFIRMED',
-          title: 'Rendez-vous confirmé',
-          message: 'Le rendez-vous avec Jean Martin a été confirmé pour le 15 janvier',
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-        },
-        {
-          id: '3',
-          type: 'APPOINTMENT_CANCELLED',
-          title: 'Rendez-vous annulé',
-          message: 'Pierre Bernard a annulé son rendez-vous du 12 janvier',
-          read: true,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        },
-        {
-          id: '4',
-          type: 'PAYMENT_RECEIVED',
-          title: 'Paiement reçu',
-          message: 'Paiement de 50€ reçu de Sophie Lambert',
-          read: true,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-        },
-        {
-          id: '5',
-          type: 'NEW_PATIENT',
-          title: 'Nouveau patient',
-          message: 'Claire Dubois s\'est inscrit(e) comme nouveau patient',
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-        },
-        {
-          id: '6',
-          type: 'PRESCRIPTION_EXPIRING',
-          title: 'Ordonnance expirante',
-          message: 'L\'ordonnance de Marc Petit expire dans 5 jours',
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-        },
-        {
-          id: '7',
-          type: 'SYSTEM_UPDATE',
-          title: 'Mise à jour système',
-          message: 'Une nouvelle version de l\'application est disponible',
-          read: true,
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
-        },
-      ]);
+      setNotifications([]);
     }
   }, [authedFetch]);
 
-  const fetchSmartAlerts = useCallback(async () => {
-    // In production, this would fetch from API
-    // For now, generate smart alerts based on mock data
-    setSmartAlerts([
-      {
-        id: 'alert-1',
+  const computeSmartAlerts = useCallback((notifs: Notification[]) => {
+    const unread = notifs.filter(n => !n.read);
+    const appointmentUnread = unread.filter(n => n.type.includes('APPOINTMENT'));
+    const prescriptionUnread = unread.filter(n => n.type.includes('PRESCRIPTION') || n.type.includes('EXPIRING'));
+    const paymentUnread = unread.filter(n => n.type.includes('PAYMENT'));
+
+    const alerts: SmartAlert[] = [];
+    if (appointmentUnread.length > 0) {
+      alerts.push({
+        id: 'alert-appointments',
         type: 'appointment_pending',
         title: 'Rendez-vous en attente',
-        description: 'Rendez-vous nécessitant votre confirmation',
-        count: 3,
+        description: 'Notifications de rendez-vous non lues',
+        count: appointmentUnread.length,
         priority: 'high',
         actionLabel: 'Voir les RDV',
         actionUrl: '/planning',
-      },
-      {
-        id: 'alert-2',
+      });
+    }
+    if (prescriptionUnread.length > 0) {
+      alerts.push({
+        id: 'alert-prescriptions',
         type: 'prescription_expiring',
-        title: 'Ordonnances expirantes',
-        description: 'Ordonnances expirant dans les 7 prochains jours',
-        count: 5,
+        title: 'Ordonnances',
+        description: "Notifications d'ordonnances non lues",
+        count: prescriptionUnread.length,
         priority: 'medium',
         actionLabel: 'Gérer',
         actionUrl: '/prescriptions',
-      },
-      {
-        id: 'alert-3',
+      });
+    }
+    if (paymentUnread.length > 0) {
+      alerts.push({
+        id: 'alert-payments',
         type: 'payment_pending',
-        title: 'Paiements en attente',
-        description: 'Consultations non encore facturées',
-        count: 2,
+        title: 'Paiements',
+        description: 'Notifications de paiements non lues',
+        count: paymentUnread.length,
         priority: 'low',
         actionLabel: 'Facturer',
         actionUrl: '/wallet',
-      },
-    ]);
+      });
+    }
+    setSmartAlerts(alerts);
   }, []);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchNotifications(), fetchSmartAlerts()]);
+      await fetchNotifications();
       setLoading(false);
     };
     loadData();
-  }, [fetchNotifications, fetchSmartAlerts]);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    computeSmartAlerts(notifications);
+  }, [notifications, computeSmartAlerts]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchNotifications(), fetchSmartAlerts()]);
+    await fetchNotifications();
     setRefreshing(false);
   };
 
@@ -239,7 +194,7 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      await authedFetch('/notifications/read-all', { method: 'PATCH' });
+      await authedFetch('/notifications/mark-all-read', { method: 'PATCH' });
     } catch (error) {
       console.error('Error marking all as read:', error);
     }

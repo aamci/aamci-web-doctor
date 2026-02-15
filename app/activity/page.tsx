@@ -222,7 +222,11 @@ export default function ActivityPage() {
 
     // Revenue
     const revenue = overview?.revenueThisMonth || 0;
-    const revenueTrend = 12; // Placeholder - would need historical data
+    // Calculate revenue trend from timeline data
+    const halfIdx = Math.floor(revenueTimeline.length / 2);
+    const recentRevenue = revenueTimeline.slice(halfIdx).reduce((s, d) => s + d.amount, 0);
+    const olderRevenue = revenueTimeline.slice(0, halfIdx).reduce((s, d) => s + d.amount, 0);
+    const revenueTrend = olderRevenue > 0 ? Math.round(((recentRevenue - olderRevenue) / olderRevenue) * 100) : 0;
 
     // Cancellation rate
     const cancelled = currentPeriodAppts.filter(a => a.status === 'CANCELLED').length;
@@ -252,7 +256,7 @@ export default function ActivityPage() {
       prescriptions: periodPrescriptions,
       noShowRate: overview?.noShowRate ? Math.round(overview.noShowRate * 100) : 0,
     };
-  }, [appointments, patients, prescriptions, overview, period]);
+  }, [appointments, patients, prescriptions, overview, period, revenueTimeline]);
 
   // Type distribution
   const typeDistribution = useMemo((): TypeDistribution[] => {
