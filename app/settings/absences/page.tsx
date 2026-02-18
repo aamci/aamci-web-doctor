@@ -107,51 +107,69 @@ export default function AbsencesPage() {
 
   const [selectedHolidays, setSelectedHolidays] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-  const loadData = async () => {
+  const typeToApi = (t: string) => {
+    const map: Record<string, string> = { vacation: 'VACATION', holiday: 'OTHER', personal: 'PERSONAL', training: 'TRAINING' };
+    return map[t] || 'OTHER';
+  };
+
+  const typeFromApi = (t: string): Absence['type'] => {
+    const map: Record<string, Absence['type']> = { VACATION: 'vacation', PERSONAL: 'personal', TRAINING: 'training', OTHER: 'holiday' };
+    return map[t] || 'personal';
+  };
+
+  const loadData = useCallback(async () => {
     setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    // Load from localStorage
-    const savedAbsences = localStorage.getItem('doctorAbsences');
+      const res = await fetch(`${apiBaseUrl}/doctor-absences/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAbsences((data || []).map((a: any) => ({
+          id: a.id,
+          type: typeFromApi(a.type),
+          title: a.reason || a.type || 'Absence',
+          startDate: a.startDate?.split('T')[0] || '',
+          endDate: a.endDate?.split('T')[0] || '',
+          allDay: !a.startTime,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          recurring: false,
+          notes: a.reason,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading absences:', error);
+    }
+
+    // Blocked times + holidays stay in localStorage (no API endpoint)
     const savedBlocked = localStorage.getItem('doctorBlockedTimes');
     const savedHolidays = localStorage.getItem('doctorSelectedHolidays');
 
-    if (savedAbsences) {
-      try {
-        setAbsences(JSON.parse(savedAbsences));
-      } catch (e) {
-        console.error('Error parsing absences:', e);
-      }
-    }
-
     if (savedBlocked) {
-      try {
-        setBlockedTimes(JSON.parse(savedBlocked));
-      } catch (e) {
-        console.error('Error parsing blocked times:', e);
-      }
+      try { setBlockedTimes(JSON.parse(savedBlocked)); } catch { /* ignore */ }
     }
-
     if (savedHolidays) {
-      try {
-        setSelectedHolidays(JSON.parse(savedHolidays));
-      } catch (e) {
-        console.error('Error parsing holidays:', e);
-      }
+      try { setSelectedHolidays(JSON.parse(savedHolidays)); } catch { /* ignore */ }
     } else {
-      // Default: all holidays selected
       setSelectedHolidays(FRENCH_HOLIDAYS_2026.map(h => h.date));
     }
 
     setLoading(false);
-  };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const saveAbsences = useCallback((newAbsences: Absence[]) => {
     setAbsences(newAbsences);
-    localStorage.setItem('doctorAbsences', JSON.stringify(newAbsences));
   }, []);
 
   const saveBlockedTimes = useCallback((newBlocked: BlockedTime[]) => {
@@ -196,33 +214,63 @@ export default function AbsencesPage() {
     setShowAbsenceModal(true);
   };
 
-  const handleSaveAbsence = () => {
+  const handleSaveAbsence = async () => {
     if (!absenceForm.startDate || !absenceForm.endDate) return;
 
-    const absence: Absence = {
-      id: editingAbsence?.id || `abs-${Date.now()}`,
-      type: absenceForm.type,
-      title: absenceForm.title || ABSENCE_TYPES.find(t => t.value === absenceForm.type)?.label || 'Absence',
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const title = absenceForm.title || ABSENCE_TYPES.find(t => t.value === absenceForm.type)?.label || 'Absence';
+    const apiBody = {
       startDate: absenceForm.startDate,
       endDate: absenceForm.endDate,
-      allDay: absenceForm.allDay,
-      startTime: absenceForm.allDay ? undefined : absenceForm.startTime,
-      endTime: absenceForm.allDay ? undefined : absenceForm.endTime,
-      recurring: absenceForm.recurring,
-      notes: absenceForm.notes || undefined,
+      type: typeToApi(absenceForm.type),
+      reason: title + (absenceForm.notes ? ` - ${absenceForm.notes}` : ''),
+      blockSlots: true,
     };
 
-    if (editingAbsence) {
-      saveAbsences(absences.map(a => a.id === editingAbsence.id ? absence : a));
-    } else {
-      saveAbsences([...absences, absence]);
+    try {
+      if (editingAbsence) {
+        const res = await fetch(`${apiBaseUrl}/doctor-absences/${editingAbsence.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(apiBody),
+        });
+        if (res.ok) {
+          await loadData();
+        }
+      } else {
+        const res = await fetch(`${apiBaseUrl}/doctor-absences`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(apiBody),
+        });
+        if (res.ok) {
+          await loadData();
+        }
+      }
+    } catch (error) {
+      console.error('Error saving absence:', error);
     }
 
     setShowAbsenceModal(false);
   };
 
-  const handleDeleteAbsence = (id: string) => {
-    saveAbsences(absences.filter(a => a.id !== id));
+  const handleDeleteAbsence = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/doctor-absences/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setAbsences(prev => prev.filter(a => a.id !== id));
+      }
+    } catch (error) {
+      console.error('Error deleting absence:', error);
+    }
   };
 
   const handleAddBlocked = () => {

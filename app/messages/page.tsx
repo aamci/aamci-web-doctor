@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/lib/toast';
 import { useAuth } from '../_providers/AuthProvider';
 import {
   MessageSquare,
@@ -240,11 +241,11 @@ export default function MessagesPage() {
 
         setNewMessage('');
       } else {
-        alert('Erreur lors de l\'envoi du message');
+        toast.error('Erreur lors de l\'envoi du message');
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Erreur lors de l\'envoi du message');
+      toast.error('Erreur lors de l\'envoi du message');
     } finally {
       setSending(false);
 
@@ -557,7 +558,7 @@ export default function MessagesPage() {
                                   <p className={`text-xs ${isOwn ? 'text-teal-200' : 'text-gray-500'}`}>Document PDF</p>
                                 </div>
                                 <button
-                                  onClick={() => message.fileUrl ? window.open(message.fileUrl, '_blank') : alert('Fichier non disponible')}
+                                  onClick={() => message.fileUrl ? window.open(message.fileUrl, '_blank') : toast.warning('Fichier non disponible')}
                                   className={`p-1.5 rounded-lg ${isOwn ? 'hover:bg-teal-500' : 'hover:bg-gray-100'}`}
                                   title="Télécharger"
                                 >
@@ -600,7 +601,7 @@ export default function MessagesPage() {
             <div className="bg-white border-t border-gray-200 p-3">
               <div className="flex items-end gap-2">
                 <button
-                  onClick={() => alert('La fonctionnalité de pièces jointes sera bientôt disponible.')}
+                  onClick={() => toast.info('La fonctionnalité de pièces jointes sera bientôt disponible.')}
                   className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Joindre un fichier"
                 >

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface Preference {
   id: string;
@@ -95,11 +96,11 @@ export default function PreferenceForm({ preference, onClose, onSuccess }: Props
         onSuccess();
       } else {
         const error = await response.json();
-        alert(`Erreur: ${error.message}`);
+        toast.error(`Erreur: ${error.message}`);
       }
     } catch (error) {
       console.error('Error saving preference:', error);
-      alert('Erreur lors de la sauvegarde');
+      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }

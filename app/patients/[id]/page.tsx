@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { toast } from '@/lib/toast';
 import {
   ArrowLeft,
   User,
@@ -538,7 +539,7 @@ export default function PatientRecordPage() {
 
   const savePrescription = async (appointmentId?: string) => {
     if (quickPrescriptionData.medications.every((m) => !m.name)) {
-      alert('Veuillez ajouter au moins un médicament');
+      toast.warning('Veuillez ajouter au moins un médicament');
       return;
     }
 
@@ -577,7 +578,7 @@ export default function PatientRecordPage() {
       await fetchPrescriptions();
 
       // Show success and close modal
-      alert('Ordonnance sauvegardée avec succès !');
+      toast.success('Ordonnance sauvegardée avec succès !');
       setShowQuickPrescriptionModal(false);
 
       // Reset form
@@ -589,7 +590,7 @@ export default function PatientRecordPage() {
       return true;
     } catch (error) {
       console.error('Error saving prescription:', error);
-      alert('Erreur lors de la sauvegarde de l\'ordonnance');
+      toast.error('Erreur lors de la sauvegarde de l\'ordonnance');
       return false;
     } finally {
       setIsSavingPrescription(false);
@@ -1034,7 +1035,7 @@ export default function PatientRecordPage() {
             <ActionButton icon={Pill} label="Créer une ordonnance" onClick={() => setShowQuickPrescriptionModal(true)} />
             <ActionButton icon={Receipt} label="Créer une facture" onClick={() => setShowQuickInvoiceModal(true)} />
             <ActionButton icon={Printer} label="Imprimer le dossier" onClick={() => window.print()} />
-            <ActionButton icon={Folder} label="Archiver le dossier" onClick={() => alert('Fonctionnalité à venir')} />
+            <ActionButton icon={Folder} label="Archiver le dossier" onClick={() => toast.info('Fonctionnalité à venir')} />
           </div>
         </div>
       )}
@@ -2973,10 +2974,10 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
       }
 
       await onRefresh();
-      alert('Ordonnance activée avec succès !');
+      toast.success('Ordonnance activée avec succès !');
     } catch (error) {
       console.error('Error activating prescription:', error);
-      alert('Erreur lors de l\'activation de l\'ordonnance');
+      toast.error('Erreur lors de l\'activation de l\'ordonnance');
     } finally {
       setIsProcessing(false);
     }
@@ -3001,10 +3002,10 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
       }
 
       await onRefresh();
-      alert('Ordonnance annulée avec succès !');
+      toast.success('Ordonnance annulée avec succès !');
     } catch (error) {
       console.error('Error cancelling prescription:', error);
-      alert('Erreur lors de l\'annulation de l\'ordonnance');
+      toast.error('Erreur lors de l\'annulation de l\'ordonnance');
     } finally {
       setIsProcessing(false);
     }
@@ -3027,10 +3028,10 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
       }
 
       await onRefresh();
-      alert('Ordonnance renouvelée avec succès ! (en mode brouillon)');
+      toast.success('Ordonnance renouvelée avec succès ! (en mode brouillon)');
     } catch (error) {
       console.error('Error renewing prescription:', error);
-      alert('Erreur lors du renouvellement de l\'ordonnance');
+      toast.error('Erreur lors du renouvellement de l\'ordonnance');
     } finally {
       setIsProcessing(false);
     }
@@ -5171,11 +5172,11 @@ function ConsultationSection({ patient }: { patient: Patient }) {
         setImageries([]);
         setShowHistory(false);
       } else {
-        alert('Erreur lors du démarrage de la consultation');
+        toast.error('Erreur lors du démarrage de la consultation');
       }
     } catch (error) {
       console.error('Error starting consultation:', error);
-      alert('Erreur lors du démarrage de la consultation');
+      toast.error('Erreur lors du démarrage de la consultation');
     }
   };
 
@@ -5204,11 +5205,11 @@ function ConsultationSection({ patient }: { patient: Patient }) {
           imageries,
         });
       } else {
-        alert('Erreur lors de la sauvegarde');
+        toast.error('Erreur lors de la sauvegarde');
       }
     } catch (error) {
       console.error('Error saving consultation:', error);
-      alert('Erreur lors de la sauvegarde');
+      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
@@ -5252,11 +5253,11 @@ function ConsultationSection({ patient }: { patient: Patient }) {
         setImageries([]);
         setShowHistory(true);
       } else {
-        alert('Erreur lors de la clôture de la consultation');
+        toast.error('Erreur lors de la clôture de la consultation');
       }
     } catch (error) {
       console.error('Error ending consultation:', error);
-      alert('Erreur lors de la clôture de la consultation');
+      toast.error('Erreur lors de la clôture de la consultation');
     } finally {
       setSaving(false);
     }
@@ -5274,11 +5275,11 @@ function ConsultationSection({ patient }: { patient: Patient }) {
         setConsultationHistory(prev => prev.filter(c => c.id !== consultationId));
         setSelectedHistoryItem(null);
       } else {
-        alert('Erreur lors de la suppression');
+        toast.error('Erreur lors de la suppression');
       }
     } catch (error) {
       console.error('Error deleting consultation:', error);
-      alert('Erreur lors de la suppression');
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -5467,12 +5468,12 @@ function ConsultationSection({ patient }: { patient: Patient }) {
         }),
       });
 
-      alert(`Email envoyé avec succès à ${emailRecipient}`);
+      toast.success(`Email envoyé avec succès à ${emailRecipient}`);
       setShowEmailModal(false);
       setEmailRecipient('');
     } catch (error) {
       console.error('Error sending email:', error);
-      alert('Erreur lors de l\'envoi de l\'email');
+      toast.error('Erreur lors de l\'envoi de l\'email');
     } finally {
       setSendingEmail(false);
     }
@@ -5731,7 +5732,7 @@ function ConsultationSection({ patient }: { patient: Patient }) {
       });
       setEditSaving(false);
       if (success) setIsEditingHistory(false);
-      else alert('Erreur lors de la sauvegarde');
+      else toast.error('Erreur lors de la sauvegarde');
     };
 
     return (

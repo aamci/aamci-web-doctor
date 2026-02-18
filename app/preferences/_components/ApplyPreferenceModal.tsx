@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Calendar, Clock, Users } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface Preference {
   id: string;
@@ -30,12 +31,12 @@ export default function ApplyPreferenceModal({ preference, onClose, onSuccess }:
 
   const handleApply = async () => {
     if (!startDate || !endDate) {
-      alert('Veuillez sélectionner une période');
+      toast.warning('Veuillez sélectionner une période');
       return;
     }
 
     if (new Date(startDate) > new Date(endDate)) {
-      alert('La date de début doit être avant la date de fin');
+      toast.warning('La date de début doit être avant la date de fin');
       return;
     }
 
@@ -62,11 +63,11 @@ export default function ApplyPreferenceModal({ preference, onClose, onSuccess }:
         onSuccess();
       } else {
         const error = await response.json();
-        alert(`Erreur: ${error.message}`);
+        toast.error(`Erreur: ${error.message}`);
       }
     } catch (error) {
       console.error('Error applying preference:', error);
-      alert('Erreur lors de l\'application de la préférence');
+      toast.error('Erreur lors de l\'application de la préférence');
     } finally {
       setLoading(false);
     }

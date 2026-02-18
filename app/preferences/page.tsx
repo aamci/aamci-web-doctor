@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Settings, Check, Calendar, Trash2, Edit } from 'lucide-react';
+import { toast } from '@/lib/toast';
 import PreferenceForm from './_components/PreferenceForm';
 import ApplyPreferenceModal from './_components/ApplyPreferenceModal';
 
@@ -305,7 +306,7 @@ export default function PreferencesPage() {
           onClose={() => setApplyingPreference(null)}
           onSuccess={() => {
             setApplyingPreference(null);
-            alert('Disponibilités générées avec succès!');
+            toast.success('Disponibilités générées avec succès!');
           }}
         />
       )}

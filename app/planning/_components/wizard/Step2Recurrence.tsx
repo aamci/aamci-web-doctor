@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { toast } from '@/lib/toast';
 import { Step2Props } from './types';
 
 const DAYS_OF_WEEK = [
@@ -33,7 +34,7 @@ export default function Step2Recurrence({ formData, onChange }: Step2Props) {
     // Validation format HH:MM-HH:MM
     const regex = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
     if (!regex.test(input)) {
-      alert('Format invalide. Utilisez HH:MM-HH:MM (ex: 12:00-13:00)');
+      toast.warning('Format invalide. Utilisez HH:MM-HH:MM (ex: 12:00-13:00)');
       return;
     }
 

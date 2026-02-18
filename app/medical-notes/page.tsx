@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -510,7 +511,7 @@ function CreateNoteModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !content) {
-      alert('Veuillez sélectionner un patient et rédiger la note');
+      toast.warning('Veuillez sélectionner un patient et rédiger la note');
       return;
     }
 
@@ -544,11 +545,11 @@ function CreateNoteModal({
         const newNote = await res.json();
         onSuccess(newNote);
       } else {
-        alert('Erreur lors de la création de la note');
+        toast.error('Erreur lors de la création de la note');
       }
     } catch (error) {
       console.error('Error creating note:', error);
-      alert('Erreur lors de la création de la note');
+      toast.error('Erreur lors de la création de la note');
     } finally {
       setLoading(false);
     }

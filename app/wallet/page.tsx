@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/lib/toast';
 
 type TransactionType = 'PAYMENT' | 'PAYOUT' | 'REFUND';
 type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
@@ -302,10 +303,10 @@ export default function WalletPage() {
                             setPayoutSuccess(true);
                           } else {
                             const errData = await res.json().catch(() => ({}));
-                            alert(errData.message || 'Erreur lors de la demande de retrait');
+                            toast.error(errData.message || 'Erreur lors de la demande de retrait');
                           }
                         } catch {
-                          alert('Erreur réseau. Veuillez réessayer.');
+                          toast.error('Erreur réseau. Veuillez réessayer.');
                         } finally {
                           setPayoutLoading(false);
                         }

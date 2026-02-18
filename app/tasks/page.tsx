@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -578,7 +579,7 @@ function TaskModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Veuillez saisir un titre');
+      toast.warning('Veuillez saisir un titre');
       return;
     }
 
@@ -618,11 +619,11 @@ function TaskModal({
       if (res.ok) {
         onSuccess();
       } else {
-        alert('Erreur lors de la sauvegarde');
+        toast.error('Erreur lors de la sauvegarde');
       }
     } catch (error) {
       console.error('Error saving task:', error);
-      alert('Erreur lors de la sauvegarde');
+      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }

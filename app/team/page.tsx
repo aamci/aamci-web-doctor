@@ -28,6 +28,7 @@ import {
   Building2,
   Stethoscope,
 } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface TeamMember {
   id: string;
@@ -178,7 +179,7 @@ export default function TeamPage() {
         }, 1500);
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(errData.message || 'Erreur lors de l\'invitation');
+        toast.error(errData.message || 'Erreur lors de l\'invitation');
       }
     } catch (error) {
       console.error('Error inviting member:', error);
@@ -213,9 +214,9 @@ export default function TeamPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        alert('Invitation renvoyée !');
+        toast.success('Invitation renvoyée !');
       } else {
-        alert('Erreur lors du renvoi de l\'invitation');
+        toast.error('Erreur lors du renvoi de l\'invitation');
       }
     } catch (error) {
       console.error('Error resending invite:', error);

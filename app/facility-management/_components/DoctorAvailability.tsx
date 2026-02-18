@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, Trash2, Clock, Users } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface AvailabilityRule {
   id: string;
@@ -66,7 +67,7 @@ export default function DoctorAvailability({ doctorId }: Props) {
 
   const handleCreate = async () => {
     if (!formData.startDate || !formData.endDate || formData.daysOfWeek.length === 0) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast.warning('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
@@ -100,11 +101,11 @@ export default function DoctorAvailability({ doctorId }: Props) {
         });
       } else {
         const error = await response.json();
-        alert(`Erreur: ${error.message}`);
+        toast.error(`Erreur: ${error.message}`);
       }
     } catch (error) {
       console.error('Error creating rule:', error);
-      alert('Erreur lors de la création');
+      toast.error('Erreur lors de la création');
     }
   };
 

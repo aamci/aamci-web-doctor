@@ -72,7 +72,7 @@ export default function NotificationsPage() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
   const authedFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     const res = await fetch(`${apiBaseUrl}${url}`, {
       ...options,
       headers: {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/lib/toast';
 import {
   ArrowLeft,
   Plus,
@@ -195,7 +196,7 @@ export default function PrescriptionsPage() {
   // Save template to localStorage
   const saveTemplate = () => {
     if (!templateName.trim()) {
-      alert('Veuillez donner un nom au template');
+      toast.warning('Veuillez donner un nom au template');
       return;
     }
 
@@ -222,10 +223,10 @@ export default function PrescriptionsPage() {
       setTemplateName('');
       setTemplateCategory('');
       setTemplateDescription('');
-      alert('Template sauvegardé avec succès !');
+      toast.success('Template sauvegardé avec succès !');
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Erreur lors de la sauvegarde du template');
+      toast.error('Erreur lors de la sauvegarde du template');
     }
   };
 
@@ -238,7 +239,7 @@ export default function PrescriptionsPage() {
       medications: template.medications.map(m => ({ ...m })),
     });
     setShowTemplateModal(false);
-    alert(`Template "${template.name}" chargé !`);
+    toast.success(`Template "${template.name}" chargé !`);
   };
 
   // Delete custom template
@@ -253,10 +254,10 @@ export default function PrescriptionsPage() {
         localStorage.setItem('medicationTemplates', JSON.stringify(updated));
         setTemplates([...PREDEFINED_TEMPLATES, ...updated]);
       }
-      alert('Template supprimé');
+      toast.success('Template supprimé');
     } catch (error) {
       console.error('Error deleting template:', error);
-      alert('Erreur lors de la suppression');
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -283,12 +284,12 @@ export default function PrescriptionsPage() {
   // Save prescription to database
   const savePrescription = async () => {
     if (!formData.patientId) {
-      alert('Veuillez sélectionner un patient');
+      toast.warning('Veuillez sélectionner un patient');
       return;
     }
 
     if (formData.medications.every((m) => !m.name)) {
-      alert('Veuillez ajouter au moins un médicament');
+      toast.warning('Veuillez ajouter au moins un médicament');
       return;
     }
 
@@ -333,7 +334,7 @@ export default function PrescriptionsPage() {
       return savedPrescription;
     } catch (error) {
       console.error('Error saving prescription:', error);
-      alert('Erreur lors de la sauvegarde de l\'ordonnance');
+      toast.error('Erreur lors de la sauvegarde de l\'ordonnance');
       return null;
     } finally {
       setIsSaving(false);
@@ -372,7 +373,7 @@ export default function PrescriptionsPage() {
 
   const handlePreview = () => {
     if (!formData.patientName || formData.medications.every((m) => !m.name)) {
-      alert('Veuillez remplir au moins le nom du patient et un médicament');
+      toast.warning('Veuillez remplir au moins le nom du patient et un médicament');
       return;
     }
     setPreviewPrescription(formData);

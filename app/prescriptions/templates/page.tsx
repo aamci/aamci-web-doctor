@@ -26,6 +26,7 @@ import {
   Eye,
   Filter,
 } from 'lucide-react';
+import { toast } from '@/lib/toast';
 
 interface Medication {
   id: string;
@@ -232,11 +233,11 @@ export default function PrescriptionTemplatesPage() {
         setFormData({ name: '', description: '', category: 'general', medications: [], notes: '' });
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(errData.message || 'Erreur lors de l\'enregistrement');
+        toast.error(errData.message || 'Erreur lors de l\'enregistrement');
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Erreur réseau. Veuillez réessayer.');
+      toast.error('Erreur réseau. Veuillez réessayer.');
     } finally {
       setSaving(false);
     }
