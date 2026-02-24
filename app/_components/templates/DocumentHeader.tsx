@@ -11,6 +11,7 @@ export interface DoctorInfo {
   email?: string;
   registrationNumber?: string; // Numéro ONMC/Ordre
   logoUrl?: string;
+  signatureUrl?: string; // Base64 ou URL de la signature du médecin
 }
 
 interface DocumentHeaderProps {

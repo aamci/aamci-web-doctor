@@ -102,15 +102,13 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="space-y-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
+      <div className="p-8 max-w-3xl">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+          <div className="space-y-4">
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
           </div>
         </div>
       </div>
@@ -118,18 +116,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Settings className="w-8 h-8 text-teal-600" />
-            Paramètres
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Gérez les paramètres de votre compte et de vos rendez-vous
-          </p>
-        </div>
+    <div className="p-8 max-w-3xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-bold text-gray-900">Paramètres</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Gérez les paramètres de votre compte et de vos rendez-vous
+        </p>
+      </div>
 
         {/* Navigation sous-pages */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
@@ -349,6 +343,5 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
-    </div>
   );
 }

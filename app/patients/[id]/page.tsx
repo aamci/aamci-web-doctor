@@ -57,6 +57,7 @@ import {
   Reply,
   Target,
   Briefcase,
+  Video,
 } from 'lucide-react';
 import { InvoiceTemplate, PrescriptionTemplate, PrintButton } from '../../_components/templates';
 import type { Medication } from '../../_components/templates';
@@ -448,6 +449,9 @@ export default function PatientRecordPage() {
   const [correspondences, setCorrespondences] = useState<MedicalCorrespondence[]>([]);
   const [messages] = useState<PatientMessage[]>([]);
   const [protocols, setProtocols] = useState<CareProtocol[]>([]);
+  const [doctorSignature] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('doctorSignature') : null
+  );
 
   // Fetch data
   useEffect(() => {
@@ -500,7 +504,7 @@ export default function PatientRecordPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setInvoices(data.invoices || []);
+        setInvoices(Array.isArray(data) ? data : data.invoices || []);
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -976,7 +980,7 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'traitement' && (
-            <TraitementSection treatments={treatments} treatmentsStats={treatmentsStats} />
+            <TraitementSection treatments={treatments} treatmentsStats={treatmentsStats} onNewPrescription={() => setShowQuickPrescriptionModal(true)} />
           )}
 
           {activeSection === 'prescriptions' && (
@@ -995,11 +999,11 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'vaccination' && (
-            <VaccinationSection vaccinations={vaccinations} patientId={patientId} onRefresh={fetchPatientRecord} />
+            <VaccinationSection vaccinations={vaccinations} patientId={patientId} onRefresh={fetchPatientRecord} patientName={patient?.fullName || undefined} />
           )}
 
           {activeSection === 'certificats' && (
-            <CertificatsSection certificates={certificates} onAdd={(cert: MedicalCertificate) => setCertificates(prev => [cert, ...prev])} />
+            <CertificatsSection certificates={certificates} onAdd={(cert: MedicalCertificate) => setCertificates(prev => [cert, ...prev])} onUpdate={(updated: MedicalCertificate) => setCertificates(prev => prev.map(c => c.id === updated.id ? updated : c))} />
           )}
 
           {activeSection === 'correspondances' && (
@@ -1029,7 +1033,7 @@ export default function PatientRecordPage() {
         <div className="w-64 bg-white border-l border-gray-200 p-4 hidden xl:block">
           <h3 className="font-semibold text-gray-900 mb-4">ACTIONS</h3>
           <div className="space-y-2">
-            <ActionButton icon={Calendar} label="Prendre un rendez-vous" onClick={() => router.push('/reservations')} />
+            <ActionButton icon={Calendar} label="Prendre un rendez-vous" onClick={() => router.push(`/reservations?patientId=${patientId}&patientName=${encodeURIComponent(record?.patient?.fullName || '')}`)} />
             <ActionButton icon={Stethoscope} label="Nouvelle consultation" onClick={() => setActiveSection('consultations')} />
             <ActionButton icon={MessageSquare} label="Envoyer un message" onClick={() => setActiveSection('messagerie')} />
             <ActionButton icon={Pill} label="Créer une ordonnance" onClick={() => setShowQuickPrescriptionModal(true)} />
@@ -1215,6 +1219,7 @@ export default function PatientRecordPage() {
                     city: (user as any)?.doctorProfile?.city,
                     phone: (user as any)?.phone,
                     email: user?.email,
+                    signatureUrl: doctorSignature || undefined,
                   }}
                   patient={{
                     fullName: patient.fullName || 'Patient',
@@ -2086,6 +2091,7 @@ function HistoriqueSection({ appointments }: { appointments: Appointment[] }) {
 }
 
 function AppointmentRow({ appointment }: { appointment: Appointment }) {
+  const [expanded, setExpanded] = useState(false);
   const statusColors: Record<string, string> = {
     CONFIRMED: 'bg-green-100 text-green-700',
     PENDING: 'bg-yellow-100 text-yellow-700',
@@ -2094,24 +2100,57 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
   };
 
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-      <div className="flex items-center gap-4">
-        <div className="text-sm">
-          <span className="text-gray-500">{formatDateTime(appointment.slot.start)}</span>
+    <div>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+      >
+        <div className="flex items-center gap-4">
+          <div className="text-sm">
+            <span className="text-gray-500">{formatDateTime(appointment.slot.start)}</span>
+          </div>
+          <span className={`px-2 py-0.5 rounded text-xs ${appointment.kind?.isTelemedicine ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+            {appointment.kind?.name || 'Consultation'}
+          </span>
         </div>
-        <span className={`px-2 py-0.5 rounded text-xs ${appointment.kind?.isTelemedicine ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-          {appointment.kind?.name || 'Consultation'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={`px-2 py-1 rounded text-xs ${statusColors[appointment.status] || 'bg-gray-100'}`}>
+            {appointment.status === 'CONFIRMED' ? 'Confirmé' :
+             appointment.status === 'PENDING' ? 'En attente' :
+             appointment.status === 'CANCELLED' ? 'Annulé' :
+             appointment.status === 'NO_SHOW' ? 'Absent' : appointment.status}
+          </span>
+          <button className="text-teal-600 text-sm hover:text-teal-700">
+            {expanded ? 'Fermer' : 'Ouvrir'}
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className={`px-2 py-1 rounded text-xs ${statusColors[appointment.status] || 'bg-gray-100'}`}>
-          {appointment.status === 'CONFIRMED' ? 'Confirmé' :
-           appointment.status === 'PENDING' ? 'En attente' :
-           appointment.status === 'CANCELLED' ? 'Annulé' :
-           appointment.status === 'NO_SHOW' ? 'Absent' : appointment.status}
-        </span>
-        <button className="text-teal-600 text-sm hover:text-teal-700">Ouvrir</button>
-      </div>
+      {expanded && (
+        <div className="ml-4 mt-2 p-4 bg-white rounded-lg border border-gray-200 space-y-2 text-sm">
+          <div className="flex gap-6">
+            <div>
+              <span className="text-gray-500">Début :</span>{' '}
+              <span className="text-gray-900">{formatDateTime(appointment.slot.start)}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Fin :</span>{' '}
+              <span className="text-gray-900">{formatDateTime(appointment.slot.end)}</span>
+            </div>
+          </div>
+          {appointment.notes && (
+            <div>
+              <span className="text-gray-500">Notes :</span>{' '}
+              <span className="text-gray-900">{appointment.notes}</span>
+            </div>
+          )}
+          {appointment.kind?.isTelemedicine && (
+            <div className="flex items-center gap-1 text-blue-600">
+              <Video className="w-4 h-4" />
+              Téléconsultation
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2818,7 +2857,7 @@ function ObservationsSection({ observations }: { observations: ClinicalObservati
   );
 }
 
-function TraitementSection({ treatments, treatmentsStats }: { treatments: Treatment[]; treatmentsStats: any }) {
+function TraitementSection({ treatments, treatmentsStats, onNewPrescription }: { treatments: Treatment[]; treatmentsStats: any; onNewPrescription?: () => void }) {
   const [tab, setTab] = useState<'active' | 'history'>('active');
 
   const activeTreatments = treatments.filter((t) => t.status === 'ACTIVE' || t.status === 'PAUSED');
@@ -2828,7 +2867,7 @@ function TraitementSection({ treatments, treatmentsStats }: { treatments: Treatm
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Traitement en cours</h2>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={onNewPrescription} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouvelle ordonnance
         </button>
@@ -2869,7 +2908,7 @@ function TraitementSection({ treatments, treatmentsStats }: { treatments: Treatm
             <Pill className="w-12 h-12 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-600 mb-2">Aucun traitement en cours</p>
             <p className="text-sm text-gray-500 mb-4">Ce patient n'a pas de traitement actif. Créez une ordonnance pour démarrer un traitement.</p>
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
+            <button onClick={onNewPrescription} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2 mx-auto">
               <Plus className="w-4 h-4" />
               Nouvelle ordonnance
             </button>
@@ -2951,6 +2990,9 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
   const [selectedPrescription, setSelectedPrescription] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
+  const [doctorSignature] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('doctorSignature') : null
+  );
 
   const activePrescriptions = prescriptions.filter((p) => p.status === 'ACTIVE');
   const allPrescriptions = prescriptions;
@@ -3143,6 +3185,7 @@ function PrescriptionsSection({ prescriptions, onRefresh }: { prescriptions: any
                     city: (user as any)?.doctorProfile?.city,
                     phone: (user as any)?.phone,
                     email: user?.email,
+                    signatureUrl: doctorSignature || undefined,
                   }}
                   patient={{
                     fullName: selectedPrescription.patient?.fullName || 'Patient',
@@ -3713,9 +3756,25 @@ function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHisto
   );
 }
 
-function VaccinationSection({ vaccinations, patientId, onRefresh }: { vaccinations: Vaccination[]; patientId: string; onRefresh: () => void }) {
+function VaccinationSection({ vaccinations, patientId, onRefresh, patientName }: { vaccinations: Vaccination[]; patientId: string; onRefresh: () => void; patientName?: string }) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const handleExport = () => {
+    const header = `Carnet de vaccination - ${patientName || 'Patient'}\nDate d'export: ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+    const rows = vaccinations.map(v =>
+      `${v.vaccineName}\t${v.vaccineType || '-'}\t${v.lotNumber || '-'}\t${v.manufacturer || '-'}\tDose ${v.doseNumber}\t${new Date(v.administeredAt).toLocaleDateString('fr-FR')}\t${v.nextDoseAt ? new Date(v.nextDoseAt).toLocaleDateString('fr-FR') : '-'}`
+    );
+    const csv = header + 'Vaccin\tType\tLot\tFabricant\tDose\tDate\tProchaine dose\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/tab-separated-values' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `carnet-vaccination-${patientName || 'patient'}.tsv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Carnet de vaccination exporté');
+  };
   const [form, setForm] = useState({ vaccineName: '', vaccineType: '', lotNumber: '', manufacturer: '', doseNumber: 1, injectionSite: '', administeredAt: new Date().toISOString().split('T')[0], nextDoseAt: '', administeredBy: '', facilityName: '' });
 
   const handleAdd = async () => {
@@ -3742,7 +3801,8 @@ function VaccinationSection({ vaccinations, patientId, onRefresh }: { vaccinatio
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Carnet de vaccination</h2>
         <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button onClick={handleExport} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <Download className="w-4 h-4" />
             Exporter
           </button>
           <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
@@ -3874,8 +3934,31 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
   const totalPending = invoices.filter((i) => i.status !== 'PAID' && i.status !== 'CANCELLED').reduce((sum, i) => sum + Number(i.total), 0);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const [items, setItems] = useState([{ description: '', quantity: 1, unitPrice: '' }]);
   const [notes, setNotes] = useState('');
+
+  const handleSendInvoice = async (invoiceId: string) => {
+    setSendingId(invoiceId);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/send`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast.success('Facture envoyée avec succès');
+        onRefresh();
+      } else {
+        toast.error('Erreur lors de l\'envoi de la facture');
+      }
+    } catch (e) {
+      console.error('Error sending invoice:', e);
+      toast.error('Erreur lors de l\'envoi');
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const handleAddInvoice = async () => {
     const validItems = items.filter(i => i.description && i.unitPrice);
@@ -3969,11 +4052,21 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span className={`px-2 py-1 rounded text-xs ${statusColors[inv.status]}`}>
                     {statusLabels[inv.status]}
                   </span>
                   <span className="font-semibold text-gray-900">{Number(inv.total).toFixed(2)} €</span>
+                  {(inv.status === 'DRAFT' || inv.status === 'SENT') && (
+                    <button
+                      onClick={() => handleSendInvoice(inv.id)}
+                      disabled={sendingId === inv.id}
+                      className="px-3 py-1 bg-teal-600 text-white rounded text-xs font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {sendingId === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                      Envoyer
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -4038,9 +4131,12 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
 }
 
 // Certificats médicaux Section
-function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCertificate[]; onAdd: (cert: MedicalCertificate) => void }) {
+function CertificatsSection({ certificates, onAdd, onUpdate }: { certificates: MedicalCertificate[]; onAdd: (cert: MedicalCertificate) => void; onUpdate: (cert: MedicalCertificate) => void }) {
   const [showModal, setShowModal] = useState(false);
+  const [editingCert, setEditingCert] = useState<MedicalCertificate | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState('');
   const [certForm, setCertForm] = useState({ type: 'MEDICAL' as MedicalCertificate['type'], title: '', description: '', startDate: '', endDate: '', recipient: '' });
+  const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const CERT_TYPE_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     APTITUDE: { label: 'Aptitude', color: 'bg-green-100 text-green-700', icon: CheckCircle },
     ARRET_TRAVAIL: { label: 'Arrêt de travail', color: 'bg-red-100 text-red-700', icon: Briefcase },
@@ -4050,11 +4146,114 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
     AUTRE: { label: 'Autre', color: 'bg-gray-100 text-gray-700', icon: FileText },
   };
 
+  const filteredCertificates = activeFilter === 'ALL' ? certificates : certificates.filter(c => c.type === activeFilter);
+
+  const openNewModal = () => {
+    setEditingCert(null);
+    setCertForm({ type: 'MEDICAL', title: '', description: '', startDate: '', endDate: '', recipient: '' });
+    setDuplicateWarning('');
+    setShowModal(true);
+  };
+
+  const openEditModal = (cert: MedicalCertificate) => {
+    setEditingCert(cert);
+    setCertForm({
+      type: cert.type,
+      title: cert.title,
+      description: cert.description || '',
+      startDate: cert.startDate ? cert.startDate.split('T')[0] : '',
+      endDate: cert.endDate ? cert.endDate.split('T')[0] : '',
+      recipient: cert.recipient || '',
+    });
+    setDuplicateWarning('');
+    setShowModal(true);
+  };
+
+  const checkDuplicate = (type: string, startDate: string, endDate: string): string => {
+    const existing = certificates.find(c =>
+      c.id !== editingCert?.id &&
+      c.type === type &&
+      c.startDate && startDate &&
+      c.startDate.split('T')[0] === startDate &&
+      (c.endDate?.split('T')[0] || '') === (endDate || '')
+    );
+    if (existing) {
+      return `Un certificat "${CERT_TYPE_LABELS[type]?.label || type}" existe déjà pour cette période (${formatDate(existing.issuedAt)}).`;
+    }
+    return '';
+  };
+
+  const handleFormChange = (field: string, value: string) => {
+    const updated = { ...certForm, [field]: value };
+    setCertForm(updated as typeof certForm);
+    if (field === 'type' || field === 'startDate' || field === 'endDate') {
+      setDuplicateWarning(checkDuplicate(
+        field === 'type' ? value : updated.type,
+        field === 'startDate' ? value : updated.startDate,
+        field === 'endDate' ? value : updated.endDate,
+      ));
+    }
+  };
+
+  const handleSave = () => {
+    if (editingCert) {
+      onUpdate({
+        ...editingCert,
+        type: certForm.type,
+        title: certForm.title,
+        description: certForm.description || null,
+        startDate: certForm.startDate || null,
+        endDate: certForm.endDate || null,
+        recipient: certForm.recipient || null,
+      });
+      toast.success('Certificat modifié');
+    } else {
+      onAdd({
+        id: Date.now().toString(),
+        type: certForm.type,
+        title: certForm.title,
+        description: certForm.description || null,
+        startDate: certForm.startDate || null,
+        endDate: certForm.endDate || null,
+        issuedAt: new Date().toISOString(),
+        recipient: certForm.recipient || null,
+      });
+      toast.success('Certificat créé');
+    }
+    setShowModal(false);
+    setCertForm({ type: 'MEDICAL', title: '', description: '', startDate: '', endDate: '', recipient: '' });
+    setEditingCert(null);
+  };
+
+  const handlePrint = (cert: MedicalCertificate) => {
+    const typeLabel = CERT_TYPE_LABELS[cert.type]?.label || cert.type;
+    const printContent = `
+      <html><head><title>Certificat - ${cert.title}</title>
+      <style>body{font-family:Arial,sans-serif;padding:40px;max-width:700px;margin:auto}h1{text-align:center;color:#0d9488}
+      .info{margin:20px 0;padding:15px;border:1px solid #e5e7eb;border-radius:8px}
+      .label{font-weight:bold;color:#374151}.value{color:#6b7280}</style></head>
+      <body><h1>Certificat médical</h1>
+      <div class="info"><p><span class="label">Type:</span> <span class="value">${typeLabel}</span></p>
+      <p><span class="label">Titre:</span> <span class="value">${cert.title}</span></p>
+      ${cert.description ? `<p><span class="label">Description:</span> <span class="value">${cert.description}</span></p>` : ''}
+      ${cert.startDate && cert.endDate ? `<p><span class="label">Période:</span> <span class="value">Du ${formatDate(cert.startDate)} au ${formatDate(cert.endDate)}</span></p>` : ''}
+      ${cert.recipient ? `<p><span class="label">Destinataire:</span> <span class="value">${cert.recipient}</span></p>` : ''}
+      <p><span class="label">Date d'émission:</span> <span class="value">${formatDate(cert.issuedAt)}</span></p>
+      ${cert.doctor ? `<p><span class="label">Médecin:</span> <span class="value">${cert.doctor.fullName}</span></p>` : ''}
+      </div></body></html>`;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Certificats médicaux</h2>
-        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
+        <button onClick={openNewModal} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Nouveau certificat
         </button>
@@ -4062,14 +4261,14 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
 
       {/* Filtres par type */}
       <div className="flex flex-wrap gap-2">
-        <button className="px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-xs font-medium">
+        <button onClick={() => setActiveFilter('ALL')} className={`px-3 py-1.5 rounded-full text-xs font-medium ${activeFilter === 'ALL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
           Tous ({certificates.length})
         </button>
         {Object.entries(CERT_TYPE_LABELS).map(([type, config]) => {
           const count = certificates.filter(c => c.type === type).length;
           if (count === 0) return null;
           return (
-            <button key={type} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium hover:bg-gray-200">
+            <button key={type} onClick={() => setActiveFilter(type)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${activeFilter === type ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {config.label} ({count})
             </button>
           );
@@ -4077,9 +4276,9 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
       </div>
 
       {/* Liste des certificats */}
-      {certificates.length > 0 ? (
+      {filteredCertificates.length > 0 ? (
         <div className="space-y-3">
-          {certificates.map((cert) => {
+          {filteredCertificates.map((cert) => {
             const typeConfig = CERT_TYPE_LABELS[cert.type] || CERT_TYPE_LABELS.AUTRE;
             const TypeIcon = typeConfig.icon;
 
@@ -4123,15 +4322,12 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Imprimer">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEditModal(cert)} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Modifier">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handlePrint(cert)} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Imprimer">
                       <Printer className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Télécharger">
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Plus">
-                      <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -4143,7 +4339,7 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Award className="w-12 h-12 mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500 mb-4">Aucun certificat médical</p>
-          <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
+          <button onClick={openNewModal} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
             Créer un certificat
           </button>
         </div>
@@ -4153,13 +4349,19 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Nouveau certificat médical</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+              <h3 className="text-lg font-bold">{editingCert ? 'Modifier le certificat' : 'Nouveau certificat médical'}</h3>
+              <button onClick={() => { setShowModal(false); setEditingCert(null); }} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
+            {duplicateWarning && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-700">{duplicateWarning}</p>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type de certificat</label>
-                <select value={certForm.type} onChange={e => setCertForm(f => ({ ...f, type: e.target.value as MedicalCertificate['type'] }))} className="w-full px-3 py-2 border rounded-lg text-sm">
+                <select value={certForm.type} onChange={e => handleFormChange('type', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="APTITUDE">Aptitude</option>
                   <option value="ARRET_TRAVAIL">Arrêt de travail</option>
                   <option value="SPORT">Sport</option>
@@ -4179,11 +4381,11 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                  <input type="date" value={certForm.startDate} onChange={e => setCertForm(f => ({ ...f, startDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                  <input type="date" value={certForm.startDate} onChange={e => handleFormChange('startDate', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                  <input type="date" value={certForm.endDate} onChange={e => setCertForm(f => ({ ...f, endDate: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                  <input type="date" value={certForm.endDate} onChange={e => handleFormChange('endDate', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 </div>
               </div>
               <div>
@@ -4192,26 +4394,13 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={() => { setShowModal(false); setEditingCert(null); }} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
               <button
-                disabled={!certForm.title}
-                onClick={() => {
-                  onAdd({
-                    id: Date.now().toString(),
-                    type: certForm.type,
-                    title: certForm.title,
-                    description: certForm.description || null,
-                    startDate: certForm.startDate || null,
-                    endDate: certForm.endDate || null,
-                    issuedAt: new Date().toISOString(),
-                    recipient: certForm.recipient || null,
-                  });
-                  setShowModal(false);
-                  setCertForm({ type: 'MEDICAL', title: '', description: '', startDate: '', endDate: '', recipient: '' });
-                }}
+                disabled={!certForm.title || !!duplicateWarning}
+                onClick={handleSave}
                 className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
               >
-                Créer le certificat
+                {editingCert ? 'Enregistrer les modifications' : 'Créer le certificat'}
               </button>
             </div>
           </div>
@@ -4222,17 +4411,19 @@ function CertificatsSection({ certificates, onAdd }: { certificates: MedicalCert
 }
 
 // Correspondances médicales Section
+// Courrier médical entre confrères: comptes-rendus, demandes d'avis, transferts de patients
 function CorrespondancesSection({ correspondences, onAdd }: { correspondences: MedicalCorrespondence[]; onAdd: (corr: MedicalCorrespondence) => void }) {
   const [filter, setFilter] = useState<'ALL' | 'INCOMING' | 'OUTGOING'>('ALL');
   const [showModal, setShowModal] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [corrForm, setCorrForm] = useState({ category: 'COMPTE_RENDU' as MedicalCorrespondence['category'], subject: '', content: '', recipientName: '', recipientSpecialty: '' });
 
-  const CATEGORY_LABELS: Record<string, string> = {
-    COMPTE_RENDU: 'Compte-rendu',
-    DEMANDE_AVIS: 'Demande d\'avis',
-    REPONSE_AVIS: 'Réponse',
-    TRANSFERT: 'Transfert',
-    AUTRE: 'Autre',
+  const CATEGORY_LABELS: Record<string, { label: string; description: string }> = {
+    COMPTE_RENDU: { label: 'Compte-rendu', description: 'Résumé de consultation ou intervention à partager avec un confrère' },
+    DEMANDE_AVIS: { label: 'Demande d\'avis', description: 'Demander l\'avis d\'un spécialiste pour ce patient' },
+    REPONSE_AVIS: { label: 'Réponse', description: 'Répondre à une demande d\'avis reçue' },
+    TRANSFERT: { label: 'Transfert', description: 'Transférer le suivi du patient à un autre praticien' },
+    AUTRE: { label: 'Autre', description: 'Autre type de correspondance médicale' },
   };
 
   const filteredCorrespondences = correspondences.filter(c =>
@@ -4244,13 +4435,16 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-gray-900">Correspondances</h2>
-          {unreadCount > 0 && (
-            <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-              {unreadCount} non lu{unreadCount > 1 ? 's' : ''}
-            </span>
-          )}
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-gray-900">Courrier médical</h2>
+            {unreadCount > 0 && (
+              <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                {unreadCount} non lu{unreadCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-1">Correspondances entre confrères concernant ce patient</p>
         </div>
         <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2">
           <Plus className="w-4 h-4" />
@@ -4291,70 +4485,110 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
       {/* Liste */}
       {filteredCorrespondences.length > 0 ? (
         <div className="space-y-3">
-          {filteredCorrespondences.map((corr) => (
-            <div
-              key={corr.id}
-              className={`bg-white rounded-xl border p-4 hover:border-teal-300 transition-colors cursor-pointer ${
-                !corr.isRead && corr.type === 'INCOMING' ? 'border-teal-300 bg-teal-50/30' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    corr.type === 'INCOMING' ? 'bg-blue-100' : 'bg-green-100'
-                  }`}>
-                    {corr.type === 'INCOMING' ? (
-                      <Inbox className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <Send className="w-5 h-5 text-green-600" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className={`font-semibold truncate ${!corr.isRead && corr.type === 'INCOMING' ? 'text-gray-900' : 'text-gray-700'}`}>
-                        {corr.subject}
-                      </h3>
-                      {!corr.isRead && corr.type === 'INCOMING' && (
-                        <span className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0" />
+          {filteredCorrespondences.map((corr) => {
+            const isExpanded = expandedId === corr.id;
+            return (
+              <div
+                key={corr.id}
+                className={`bg-white rounded-xl border p-4 transition-colors ${
+                  !corr.isRead && corr.type === 'INCOMING' ? 'border-teal-300 bg-teal-50/30' : 'border-gray-200 hover:border-teal-300'
+                }`}
+              >
+                <div className="flex items-start justify-between cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : corr.id)}>
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      corr.type === 'INCOMING' ? 'bg-blue-100' : 'bg-green-100'
+                    }`}>
+                      {corr.type === 'INCOMING' ? (
+                        <Inbox className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <Send className="w-5 h-5 text-green-600" />
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">{corr.content}</p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600">
-                        {CATEGORY_LABELS[corr.category]}
-                      </span>
-                      <span>
-                        {corr.type === 'INCOMING' ? 'De' : 'À'}: {corr.type === 'INCOMING' ? corr.senderName : corr.recipientName}
-                        {(corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty) && (
-                          <span className="text-gray-400"> ({corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty})</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className={`font-semibold truncate ${!corr.isRead && corr.type === 'INCOMING' ? 'text-gray-900' : 'text-gray-700'}`}>
+                          {corr.subject}
+                        </h3>
+                        {!corr.isRead && corr.type === 'INCOMING' && (
+                          <span className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0" />
                         )}
-                      </span>
-                      <span>{formatDate(corr.date)}</span>
-                      {corr.attachments.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Folder className="w-3.5 h-3.5" />
-                          {corr.attachments.length} pièce{corr.attachments.length > 1 ? 's' : ''}
+                      </div>
+                      {!isExpanded && <p className="text-sm text-gray-600 line-clamp-1 mb-2">{corr.content}</p>}
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600">
+                          {CATEGORY_LABELS[corr.category]?.label || corr.category}
                         </span>
-                      )}
+                        <span>
+                          {corr.type === 'INCOMING' ? 'De' : 'À'}: {corr.type === 'INCOMING' ? corr.senderName : corr.recipientName}
+                          {(corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty) && (
+                            <span className="text-gray-400"> ({corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty})</span>
+                          )}
+                        </span>
+                        <span>{formatDate(corr.date)}</span>
+                        {corr.attachments.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Folder className="w-3.5 h-3.5" />
+                            {corr.attachments.length} pièce{corr.attachments.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <button className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Répondre">
-                    <Reply className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Plus">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-                </div>
+                {isExpanded && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap mb-3">
+                      {corr.content}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setCorrForm({
+                            category: 'REPONSE_AVIS',
+                            subject: `Re: ${corr.subject}`,
+                            content: '',
+                            recipientName: corr.type === 'INCOMING' ? corr.senderName : corr.recipientName,
+                            recipientSpecialty: (corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty) || '',
+                          });
+                          setShowModal(true);
+                        }}
+                        className="px-3 py-1.5 text-sm bg-teal-50 text-teal-700 rounded-lg hover:bg-teal-100 flex items-center gap-1"
+                      >
+                        <Reply className="w-4 h-4" />
+                        Répondre
+                      </button>
+                      <button
+                        onClick={() => {
+                          const printContent = `<html><head><title>${corr.subject}</title>
+                            <style>body{font-family:Arial;padding:40px;max-width:700px;margin:auto}h2{color:#0d9488}
+                            .meta{color:#6b7280;font-size:14px;margin-bottom:20px}.content{white-space:pre-wrap;line-height:1.6}</style></head>
+                            <body><h2>${corr.subject}</h2>
+                            <div class="meta">${corr.type === 'INCOMING' ? 'De' : 'À'}: ${corr.type === 'INCOMING' ? corr.senderName : corr.recipientName} — ${formatDate(corr.date)}</div>
+                            <div class="content">${corr.content}</div></body></html>`;
+                          const w = window.open('', '_blank');
+                          if (w) { w.document.write(printContent); w.document.close(); w.print(); }
+                        }}
+                        className="px-3 py-1.5 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 flex items-center gap-1"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Imprimer
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <FileSignature className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-500 mb-4">Aucune correspondance</p>
+          <p className="text-gray-500 mb-2">Aucune correspondance médicale</p>
+          <p className="text-xs text-gray-400 mb-4">Partagez des comptes-rendus ou demandez l&apos;avis d&apos;un confrère</p>
           <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
             Rédiger un courrier
           </button>
@@ -4365,37 +4599,35 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Nouveau courrier</h3>
+              <h3 className="text-lg font-bold">Nouveau courrier médical</h3>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type de courrier</label>
                 <select value={corrForm.category} onChange={e => setCorrForm(f => ({ ...f, category: e.target.value as MedicalCorrespondence['category'] }))} className="w-full px-3 py-2 border rounded-lg text-sm">
-                  <option value="COMPTE_RENDU">Compte-rendu</option>
-                  <option value="DEMANDE_AVIS">Demande d&apos;avis</option>
-                  <option value="REPONSE_AVIS">Réponse</option>
-                  <option value="TRANSFERT">Transfert</option>
-                  <option value="AUTRE">Autre</option>
+                  {Object.entries(CATEGORY_LABELS).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label} — {val.description}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Objet *</label>
-                <input value={corrForm.subject} onChange={e => setCorrForm(f => ({ ...f, subject: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Objet du courrier" />
+                <input value={corrForm.subject} onChange={e => setCorrForm(f => ({ ...f, subject: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Compte-rendu de consultation du 15/01" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire *</label>
-                  <input value={corrForm.recipientName} onChange={e => setCorrForm(f => ({ ...f, recipientName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Dr. ..." />
+                  <input value={corrForm.recipientName} onChange={e => setCorrForm(f => ({ ...f, recipientName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Dr. Dupont" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                  <input value={corrForm.recipientSpecialty} onChange={e => setCorrForm(f => ({ ...f, recipientSpecialty: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Cardiologie..." />
+                  <input value={corrForm.recipientSpecialty} onChange={e => setCorrForm(f => ({ ...f, recipientSpecialty: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Cardiologie" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Contenu *</label>
-                <textarea value={corrForm.content} onChange={e => setCorrForm(f => ({ ...f, content: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" rows={4} placeholder="Cher confrère..." />
+                <textarea value={corrForm.content} onChange={e => setCorrForm(f => ({ ...f, content: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" rows={5} placeholder="Cher confrère, je vous adresse ce patient..." />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
@@ -4419,10 +4651,12 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
                   });
                   setShowModal(false);
                   setCorrForm({ category: 'COMPTE_RENDU', subject: '', content: '', recipientName: '', recipientSpecialty: '' });
+                  toast.success('Courrier envoyé');
                 }}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
               >
-                Envoyer
+                <Send className="w-4 h-4" />
+                Envoyer le courrier
               </button>
             </div>
           </div>

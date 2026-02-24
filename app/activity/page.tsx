@@ -494,9 +494,9 @@ export default function ActivityPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* Header - sticky below the global Navbar (h-16) */}
+      <div className="sticky top-16 z-30 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">

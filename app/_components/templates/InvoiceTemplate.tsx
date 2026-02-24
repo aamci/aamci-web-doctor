@@ -210,6 +210,23 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
           </div>
         )}
 
+        {/* Zone de signature */}
+        {doctor.signatureUrl && (
+          <div className="mt-8 flex justify-end">
+            <div className="text-center w-56">
+              <div className="border-b-2 border-gray-300 mb-2 flex items-end justify-center" style={{ minHeight: '72px' }}>
+                <img
+                  src={doctor.signatureUrl}
+                  alt="Signature du médecin"
+                  className="max-h-16 max-w-[200px] object-contain mb-1"
+                />
+              </div>
+              <p className="text-xs font-medium text-gray-600">Signature du praticien</p>
+              <p className="text-xs text-gray-500">{doctor.fullName}</p>
+            </div>
+          </div>
+        )}
+
         {/* Pied de page */}
         <div className="mt-auto pt-8 border-t border-gray-200 text-center text-xs text-gray-500">
           <p>Merci pour votre confiance.</p>

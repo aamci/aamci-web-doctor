@@ -188,12 +188,21 @@ const PrescriptionTemplate = forwardRef<HTMLDivElement, PrescriptionTemplateProp
         {/* Zone de signature */}
         <div className="mt-12 flex justify-end">
           <div className="text-center w-64">
-            <div className="border-b-2 border-gray-300 pb-16 mb-2">
-              {/* Espace pour la signature */}
+            <div className="border-b-2 border-gray-300 mb-2 flex items-end justify-center" style={{ minHeight: '80px' }}>
+              {doctor.signatureUrl ? (
+                <img
+                  src={doctor.signatureUrl}
+                  alt="Signature du médecin"
+                  className="max-h-20 max-w-[240px] object-contain mb-1"
+                />
+              ) : (
+                <div style={{ height: '64px' }} />
+              )}
             </div>
             <p className="text-sm font-medium text-gray-700">
               Signature et cachet du médecin
             </p>
+            <p className="text-xs text-gray-500 mt-0.5">{doctor.fullName}</p>
           </div>
         </div>
 

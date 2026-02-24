@@ -90,6 +90,9 @@ export default function BillingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctorSignature] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('doctorSignature') : null
+  );
 
   // Form state
   const [formData, setFormData] = useState({
@@ -746,6 +749,7 @@ export default function BillingPage() {
                         city: (user as any)?.doctorProfile?.city,
                         phone: (user as any)?.phone,
                         email: user?.email,
+                        signatureUrl: doctorSignature || undefined,
                       }}
                       patient={{
                         fullName: `${selectedInvoice.patient.firstName} ${selectedInvoice.patient.lastName}`,
