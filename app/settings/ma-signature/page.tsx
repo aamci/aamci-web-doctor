@@ -4,10 +4,6 @@ import { useState, useEffect } from 'react';
 import { Pen, Eye, Save, Trash2, Info } from 'lucide-react';
 import { toast } from '@/lib/toast';
 
-const DEFAULT_SIGNATURE = `Dr Sophie Martin
-Médecine Générale
-RPPS: 10003456789`;
-
 export default function MaSignaturePage() {
   const [text, setText] = useState('');
   const [saved, setSaved] = useState('');
@@ -17,8 +13,6 @@ export default function MaSignaturePage() {
     if (stored) {
       setText(stored);
       setSaved(stored);
-    } else {
-      setText(DEFAULT_SIGNATURE);
     }
   }, []);
 
@@ -30,7 +24,7 @@ export default function MaSignaturePage() {
 
   const handleDelete = () => {
     localStorage.removeItem('doctorTextSignature');
-    setText(DEFAULT_SIGNATURE);
+    setText('');
     setSaved('');
     toast.success('Signature supprimée');
   };
@@ -59,7 +53,7 @@ export default function MaSignaturePage() {
             onChange={(e) => setText(e.target.value)}
             rows={5}
             className="w-full text-sm font-mono border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800"
-            placeholder={DEFAULT_SIGNATURE}
+            placeholder={`Dr Jean Dupont\nMédecine Générale\nRPPS: 10003456789`}
           />
           <p className="text-xs text-gray-400 mt-1">
             Chaque ligne correspond à une ligne de votre signature.

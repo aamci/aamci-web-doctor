@@ -4,10 +4,14 @@ import { ToastProvider } from './_lib/useToast';
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="card" style={{ marginTop: 24 }}>Chargement…</div>}>
-      <ToastProvider>
-        <AccountClient />
-      </ToastProvider>
-    </Suspense>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <Suspense fallback={<div className="text-gray-400 text-sm py-20 text-center">Chargement…</div>}>
+          <ToastProvider>
+            <AccountClient />
+          </ToastProvider>
+        </Suspense>
+      </div>
+    </div>
   );
 }

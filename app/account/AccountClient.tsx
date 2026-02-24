@@ -17,7 +17,6 @@ import {
   Save,
   Building2,
   Stethoscope,
-  Calendar,
   Award,
   ChevronRight,
   Loader2,
@@ -354,7 +353,7 @@ export default function AccountClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
       </div>
     );
@@ -366,15 +365,14 @@ export default function AccountClient() {
   const completion = getProfileCompletion();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Mon compte</h1>
-          <p className="text-gray-500 mt-1">Gérez vos informations personnelles et professionnelles</p>
-        </div>
+    <div className="p-8">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-gray-900">Mon compte</h1>
+        <p className="text-sm text-gray-500 mt-1">Gérez vos informations personnelles et professionnelles</p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Profile Card & Navigation */}
           <div className="lg:col-span-1 space-y-6">
             {/* Profile Card */}
@@ -977,7 +975,6 @@ export default function AccountClient() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

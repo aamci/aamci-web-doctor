@@ -115,7 +115,7 @@ export default function DoctorSidebar() {
     },
     {
       label: 'Mon compte',
-      href: '/account',
+      href: '/settings/compte',
       icon: <User className="w-6 h-6" />,
     },
   ];

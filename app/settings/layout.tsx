@@ -63,7 +63,7 @@ const NAV: NavItem[] = [
       { label: 'Données', href: '/settings/confidentialite' },
     ],
   },
-  { label: 'Mon compte', href: '/account', icon: User },
+  { label: 'Mon compte', href: '/settings/compte', icon: User },
   { label: 'Centre de confidentialité', href: '/settings/confidentialite', icon: Lock },
   { label: 'Journal de sécurité', href: '/settings/journal-securite', icon: Shield },
   { label: 'Ma signature', href: '/settings/ma-signature', icon: Pen },
