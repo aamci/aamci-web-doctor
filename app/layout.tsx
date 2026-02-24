@@ -5,6 +5,7 @@ import DoctorSidebar from '@/app/_components/DoctorSidebar';
 import Navbar from '@/app/_components/Navbar';
 import LayoutClient from './_components/LayoutClient';
 import { Toaster } from './_components/Toaster';
+import { ThemeProvider } from './_components/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'Health Platform - Médecin',
@@ -13,23 +14,25 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
-      <body className="bg-gray-50">
-        <AuthProvider>
-          {/* Navbar toujours visible en haut */}
-          <Navbar />
+    <html lang="fr" suppressHydrationWarning>
+      <body className="bg-gray-50" suppressHydrationWarning>
+        <ThemeProvider>
+          <AuthProvider>
+            {/* Navbar toujours visible en haut */}
+            <Navbar />
 
-          {/* Sidebar fixe à gauche (cachée si non connecté) */}
-          <DoctorSidebar />
+            {/* Sidebar fixe à gauche (cachée si non connecté) */}
+            <DoctorSidebar />
 
-          {/* Contenu principal avec marges ajustées */}
-          <LayoutClient>
-            {children}
-          </LayoutClient>
+            {/* Contenu principal avec marges ajustées */}
+            <LayoutClient>
+              {children}
+            </LayoutClient>
 
-          {/* Toast notifications */}
-          <Toaster />
-        </AuthProvider>
+            {/* Toast notifications */}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

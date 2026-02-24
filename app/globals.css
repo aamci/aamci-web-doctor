@@ -90,3 +90,56 @@
     @apply w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
 }
+
+/* ============================================================ */
+/* Dark mode overrides for hardcoded Tailwind colors            */
+/* Applied when html.dark is set by ThemeProvider               */
+/* ============================================================ */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Surfaces */
+html.dark .bg-white       { background-color: hsl(215 27.9% 10%) !important; }
+html.dark .bg-gray-50     { background-color: hsl(224 71.4% 4.1%) !important; }
+html.dark .bg-gray-100    { background-color: hsl(215 27.9% 13%) !important; }
+html.dark .bg-gray-200    { background-color: hsl(215 27.9% 18%) !important; }
+
+/* Borders */
+html.dark .border-gray-100 { border-color: hsl(215 27.9% 14%) !important; }
+html.dark .border-gray-200 { border-color: hsl(215 27.9% 18%) !important; }
+html.dark .border-gray-300 { border-color: hsl(215 27.9% 24%) !important; }
+
+/* Text */
+html.dark .text-gray-900  { color: hsl(210 20% 96%) !important; }
+html.dark .text-gray-800  { color: hsl(210 20% 90%) !important; }
+html.dark .text-gray-700  { color: hsl(210 20% 82%) !important; }
+html.dark .text-gray-600  { color: hsl(210 20% 70%) !important; }
+html.dark .text-gray-500  { color: hsl(210 20% 58%) !important; }
+html.dark .text-gray-400  { color: hsl(210 20% 46%) !important; }
+
+/* Inputs & selects */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: hsl(215 27.9% 13%);
+  border-color: hsl(215 27.9% 22%);
+  color: hsl(210 20% 92%);
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: hsl(215 27.9% 45%);
+}
+
+/* Divide lines */
+html.dark .divide-gray-100 > * + * { border-color: hsl(215 27.9% 14%) !important; }
+html.dark .divide-gray-200 > * + * { border-color: hsl(215 27.9% 18%) !important; }
+
+/* Hover states */
+html.dark .hover\:bg-gray-50:hover  { background-color: hsl(215 27.9% 13%) !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: hsl(215 27.9% 16%) !important; }
