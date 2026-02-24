@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import {
-  ArrowLeft,
   Monitor,
   Moon,
   Sun,
@@ -39,7 +37,6 @@ interface CacheStats {
 type Theme = 'light' | 'dark' | 'system';
 
 export default function ApplicationSettingsPage() {
-  const router = useRouter();
   const {
     isElectron,
     platform,
@@ -48,13 +45,11 @@ export default function ApplicationSettingsPage() {
     getSettings,
     setSetting,
     setTheme: setElectronTheme,
-    getTheme,
     getCacheStats,
     cacheClear,
     isOnline,
     autoLaunchIsEnabled,
     autoLaunchToggle,
-    showNotification,
     onUpdateAvailable,
   } = useElectron();
 
@@ -117,6 +112,24 @@ export default function ApplicationSettingsPage() {
     loadSettings();
   }, [isElectron, getSettings, autoLaunchIsEnabled, getCacheStats, isOnline]);
 
+  // Apply theme class whenever theme state changes (covers init + user clicks)
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', prefersDark);
+      // Keep in sync when system pref changes
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) =>
+        document.documentElement.classList.toggle('dark', e.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [theme]);
+
   // Online/offline listener for browser
   useEffect(() => {
     if (!isElectron) {
@@ -148,21 +161,12 @@ export default function ApplicationSettingsPage() {
 
   // Handlers
   const handleThemeChange = async (newTheme: Theme) => {
-    setTheme(newTheme);
+    setTheme(newTheme); // the useEffect above handles applying to DOM
     if (isElectron) {
       await setElectronTheme(newTheme);
       await setSetting('theme', newTheme);
     } else {
       localStorage.setItem('theme', newTheme);
-      // Apply theme to document
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else if (newTheme === 'light') {
-        document.documentElement.classList.remove('dark');
-      } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.classList.toggle('dark', prefersDark);
-      }
     }
     showFeedback('success', 'Thème mis à jour');
   };
@@ -174,7 +178,10 @@ export default function ApplicationSettingsPage() {
     } else {
       localStorage.setItem('language', newLang);
     }
-    showFeedback('success', 'Langue mise à jour');
+    document.documentElement.lang = newLang;
+    document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
+    showFeedback('success', 'Langue mise à jour — rechargement en cours…');
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   const handleMinimizeToTrayChange = async (value: boolean) => {
@@ -268,40 +275,31 @@ export default function ApplicationSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="w-8 h-8 text-teal-600 animate-spin" />
-          <p className="text-gray-600">Chargement des paramètres...</p>
-        </div>
+      <div className="p-8 flex items-center gap-3 text-gray-500 text-sm">
+        <RefreshCw className="w-5 h-5 animate-spin" />
+        Chargement des paramètres…
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-8">
-      <div className="max-w-3xl mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Paramètres de l&apos;application</h1>
-            <p className="text-gray-500">
-              {isElectron ? 'Configurez votre application desktop' : 'Configurez votre expérience'}
-            </p>
-          </div>
-          {/* Online status badge */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-            online ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            {online ? 'En ligne' : 'Hors ligne'}
-          </div>
+    <div className="p-8 max-w-3xl">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Application</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isElectron ? 'Configurez votre application desktop' : 'Configurez votre expérience'}
+          </p>
         </div>
+        {/* Online status badge */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+          online ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        }`}>
+          {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+          {online ? 'En ligne' : 'Hors ligne'}
+        </div>
+      </div>
 
         {/* Feedback message */}
         {message && (
@@ -602,7 +600,6 @@ export default function ApplicationSettingsPage() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
