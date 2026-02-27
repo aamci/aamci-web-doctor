@@ -51,7 +51,7 @@ const PrescriptionTemplate = forwardRef<HTMLDivElement, PrescriptionTemplateProp
     return (
       <div
         ref={ref}
-        className="bg-white p-8 max-w-[210mm] mx-auto shadow-lg print:shadow-none print:p-0"
+        className="bg-white p-8 max-w-full mx-auto shadow-lg print:shadow-none print:p-0"
         style={{ minHeight: '297mm' }}
       >
         {/* En-tête */}

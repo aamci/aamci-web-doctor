@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { toast } from '@/lib/toast';
 import {
@@ -430,6 +430,77 @@ export default function PatientRecordPage() {
   const [biometricsHistory, setBiometricsHistory] = useState<BiometricMeasurement[]>([]);
   const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
   const [isSavingPrescription, setIsSavingPrescription] = useState(false);
+
+  // Ref to trigger save from ConsultationSection before closing
+  const consultationSaveRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleCloseDossier = async () => {
+    if (consultationSaveRef.current) {
+      await consultationSaveRef.current();
+    }
+    router.push('/patients');
+  };
+
+  // Quick RDV modal
+  const [showQuickRdvModal, setShowQuickRdvModal] = useState(false);
+  const [rdvSlots, setRdvSlots] = useState<Array<{ id: string; start: string; end: string }>>([]);
+  const [rdvLoadingSlots, setRdvLoadingSlots] = useState(false);
+  const [rdvSelectedSlot, setRdvSelectedSlot] = useState<{ id: string; start: string; end: string } | null>(null);
+  const [rdvSelectedDateKey, setRdvSelectedDateKey] = useState<string>('');
+  const [rdvNotes, setRdvNotes] = useState('');
+  const [rdvBooking, setRdvBooking] = useState(false);
+
+  const openQuickRdvModal = async () => {
+    if (!user?.id) return;
+    setShowQuickRdvModal(true);
+    setRdvSelectedSlot(null);
+    setRdvSelectedDateKey('');
+    setRdvNotes('');
+    setRdvLoadingSlots(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/slots/available/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRdvSlots(data);
+      }
+    } catch (e) {
+      console.error('Error fetching slots:', e);
+    } finally {
+      setRdvLoadingSlots(false);
+    }
+  };
+
+  const confirmQuickRdv = async () => {
+    if (!rdvSelectedSlot || rdvBooking) return;
+    setRdvBooking(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          patientId,
+          slotStart: rdvSelectedSlot.start,
+          slotEnd: rdvSelectedSlot.end,
+          notes: rdvNotes || undefined,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Rendez-vous créé avec succès');
+        setShowQuickRdvModal(false);
+      } else {
+        toast.error('Erreur lors de la création du rendez-vous');
+      }
+    } catch (e) {
+      console.error('Error booking appointment:', e);
+      toast.error('Erreur lors de la création du rendez-vous');
+    } finally {
+      setRdvBooking(false);
+    }
+  };
 
   // Quick actions modals
   const [showQuickInvoiceModal, setShowQuickInvoiceModal] = useState(false);
@@ -926,7 +997,7 @@ export default function PatientRecordPage() {
                 <Receipt className="w-4 h-4" />
                 Facture
               </button>
-              <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button onClick={handleCloseDossier} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
                 Fermer le dossier
               </button>
               <X className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600" onClick={() => router.push('/patients')} />
@@ -1023,7 +1094,7 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'consultations' && (
-            <ConsultationSection patient={patient} />
+            <ConsultationSection patient={patient} onRegisterSave={(fn) => { consultationSaveRef.current = fn; }} />
           )}
         </div>
       </div>
@@ -1033,8 +1104,8 @@ export default function PatientRecordPage() {
         <div className="w-64 bg-white border-l border-gray-200 p-4 hidden xl:block">
           <h3 className="font-semibold text-gray-900 mb-4">ACTIONS</h3>
           <div className="space-y-2">
-            <ActionButton icon={Calendar} label="Prendre un rendez-vous" onClick={() => router.push(`/reservations?patientId=${patientId}&patientName=${encodeURIComponent(record?.patient?.fullName || '')}`)} />
-            <ActionButton icon={Stethoscope} label="Nouvelle consultation" onClick={() => setActiveSection('consultations')} />
+            <ActionButton icon={Calendar} label="Prendre un rendez-vous" onClick={openQuickRdvModal} />
+            <ActionButton icon={Stethoscope} label="Consultation" onClick={() => setActiveSection('consultations')} />
             <ActionButton icon={MessageSquare} label="Envoyer un message" onClick={() => setActiveSection('messagerie')} />
             <ActionButton icon={Pill} label="Créer une ordonnance" onClick={() => setShowQuickPrescriptionModal(true)} />
             <ActionButton icon={Receipt} label="Créer une facture" onClick={() => setShowQuickInvoiceModal(true)} />
@@ -1195,8 +1266,8 @@ export default function PatientRecordPage() {
               </button>
               <button
                 onClick={() => savePrescription()}
-                disabled={isSavingPrescription}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50"
+                disabled={isSavingPrescription || !quickPrescriptionData.medications.some(m => m.name?.trim())}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSavingPrescription ? (
                   <>
@@ -1210,7 +1281,7 @@ export default function PatientRecordPage() {
                   </>
                 )}
               </button>
-              <PrintButton documentTitle={`Ordonnance-${patient.fullName}`}>
+              <PrintButton documentTitle={`Ordonnance-${patient.fullName}`} disabled={!quickPrescriptionData.medications.some(m => m.name?.trim())}>
                 <PrescriptionTemplate
                   doctor={{
                     fullName: user?.fullName || 'Dr. Médecin',
@@ -1236,6 +1307,107 @@ export default function PatientRecordPage() {
                   }}
                 />
               </PrintButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick RDV Modal */}
+      {showQuickRdvModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold">Prendre un RDV pour {patient.fullName}</h3>
+              <button onClick={() => setShowQuickRdvModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 space-y-4">
+              {rdvLoadingSlots ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                </div>
+              ) : rdvSlots.length === 0 ? (
+                <p className="text-center text-gray-500 py-8 text-sm">Aucun créneau disponible</p>
+              ) : (() => {
+                // Group slots by date
+                const byDate: Record<string, typeof rdvSlots> = {};
+                for (const s of rdvSlots) {
+                  const d = new Date(s.start);
+                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  if (!byDate[key]) byDate[key] = [];
+                  byDate[key].push(s);
+                }
+                const dates = Object.keys(byDate).sort();
+                return (
+                  <div className="space-y-4">
+                    {/* Date selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                      <div className="flex flex-wrap gap-2">
+                        {dates.map((dk) => {
+                          const dt = new Date(dk + 'T00:00:00');
+                          const label = dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                          return (
+                            <button
+                              key={dk}
+                              onClick={() => { setRdvSelectedDateKey(dk); setRdvSelectedSlot(null); }}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${rdvSelectedDateKey === dk ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-300 text-gray-700 hover:border-teal-400'}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* Time slots */}
+                    {rdvSelectedDateKey && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Créneau</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(byDate[rdvSelectedDateKey] || []).map((s) => {
+                            const t = new Date(s.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                            const isSelected = rdvSelectedSlot?.start === s.start;
+                            return (
+                              <button
+                                key={s.start}
+                                onClick={() => setRdvSelectedSlot(s)}
+                                className={`py-2 rounded-lg text-sm font-medium border transition-colors ${isSelected ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-300 text-gray-700 hover:border-teal-400'}`}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optionnel)</label>
+                      <textarea
+                        value={rdvNotes}
+                        onChange={(e) => setRdvNotes(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 resize-none"
+                        rows={2}
+                        placeholder="Motif, informations..."
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => setShowQuickRdvModal(false)} className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 text-sm">
+                Annuler
+              </button>
+              <button
+                onClick={confirmQuickRdv}
+                disabled={!rdvSelectedSlot || rdvBooking}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {rdvBooking && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirmer le RDV
+              </button>
             </div>
           </div>
         </div>
@@ -5247,7 +5419,7 @@ const PREDEFINED_TEMPLATES: ConsultationTemplate[] = [
   },
 ];
 
-function ConsultationSection({ patient }: { patient: Patient }) {
+function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; onRegisterSave?: (fn: (() => Promise<void>) | null) => void }) {
   const [activeConsultation, setActiveConsultation] = useState<Consultation | null>(null);
   const [consultationHistory, setConsultationHistory] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5449,6 +5621,13 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     }
   };
 
+  // Register save function with parent so "Fermer le dossier" can trigger save
+  useEffect(() => {
+    if (onRegisterSave) {
+      onRegisterSave(activeConsultation ? saveConsultation : null);
+    }
+  }, [activeConsultation]);
+
   const endConsultation = async () => {
     if (!activeConsultation) return;
     setSaving(true);
@@ -5492,6 +5671,39 @@ function ConsultationSection({ patient }: { patient: Patient }) {
     } catch (error) {
       console.error('Error ending consultation:', error);
       toast.error('Erreur lors de la clôture de la consultation');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelConsultation = async () => {
+    if (!activeConsultation) return;
+    if (!window.confirm('Annuler cette consultation ? Les données non enregistrées seront perdues.')) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/consultations/${activeConsultation.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        setActiveConsultation(null);
+        setMotif('');
+        setInterrogatoire('');
+        setExamen('');
+        setNotes('');
+        setPrescriptions([]);
+        setAnalyses([]);
+        setCourriers([]);
+        setImageries([]);
+        toast.success('Consultation annulée');
+      } else {
+        toast.error('Erreur lors de l\'annulation');
+      }
+    } catch (error) {
+      console.error('Error cancelling consultation:', error);
+      toast.error('Erreur lors de l\'annulation');
     } finally {
       setSaving(false);
     }
@@ -6174,11 +6386,11 @@ function ConsultationSection({ patient }: { patient: Patient }) {
               Enregistrer
             </button>
             <button
-              onClick={endConsultation}
+              onClick={cancelConsultation}
               disabled={saving}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
             >
-              Terminer la consultation
+              Annuler
             </button>
           </div>
         </div>
