@@ -24,21 +24,10 @@ export default function PrintButton({
   const [zoom, setZoom] = useState(100);
 
   const handlePrint = () => {
+    if (!contentRef.current) return;
     setIsPrinting(true);
 
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.top = '-9999px';
-    printFrame.style.left = '-9999px';
-    document.body.appendChild(printFrame);
-
-    const frameDoc = printFrame.contentWindow?.document;
-    if (!frameDoc || !contentRef.current) {
-      setIsPrinting(false);
-      return;
-    }
-
-    // Copier les styles
+    // Collect styles before creating the iframe
     const styles = Array.from(document.styleSheets)
       .map((styleSheet) => {
         try {
@@ -51,46 +40,56 @@ export default function PrintButton({
       })
       .join('\n');
 
-    frameDoc.open();
-    frameDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${documentTitle}</title>
-          <style>
-            ${styles}
-            @page {
-              size: A4;
-              margin: 12mm 15mm;
-            }
-            html, body {
-              margin: 0;
-              padding: 0;
-              width: 100%;
-            }
-            .print-content {
-              width: 100%;
-              box-sizing: border-box;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            ${contentRef.current.innerHTML}
-          </div>
-        </body>
-      </html>
-    `);
-    frameDoc.close();
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>${documentTitle}</title>
+    <style>
+      ${styles}
+      @page { size: A4; margin: 12mm 15mm; }
+      html, body { margin: 0; padding: 0; width: 100%; }
+      .print-content { width: 100%; box-sizing: border-box; }
+    </style>
+  </head>
+  <body><div class="print-content">${contentRef.current.innerHTML}</div></body>
+</html>`;
 
-    printFrame.onload = () => {
-      printFrame.contentWindow?.print();
-      setTimeout(() => {
-        document.body.removeChild(printFrame);
-        setIsPrinting(false);
-        onPrint?.();
-      }, 1000);
+    const cleanup = (frame: HTMLIFrameElement) => {
+      try { document.body.removeChild(frame); } catch { /* already removed */ }
+      setIsPrinting(false);
+      onPrint?.();
     };
+
+    const printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;border:0;';
+
+    // Attach onload BEFORE appending to DOM
+    printFrame.onload = () => {
+      try {
+        printFrame.contentWindow?.print();
+      } catch {
+        // silent — print dialog may be blocked
+      }
+      setTimeout(() => cleanup(printFrame), 1500);
+    };
+
+    document.body.appendChild(printFrame);
+
+    // Write content — use srcdoc when available (more reliable), fall back to document.write
+    if ('srcdoc' in printFrame) {
+      printFrame.srcdoc = html;
+    } else {
+      const frameDoc = printFrame.contentWindow?.document;
+      if (!frameDoc) { cleanup(printFrame); return; }
+      frameDoc.open();
+      frameDoc.write(html);
+      frameDoc.close();
+      // document.write on an about:blank iframe may not trigger onload — fire manually after a tick
+      setTimeout(() => {
+        try { printFrame.contentWindow?.print(); } catch { /* silent */ }
+        setTimeout(() => cleanup(printFrame), 1500);
+      }, 300);
+    }
   };
 
   return (
