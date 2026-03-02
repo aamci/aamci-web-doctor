@@ -34,6 +34,9 @@ export default function Login() {
   const [token, setToken] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -48,6 +51,8 @@ export default function Login() {
 
   async function handleLogin() {
     setErr(null);
+    setShowResend(false);
+    setResendSuccess(false);
     setLoading(true);
     try {
       if (!email || !password) {
@@ -67,7 +72,14 @@ export default function Login() {
       });
 
       if (!r.ok) {
-        setErr(r.status === 401 ? 'Identifiants incorrects.' : `Erreur ${r.status}.`);
+        const errorData = await r.json().catch(() => ({}));
+        const msg = errorData.message || (r.status === 401 ? 'Identifiants incorrects.' : `Erreur ${r.status}.`);
+        if (typeof msg === 'string' && msg.toLowerCase().includes('not verified')) {
+          setShowResend(true);
+          setErr('Votre email n\'est pas encore vérifié. Vérifiez votre boîte mail ou renvoyez l\'email.');
+        } else {
+          setErr(Array.isArray(msg) ? msg.join(', ') : msg);
+        }
         return;
       }
 
@@ -95,6 +107,29 @@ export default function Login() {
       setErr(e?.message || 'Erreur réseau');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!email) { setErr('Entrez votre email pour renvoyer la vérification.'); return; }
+    setResendLoading(true);
+    try {
+      const r = await callApi('/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (r.ok) {
+        setResendSuccess(true);
+        setErr(null);
+      } else {
+        const d = await r.json().catch(() => ({}));
+        setErr(d.message || 'Erreur lors de l\'envoi.');
+      }
+    } catch {
+      setErr('Erreur réseau.');
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -171,6 +206,17 @@ return (
 
         {/* ici tu peux garder tes .banner existantes en global */}
         {err && <div className="banner error">{err}</div>}
+        {showResend && !resendSuccess && (
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendLoading}
+            style={{ marginBottom: '0.75rem', width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #5eead4', background: 'transparent', color: '#2dd4bf', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            {resendLoading ? 'Envoi…' : '📧 Renvoyer l\'email de vérification'}
+          </button>
+        )}
+        {resendSuccess && <div className="banner success">Email envoyé ! Vérifiez votre boîte mail.</div>}
         {token && <div className="banner success">Connecté ✔</div>}
 
         <button

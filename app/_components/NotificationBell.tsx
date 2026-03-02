@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
+import { io, Socket } from 'socket.io-client';
 import {
   Bell,
   BellOff,
@@ -179,6 +180,27 @@ export default function NotificationBell() {
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
+  }, [user]);
+
+  // WebSocket real-time updates
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const wsBase = API_BASE_URL.replace(/\/$/, '');
+    const socket: Socket = io(`${wsBase}/notifications`, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+    });
+
+    socket.on('new_notification', (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    });
+
+    return () => { socket.disconnect(); };
   }, [user]);
 
   // Fetch notifications when dropdown opens

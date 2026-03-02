@@ -1,8 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, HelpCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { toast } from '@/lib/toast';
+
+function getApiBase(): string | null {
+  let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  b = b.trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+  if (!b) return null;
+  try { new URL(b); return b; } catch { return null; }
+}
+
+async function authedFetch(path: string, init?: RequestInit) {
+  const base = getApiBase();
+  const url = base ? `${base}${path}` : `/api${path}`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const r = await fetch(url, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
+  });
+  if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(`HTTP ${r.status}${t ? ` — ${t}` : ''}`); }
+  return r;
+}
 
 const TABS = ['Données', 'Droits et accès', 'Communications marketing'] as const;
 type Tab = (typeof TABS)[number];
@@ -63,13 +82,71 @@ export default function ConfidentialitePage() {
   const [dataExport, setDataExport] = useState(false);
   const [dataDelete, setDataDelete] = useState(false);
   const [accessLog, setAccessLog] = useState(true);
-  const [twoFactor, setTwoFactor] = useState(false);
+
+  // 2FA real state
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState<'idle' | 'setup' | 'disable'>('idle');
+  const [otpauthUrl, setOtpauthUrl] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorBackupCodes, setTwoFactorBackupCodes] = useState<string[]>([]);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
 
   // Communications marketing state
   const [newsEmail, setNewsEmail] = useState(true);
   const [productUpdates, setProductUpdates] = useState(true);
   const [surveys, setSurveys] = useState(false);
   const [partnerOffers, setPartnerOffers] = useState(false);
+
+  useEffect(() => {
+    authedFetch('/2fa/status').then(r => r.json()).then(d => setTwoFactorEnabled(d.isEnabled)).catch(() => {});
+  }, []);
+
+  async function handleSetup2FA() {
+    setTwoFactorLoading(true);
+    try {
+      const r = await authedFetch('/2fa/generate', { method: 'POST' });
+      const d = await r.json();
+      setOtpauthUrl(d.otpauthUrl);
+      setTwoFactorSecret(d.secret);
+      setTwoFactorBackupCodes(d.backupCodes ?? []);
+      setTwoFactorStep('setup');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erreur génération 2FA');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  }
+
+  async function handleEnable2FA() {
+    setTwoFactorLoading(true);
+    try {
+      await authedFetch('/2fa/enable', { method: 'POST', body: JSON.stringify({ code: twoFactorCode }) });
+      setTwoFactorEnabled(true);
+      setTwoFactorStep('idle');
+      setTwoFactorCode('');
+      toast.success('Double authentification activée');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Code invalide');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  }
+
+  async function handleDisable2FA() {
+    setTwoFactorLoading(true);
+    try {
+      await authedFetch('/2fa/disable', { method: 'POST', body: JSON.stringify({ code: twoFactorCode }) });
+      setTwoFactorEnabled(false);
+      setTwoFactorStep('idle');
+      setTwoFactorCode('');
+      toast.success('Double authentification désactivée');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Code invalide');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  }
 
   const handleSave = () => {
     toast.success('Paramètres de confidentialité enregistrés');
@@ -255,12 +332,122 @@ export default function ConfidentialitePage() {
                 </div>
                 <Toggle checked={accessLog} onChange={setAccessLog} />
               </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Double authentification</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Sécuriser votre compte avec un code SMS</p>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Double authentification (TOTP)</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {twoFactorEnabled ? 'Activée — application authenticator liée' : 'Sécurisez votre compte avec Google Authenticator ou Authy'}
+                    </p>
+                  </div>
+                  {twoFactorEnabled ? (
+                    <button
+                      onClick={() => setTwoFactorStep('disable')}
+                      className="text-xs text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50"
+                    >
+                      Désactiver
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSetup2FA}
+                      disabled={twoFactorLoading}
+                      className="text-xs text-teal-700 border border-teal-200 px-3 py-1 rounded-lg hover:bg-teal-50 disabled:opacity-50"
+                    >
+                      {twoFactorLoading ? 'Chargement…' : 'Configurer'}
+                    </button>
+                  )}
                 </div>
-                <Toggle checked={twoFactor} onChange={setTwoFactor} />
+
+                {/* 2FA setup */}
+                {twoFactorStep === 'setup' && (
+                  <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                    <p className="text-sm font-medium text-gray-700">Lier votre application authenticator</p>
+                    <ol className="text-xs text-gray-500 space-y-0.5 list-decimal list-inside">
+                      <li>Ouvrez Google Authenticator ou Authy</li>
+                      <li>Scannez le QR code ou entrez la clé</li>
+                      <li>Entrez le code à 6 chiffres</li>
+                    </ol>
+                    <div className="flex justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(otpauthUrl)}&size=160x160`}
+                        alt="QR Code 2FA"
+                        className="rounded-lg border border-gray-200"
+                        width={160}
+                        height={160}
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 mb-1">Clé manuelle :</p>
+                      <code className="text-xs text-teal-700 font-mono break-all select-all">{twoFactorSecret}</code>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Code à 6 chiffres"
+                      className="w-full text-center px-3 py-2 border border-gray-300 rounded-lg text-lg font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setTwoFactorStep('idle'); setTwoFactorCode(''); }}
+                        className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={handleEnable2FA}
+                        disabled={twoFactorCode.length !== 6 || twoFactorLoading}
+                        className="flex-1 py-2 text-sm text-white bg-teal-700 rounded-lg hover:bg-teal-800 disabled:opacity-50"
+                      >
+                        {twoFactorLoading ? 'Vérification…' : 'Activer'}
+                      </button>
+                    </div>
+                    {twoFactorBackupCodes.length > 0 && (
+                      <div className="border-t border-gray-200 pt-3">
+                        <p className="text-xs text-amber-600 mb-2">⚠ Codes de secours — conservez-les en lieu sûr :</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {twoFactorBackupCodes.map((c) => (
+                            <code key={c} className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-1 rounded text-center">{c}</code>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2FA disable */}
+                {twoFactorStep === 'disable' && (
+                  <div className="mt-3 p-4 bg-red-50 rounded-lg border border-red-200 space-y-3">
+                    <p className="text-sm font-medium text-red-700">Désactiver la double authentification</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Code TOTP"
+                      className="w-full text-center px-3 py-2 border border-red-300 rounded-lg text-lg font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-red-400"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setTwoFactorStep('idle'); setTwoFactorCode(''); }}
+                        className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={handleDisable2FA}
+                        disabled={twoFactorCode.length !== 6 || twoFactorLoading}
+                        className="flex-1 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {twoFactorLoading ? 'Vérification…' : 'Désactiver'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>

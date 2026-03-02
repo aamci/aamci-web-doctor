@@ -76,7 +76,7 @@ export default function PrintButton({
     document.body.appendChild(printFrame);
 
     // Write content — use srcdoc when available (more reliable), fall back to document.write
-    if ('srcdoc' in printFrame) {
+    if ('srcdoc' in (printFrame as HTMLElement)) {
       printFrame.srcdoc = html;
     } else {
       const frameDoc = printFrame.contentWindow?.document;
