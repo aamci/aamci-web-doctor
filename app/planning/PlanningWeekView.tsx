@@ -3,6 +3,7 @@
 import { Slot } from './page';
 import styles from './PlanningWeekView.module.css';
 import EmptyState from './EmptyState';
+import AppointmentTooltip from './AppointmentTooltip';
 
 interface WeekDay {
   date: Date;
@@ -221,18 +222,18 @@ export default function PlanningWeekView({ slots, weekDays, hours, onAppointment
                       const status = appointment?.status || 'PENDING';
 
                       return (
-                        <div
+                        <AppointmentTooltip
                           key={slot.id}
+                          appointment={{ ...appointment, start: slot.start, end: slot.end }}
                           className={`${styles.appointment} ${getAppointmentColor(kindName, status)} cursor-pointer hover:opacity-80 transition-all`}
                           onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
-                          title={`${status === 'PENDING' ? '⏳ En attente' : status === 'CONFIRMED' ? '✅ Confirmé' : status === 'CANCELLED' ? '❌ Annulé' : status} - ${kindName}`}
                         >
                           <span className={styles.appointmentTime}>{timeStr}</span>
                           <span className={styles.appointmentType}>{kindName}</span>
                           <span className={styles.appointmentPatient}>{patientName}</span>
                           {status === 'PENDING' && <span className="text-[10px] ml-1">⏳</span>}
                           {status === 'CONFIRMED' && <span className="text-[10px] ml-1">✓</span>}
-                        </div>
+                        </AppointmentTooltip>
                       );
                     }
 

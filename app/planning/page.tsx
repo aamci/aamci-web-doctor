@@ -23,6 +23,7 @@ import CreateAvailabilityWizard from './_components/CreateAvailabilityWizard';
 import ManageRulesPage from './_components/ManageRulesPage';
 import ManageAbsencesPage from './_components/ManageAbsencesPage';
 import AgendaSettingsModal from './_components/AgendaSettingsModal';
+import UpcomingAppointmentsPanel from './UpcomingAppointmentsPanel';
 import { useAuth } from '../_providers/AuthProvider';
 import { generateSlotsFromRules, mergeSlotsWithBooked, AvailabilityRule, DoctorAbsence } from './utils/generateSlots';
 import { toast } from '../_components/Toaster';
@@ -144,10 +145,10 @@ export default function AvailabilityPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<'list' | 'day' | 'week' | 'month'>('week');
 
-  // Filtres
-  const [selectedMotif, setSelectedMotif] = useState('');
-  const [selectedAgenda, setSelectedAgenda] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  // Filtres (multi-select)
+  const [selectedMotifs, setSelectedMotifs]     = useState<string[]>([]);
+  const [selectedAgendas, setSelectedAgendas]   = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   // Sheet state for appointments
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -587,28 +588,20 @@ export default function AvailabilityPage() {
     return colors[index % colors.length];
   }
 
-  // Filtrer les slots selon les critères sélectionnés
+  // Filtrer les slots selon les critères sélectionnés (multi-select)
   const filteredSlots = allSlots.filter((slot) => {
-    // Filtre par status du slot
-    if (selectedStatus && slot.status !== selectedStatus) {
+    if (selectedStatuses.length > 0 && !selectedStatuses.includes(slot.status)) {
       return false;
     }
-
-    // Filtre par agenda (docteur) - pour l'instant un seul agenda
-    if (selectedAgenda && slot.ownerId !== selectedAgenda) {
+    if (selectedAgendas.length > 0 && !selectedAgendas.includes(slot.ownerId)) {
       return false;
     }
-
-    // Filtre par motif de consultation (via les appointments)
-    if (selectedMotif) {
+    if (selectedMotifs.length > 0) {
       const hasMatchingAppointment = slot.appointments?.some(
-        (apt: any) => apt.kindId === selectedMotif
+        (apt: any) => selectedMotifs.includes(apt.kindId)
       );
-      if (!hasMatchingAppointment) {
-        return false;
-      }
+      if (!hasMatchingAppointment) return false;
     }
-
     return true;
   });
 
@@ -673,14 +666,17 @@ export default function AvailabilityPage() {
             motifs={motifOptions}
             agendas={agendaOptions}
             statuses={statusOptions}
-            selectedMotif={selectedMotif}
-            selectedAgenda={selectedAgenda}
-            selectedStatus={selectedStatus}
-            onMotifChange={setSelectedMotif}
-            onAgendaChange={setSelectedAgenda}
-            onStatusChange={setSelectedStatus}
+            selectedMotifs={selectedMotifs}
+            selectedAgendas={selectedAgendas}
+            selectedStatuses={selectedStatuses}
+            onMotifChange={setSelectedMotifs}
+            onAgendaChange={setSelectedAgendas}
+            onStatusChange={setSelectedStatuses}
           />
         </div>
+
+        {/* Prochains rendez-vous */}
+        <UpcomingAppointmentsPanel allSlots={allSlots} />
       </div>
 
       {/* Contenu Principal - Planning */}
@@ -943,13 +939,18 @@ export default function AvailabilityPage() {
             motifs={motifOptions}
             agendas={agendaOptions}
             statuses={statusOptions}
-            selectedMotif={selectedMotif}
-            selectedAgenda={selectedAgenda}
-            selectedStatus={selectedStatus}
-            onMotifChange={setSelectedMotif}
-            onAgendaChange={setSelectedAgenda}
-            onStatusChange={setSelectedStatus}
+            selectedMotifs={selectedMotifs}
+            selectedAgendas={selectedAgendas}
+            selectedStatuses={selectedStatuses}
+            onMotifChange={setSelectedMotifs}
+            onAgendaChange={setSelectedAgendas}
+            onStatusChange={setSelectedStatuses}
           />
+        </div>
+
+        {/* Prochains rendez-vous */}
+        <div className="px-3">
+          <UpcomingAppointmentsPanel allSlots={allSlots} />
         </div>
       </MobileSidebar>
 

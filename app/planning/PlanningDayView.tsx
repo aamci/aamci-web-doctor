@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import styles from './PlanningDayView.module.css';
 import EmptyState from './EmptyState';
+import AppointmentTooltip from './AppointmentTooltip';
 
 interface Appointment {
   id: string;
@@ -150,8 +151,9 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
                     // Afficher uniquement les rendez-vous réservés
                     if (isBooked) {
                       return (
-                        <div
+                        <AppointmentTooltip
                           key={slot.id}
+                          appointment={{ ...appointment, start: slot.start, end: slot.end }}
                           className={`${styles.slotCard} bg-blue-50 border-blue-400 text-blue-700 cursor-pointer hover:opacity-80`}
                           onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
                         >
@@ -170,7 +172,7 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
                               </div>
                             )}
                           </div>
-                        </div>
+                        </AppointmentTooltip>
                       );
                     }
 
