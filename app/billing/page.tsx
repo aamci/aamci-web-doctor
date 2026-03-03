@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,6 +17,10 @@ import {
   User,
   Calendar,
   Wallet,
+  ZoomIn,
+  ZoomOut,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 import { InvoiceTemplate, PrintButton } from '../_components/templates';
@@ -93,6 +97,12 @@ export default function BillingPage() {
   const [doctorSignature] = useState<string | null>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('doctorSignature') : null
   );
+
+  // Quick print preview (from list)
+  const [quickPrintInvoice, setQuickPrintInvoice] = useState<Invoice | null>(null);
+  const [quickPrintZoom, setQuickPrintZoom]       = useState(100);
+  const [isQuickPrinting, setIsQuickPrinting]     = useState(false);
+  const quickPrintRef = useRef<HTMLDivElement | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -263,6 +273,49 @@ export default function BillingPage() {
 
   const calculateTotal = () => {
     return formData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  };
+
+  const handleQuickPrint = () => {
+    if (!quickPrintRef.current || !quickPrintInvoice) return;
+    setIsQuickPrinting(true);
+
+    const styles = Array.from(document.styleSheets)
+      .map((sheet) => {
+        try { return Array.from(sheet.cssRules).map((r) => r.cssText).join('\n'); }
+        catch { return ''; }
+      })
+      .join('\n');
+
+    const html = `<!DOCTYPE html><html><head><title>${quickPrintInvoice.invoiceNumber}</title>
+      <style>${styles}@page{size:A4;margin:12mm 15mm;}html,body{margin:0;padding:0;width:100%;}.print-content{width:100%;box-sizing:border-box;}</style>
+      </head><body><div class="print-content">${quickPrintRef.current.innerHTML}</div></body></html>`;
+
+    const cleanup = (frame: HTMLIFrameElement) => {
+      try { document.body.removeChild(frame); } catch { /* already removed */ }
+      setIsQuickPrinting(false);
+    };
+
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;border:0;';
+    frame.onload = () => {
+      setTimeout(() => {
+        try { frame.contentWindow?.print(); } catch { /* silent */ }
+        setTimeout(() => cleanup(frame), 1500);
+      }, 500);
+    };
+    document.body.appendChild(frame);
+
+    if ('srcdoc' in frame) {
+      frame.srcdoc = html;
+    } else {
+      const doc = frame.contentWindow?.document;
+      if (!doc) { cleanup(frame); return; }
+      doc.open(); doc.write(html); doc.close();
+      setTimeout(() => {
+        try { frame.contentWindow?.print(); } catch { /* silent */ }
+        setTimeout(() => cleanup(frame), 1500);
+      }, 500);
+    }
   };
 
   const filteredInvoices = invoices.filter((invoice) => {
@@ -522,6 +575,17 @@ export default function BillingPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuickPrintInvoice(invoice);
+                            setQuickPrintZoom(100);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                          title="Aperçu / Imprimer"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -531,6 +595,109 @@ export default function BillingPage() {
           )}
         </div>
       </div>
+
+      {/* Quick Print Preview Modal */}
+      {quickPrintInvoice && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setQuickPrintInvoice(null)} />
+          <div className="fixed inset-4 md:inset-8 lg:inset-12 bg-gray-200 rounded-xl z-50 flex flex-col overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-b flex-shrink-0">
+              <h2 className="font-semibold text-gray-900 text-sm truncate mr-4">
+                Aperçu — {quickPrintInvoice.invoiceNumber}
+              </h2>
+              <div className="flex items-center gap-2">
+                {/* Zoom */}
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-1 py-1">
+                  <button
+                    onClick={() => setQuickPrintZoom((z) => Math.max(50, z - 10))}
+                    className="p-1.5 hover:bg-white rounded-md transition-colors"
+                    title="Zoom arrière"
+                  >
+                    <ZoomOut className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span className="text-xs font-medium text-gray-600 w-10 text-center select-none">
+                    {quickPrintZoom}%
+                  </span>
+                  <button
+                    onClick={() => setQuickPrintZoom((z) => Math.min(200, z + 10))}
+                    className="p-1.5 hover:bg-white rounded-md transition-colors"
+                    title="Zoom avant"
+                  >
+                    <ZoomIn className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <button
+                  onClick={handleQuickPrint}
+                  disabled={isQuickPrinting}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {isQuickPrinting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Printer className="w-4 h-4" />
+                  )}
+                  Imprimer
+                </button>
+                <button
+                  onClick={() => setQuickPrintInvoice(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview content */}
+            <div className="flex-1 overflow-auto py-6 px-4">
+              <div
+                ref={quickPrintRef}
+                className="mx-auto bg-white shadow-lg"
+                style={{
+                  width: '210mm',
+                  minHeight: '297mm',
+                  padding: '12mm 15mm',
+                  boxSizing: 'border-box',
+                  transform: `scale(${quickPrintZoom / 100})`,
+                  transformOrigin: 'top center',
+                  marginBottom: `calc((${quickPrintZoom / 100} - 1) * 297mm)`,
+                }}
+              >
+                <InvoiceTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                    signatureUrl: doctorSignature || undefined,
+                  }}
+                  patient={{
+                    fullName: `${quickPrintInvoice.patient.firstName} ${quickPrintInvoice.patient.lastName}`,
+                    email: quickPrintInvoice.patient.email,
+                  }}
+                  invoice={{
+                    invoiceNumber: quickPrintInvoice.invoiceNumber,
+                    issueDate: quickPrintInvoice.issueDate,
+                    dueDate: quickPrintInvoice.dueDate || undefined,
+                    items: quickPrintInvoice.items,
+                    subtotal: quickPrintInvoice.subtotal,
+                    taxRate: quickPrintInvoice.taxRate,
+                    taxAmount: quickPrintInvoice.taxAmount,
+                    total: quickPrintInvoice.total,
+                    status: quickPrintInvoice.status,
+                    notes: quickPrintInvoice.notes || undefined,
+                    paymentMethod: quickPrintInvoice.paymentMethod || undefined,
+                    paidAt: quickPrintInvoice.paidAt || undefined,
+                  }}
+                  showWatermark={quickPrintInvoice.status === 'DRAFT'}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Create Invoice Modal */}
       {isCreateModalOpen && (

@@ -64,13 +64,16 @@ export default function PrintButton({
     printFrame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;border:0;';
 
     // Attach onload BEFORE appending to DOM
+    // Delay print() to let the iframe fully paint before the dialog opens
     printFrame.onload = () => {
-      try {
-        printFrame.contentWindow?.print();
-      } catch {
-        // silent — print dialog may be blocked
-      }
-      setTimeout(() => cleanup(printFrame), 1500);
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow?.print();
+        } catch {
+          // silent — print dialog may be blocked
+        }
+        setTimeout(() => cleanup(printFrame), 1500);
+      }, 500);
     };
 
     document.body.appendChild(printFrame);
@@ -84,11 +87,11 @@ export default function PrintButton({
       frameDoc.open();
       frameDoc.write(html);
       frameDoc.close();
-      // document.write on an about:blank iframe may not trigger onload — fire manually after a tick
+      // document.write on an about:blank iframe may not trigger onload — fire manually after paint delay
       setTimeout(() => {
         try { printFrame.contentWindow?.print(); } catch { /* silent */ }
         setTimeout(() => cleanup(printFrame), 1500);
-      }, 300);
+      }, 500);
     }
   };
 

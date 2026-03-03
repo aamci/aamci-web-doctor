@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/toast';
 import {
@@ -16,6 +16,10 @@ import {
   Save,
   Loader2,
   Check,
+  Printer,
+  ZoomIn,
+  ZoomOut,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 import { PrescriptionTemplate, PrintButton } from '../_components/templates';
@@ -143,6 +147,12 @@ export default function PrescriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Quick print state
+  const [quickPrintPrescription, setQuickPrintPrescription] = useState<SavedPrescription | null>(null);
+  const [quickPrintZoom, setQuickPrintZoom] = useState(100);
+  const [isQuickPrinting, setIsQuickPrinting] = useState(false);
+  const quickPrintRef = useRef<HTMLDivElement | null>(null);
 
   // Templates state
   const [templates, setTemplates] = useState<MedicationTemplate[]>([]);
@@ -408,6 +418,58 @@ export default function PrescriptionsPage() {
     setPreviewPrescription(null);
   };
 
+  const handleQuickPrint = () => {
+    if (!quickPrintRef.current) return;
+    setIsQuickPrinting(true);
+
+    const styles = Array.from(document.styleSheets)
+      .map((ss) => {
+        try { return Array.from(ss.cssRules).map((r) => r.cssText).join('\n'); }
+        catch { return ''; }
+      })
+      .join('\n');
+
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Ordonnance</title>
+    <style>
+      ${styles}
+      @page { size: A4; margin: 12mm 15mm; }
+      html, body { margin: 0; padding: 0; width: 100%; }
+      .print-content { width: 100%; box-sizing: border-box; }
+    </style>
+  </head>
+  <body><div class="print-content">${quickPrintRef.current.innerHTML}</div></body>
+</html>`;
+
+    const cleanup = (frame: HTMLIFrameElement) => {
+      try { document.body.removeChild(frame); } catch { /* already removed */ }
+      setIsQuickPrinting(false);
+    };
+
+    const printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;border:0;';
+    printFrame.onload = () => {
+      setTimeout(() => {
+        try { printFrame.contentWindow?.print(); } catch { /* silent */ }
+        setTimeout(() => cleanup(printFrame), 1500);
+      }, 500);
+    };
+    document.body.appendChild(printFrame);
+    if ('srcdoc' in (printFrame as HTMLElement)) {
+      printFrame.srcdoc = html;
+    } else {
+      const frameDoc = printFrame.contentWindow?.document;
+      if (!frameDoc) { cleanup(printFrame); return; }
+      frameDoc.open(); frameDoc.write(html); frameDoc.close();
+      setTimeout(() => {
+        try { printFrame.contentWindow?.print(); } catch { /* silent */ }
+        setTimeout(() => cleanup(printFrame), 1500);
+      }, 500);
+    }
+  };
+
   const generatePrescriptionData = (): PrescriptionData => {
     const today = new Date();
     const validUntil = new Date(today);
@@ -550,9 +612,22 @@ export default function PrescriptionsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <button className="text-teal-600 hover:text-teal-800 font-medium">
-                          Voir
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => { setQuickPrintPrescription(prescription); setQuickPrintZoom(100); }}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg text-teal-600"
+                            title="Aperçu"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { setQuickPrintPrescription(prescription); setQuickPrintZoom(100); }}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                            title="Imprimer"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -909,6 +984,102 @@ export default function PrescriptionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Quick Print Preview Modal */}
+      {quickPrintPrescription && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setQuickPrintPrescription(null)} />
+          <div className="fixed inset-4 md:inset-8 lg:inset-12 bg-gray-200 rounded-xl z-50 flex flex-col overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-b flex-shrink-0">
+              <h2 className="font-semibold text-gray-900 text-sm truncate mr-4">
+                Aperçu — {quickPrintPrescription.prescriptionNumber} · {quickPrintPrescription.patient.fullName}
+              </h2>
+              <div className="flex items-center gap-2">
+                {/* Zoom controls */}
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-1 py-1">
+                  <button
+                    onClick={() => setQuickPrintZoom((z) => Math.max(50, z - 10))}
+                    className="p-1.5 hover:bg-white rounded-md transition-colors"
+                    title="Zoom arrière"
+                  >
+                    <ZoomOut className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span className="text-xs font-medium text-gray-600 w-10 text-center select-none">
+                    {quickPrintZoom}%
+                  </span>
+                  <button
+                    onClick={() => setQuickPrintZoom((z) => Math.min(200, z + 10))}
+                    className="p-1.5 hover:bg-white rounded-md transition-colors"
+                    title="Zoom avant"
+                  >
+                    <ZoomIn className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <button
+                  onClick={handleQuickPrint}
+                  disabled={isQuickPrinting}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {isQuickPrinting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Printer className="w-4 h-4" />
+                  )}
+                  Imprimer
+                </button>
+                <button
+                  onClick={() => setQuickPrintPrescription(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview content */}
+            <div className="flex-1 overflow-auto py-6 px-4">
+              <div
+                ref={quickPrintRef}
+                className="mx-auto bg-white shadow-lg origin-top"
+                style={{
+                  width: '210mm',
+                  minHeight: '297mm',
+                  padding: '12mm 15mm',
+                  boxSizing: 'border-box',
+                  transform: `scale(${quickPrintZoom / 100})`,
+                  transformOrigin: 'top center',
+                  marginBottom: `calc((${quickPrintZoom / 100} - 1) * 297mm)`,
+                }}
+              >
+                <PrescriptionTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                  }}
+                  patient={{
+                    fullName: quickPrintPrescription.patient.fullName,
+                    birthDate: quickPrintPrescription.patient.birthdate,
+                    gender: quickPrintPrescription.patient.sex as 'MALE' | 'FEMALE' | undefined,
+                  }}
+                  prescription={{
+                    prescriptionNumber: quickPrintPrescription.prescriptionNumber,
+                    issueDate: quickPrintPrescription.issueDate,
+                    validUntil: quickPrintPrescription.validUntil,
+                    medications: quickPrintPrescription.medications,
+                    diagnosis: quickPrintPrescription.diagnosis,
+                    generalInstructions: quickPrintPrescription.generalInstructions,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Template Selector Modal */}
