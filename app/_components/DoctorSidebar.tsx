@@ -57,7 +57,7 @@ function NavLink({
   active: boolean;
 }) {
   return (
-    <Link href={href} className="relative group flex items-center justify-center w-full py-0.5">
+    <Link href={href as any} className="relative group flex items-center justify-center w-full py-0.5">
       {/* Left accent bar */}
       <span
         className={`absolute left-0 top-1/2 -translate-y-1/2 w-0.5 rounded-r-full transition-all duration-200

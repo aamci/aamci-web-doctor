@@ -153,7 +153,7 @@ export default function Navbar() {
                     {QUICK_ACTIONS.map(({ label, href, Icon, color, bg }) => (
                       <button
                         key={href}
-                        onClick={() => { router.push(href); setShowQuickActions(false); }}
+                        onClick={() => { router.push(href as any); setShowQuickActions(false); }}
                         className="w-full px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                       >
                         <span className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
