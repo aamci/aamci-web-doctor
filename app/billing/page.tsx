@@ -305,17 +305,7 @@ export default function BillingPage() {
     };
     document.body.appendChild(frame);
 
-    if ('srcdoc' in frame) {
-      frame.srcdoc = html;
-    } else {
-      const doc = frame.contentWindow?.document;
-      if (!doc) { cleanup(frame); return; }
-      doc.open(); doc.write(html); doc.close();
-      setTimeout(() => {
-        try { frame.contentWindow?.print(); } catch { /* silent */ }
-        setTimeout(() => cleanup(frame), 1500);
-      }, 500);
-    }
+    frame.srcdoc = html;
   };
 
   const filteredInvoices = invoices.filter((invoice) => {

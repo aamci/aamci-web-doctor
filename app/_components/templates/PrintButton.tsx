@@ -77,22 +77,7 @@ export default function PrintButton({
     };
 
     document.body.appendChild(printFrame);
-
-    // Write content — use srcdoc when available (more reliable), fall back to document.write
-    if ('srcdoc' in (printFrame as HTMLElement)) {
-      printFrame.srcdoc = html;
-    } else {
-      const frameDoc = printFrame.contentWindow?.document;
-      if (!frameDoc) { cleanup(printFrame); return; }
-      frameDoc.open();
-      frameDoc.write(html);
-      frameDoc.close();
-      // document.write on an about:blank iframe may not trigger onload — fire manually after paint delay
-      setTimeout(() => {
-        try { printFrame.contentWindow?.print(); } catch { /* silent */ }
-        setTimeout(() => cleanup(printFrame), 1500);
-      }, 500);
-    }
+    printFrame.srcdoc = html;
   };
 
   return (

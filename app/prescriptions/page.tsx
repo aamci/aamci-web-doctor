@@ -457,17 +457,7 @@ export default function PrescriptionsPage() {
       }, 500);
     };
     document.body.appendChild(printFrame);
-    if ('srcdoc' in (printFrame as HTMLElement)) {
-      printFrame.srcdoc = html;
-    } else {
-      const frameDoc = printFrame.contentWindow?.document;
-      if (!frameDoc) { cleanup(printFrame); return; }
-      frameDoc.open(); frameDoc.write(html); frameDoc.close();
-      setTimeout(() => {
-        try { printFrame.contentWindow?.print(); } catch { /* silent */ }
-        setTimeout(() => cleanup(printFrame), 1500);
-      }, 500);
-    }
+    printFrame.srcdoc = html;
   };
 
   const generatePrescriptionData = (): PrescriptionData => {

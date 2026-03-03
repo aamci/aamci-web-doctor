@@ -58,9 +58,11 @@ import {
   Target,
   Briefcase,
   Video,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { InvoiceTemplate, PrescriptionTemplate, PrintButton } from '../../_components/templates';
-import type { Medication } from '../../_components/templates';
+import type { Medication, InvoiceItem } from '../../_components/templates';
 import { useAuth } from '../../_providers/AuthProvider';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
@@ -233,6 +235,8 @@ interface Invoice {
   issueDate: string;
   dueDate: string | null;
   paidAt: string | null;
+  notes?: string;
+  items?: InvoiceItem[];
 }
 
 // Certificats médicaux
@@ -1090,7 +1094,7 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'factures' && (
-            <FacturesSection invoices={invoices} patientId={patientId} onRefresh={fetchInvoices} />
+            <FacturesSection invoices={invoices} patientId={patientId} patient={patient} onRefresh={fetchInvoices} />
           )}
 
           {activeSection === 'consultations' && (
@@ -4101,7 +4105,8 @@ function VaccinationSection({ vaccinations, patientId, onRefresh, patientName }:
   );
 }
 
-function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice[]; patientId: string; onRefresh: () => void }) {
+function FacturesSection({ invoices, patientId, patient, onRefresh }: { invoices: Invoice[]; patientId: string; patient: Patient | null; onRefresh: () => void }) {
+  const { user } = useAuth();
   const totalPaid = invoices.filter((i) => i.status === 'PAID').reduce((sum, i) => sum + Number(i.total), 0);
   const totalPending = invoices.filter((i) => i.status !== 'PAID' && i.status !== 'CANCELLED').reduce((sum, i) => sum + Number(i.total), 0);
   const [showModal, setShowModal] = useState(false);
@@ -4109,6 +4114,27 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [items, setItems] = useState([{ description: '', quantity: 1, unitPrice: '' }]);
   const [notes, setNotes] = useState('');
+
+  // Quick print state
+  const [quickPrintInv, setQuickPrintInv] = useState<Invoice | null>(null);
+  const [quickPrintZoom, setQuickPrintZoom] = useState(100);
+  const [isQuickPrinting, setIsQuickPrinting] = useState(false);
+  const quickPrintRef = useRef<HTMLDivElement | null>(null);
+
+  const handleQuickPrint = () => {
+    if (!quickPrintRef.current) return;
+    setIsQuickPrinting(true);
+    const styles = Array.from(document.styleSheets)
+      .map((ss) => { try { return Array.from(ss.cssRules).map((r) => r.cssText).join('\n'); } catch { return ''; } })
+      .join('\n');
+    const html = `<!DOCTYPE html><html><head><title>Facture</title><style>${styles}@page{size:A4;margin:12mm 15mm;}html,body{margin:0;padding:0;width:100%;}.print-content{width:100%;box-sizing:border-box;}</style></head><body><div class="print-content">${quickPrintRef.current.innerHTML}</div></body></html>`;
+    const cleanup = (frame: HTMLIFrameElement) => { try { document.body.removeChild(frame); } catch {} setIsQuickPrinting(false); };
+    const printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;border:0;';
+    printFrame.onload = () => { setTimeout(() => { try { printFrame.contentWindow?.print(); } catch {} setTimeout(() => cleanup(printFrame), 1500); }, 500); };
+    document.body.appendChild(printFrame);
+    printFrame.srcdoc = html;
+  };
 
   const handleSendInvoice = async (invoiceId: string) => {
     setSendingId(invoiceId);
@@ -4224,7 +4250,7 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 rounded text-xs ${statusColors[inv.status]}`}>
                     {statusLabels[inv.status]}
                   </span>
@@ -4239,6 +4265,20 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
                       Envoyer
                     </button>
                   )}
+                  <button
+                    onClick={() => { setQuickPrintInv(inv); setQuickPrintZoom(100); }}
+                    className="p-1.5 hover:bg-gray-100 rounded-lg text-teal-600"
+                    title="Aperçu"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => { setQuickPrintInv(inv); setQuickPrintZoom(100); }}
+                    className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500"
+                    title="Imprimer"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -4253,6 +4293,78 @@ function FacturesSection({ invoices, patientId, onRefresh }: { invoices: Invoice
             Nouvelle facture
           </button>
         </div>
+      )}
+
+      {/* Quick Print Preview Modal */}
+      {quickPrintInv && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setQuickPrintInv(null)} />
+          <div className="fixed inset-4 md:inset-8 lg:inset-12 bg-gray-200 rounded-xl z-50 flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-b flex-shrink-0">
+              <h2 className="font-semibold text-gray-900 text-sm truncate mr-4">
+                Aperçu — {quickPrintInv.invoiceNumber}
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-1 py-1">
+                  <button onClick={() => setQuickPrintZoom((z) => Math.max(50, z - 10))} className="p-1.5 hover:bg-white rounded-md transition-colors" title="Zoom arrière">
+                    <ZoomOut className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span className="text-xs font-medium text-gray-600 w-10 text-center select-none">{quickPrintZoom}%</span>
+                  <button onClick={() => setQuickPrintZoom((z) => Math.min(200, z + 10))} className="p-1.5 hover:bg-white rounded-md transition-colors" title="Zoom avant">
+                    <ZoomIn className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <button onClick={handleQuickPrint} disabled={isQuickPrinting} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50">
+                  {isQuickPrinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  Imprimer
+                </button>
+                <button onClick={() => setQuickPrintInv(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto py-6 px-4">
+              <div
+                ref={quickPrintRef}
+                className="mx-auto bg-white shadow-lg"
+                style={{
+                  width: '210mm', minHeight: '297mm', padding: '12mm 15mm', boxSizing: 'border-box',
+                  transform: `scale(${quickPrintZoom / 100})`, transformOrigin: 'top center',
+                  marginBottom: `calc((${quickPrintZoom / 100} - 1) * 297mm)`,
+                }}
+              >
+                <InvoiceTemplate
+                  doctor={{
+                    fullName: user?.fullName || 'Dr. Médecin',
+                    specialty: (user as any)?.doctorProfile?.specialty,
+                    address: (user as any)?.doctorProfile?.address,
+                    city: (user as any)?.doctorProfile?.city,
+                    phone: (user as any)?.phone,
+                    email: user?.email,
+                  }}
+                  patient={{
+                    fullName: patient?.fullName || '',
+                    phone: patient?.phone || undefined,
+                    email: patient?.email || undefined,
+                    city: patient?.city || undefined,
+                  }}
+                  invoice={{
+                    invoiceNumber: quickPrintInv.invoiceNumber,
+                    issueDate: quickPrintInv.issueDate,
+                    dueDate: quickPrintInv.dueDate || undefined,
+                    paidAt: quickPrintInv.paidAt || undefined,
+                    status: quickPrintInv.status as any,
+                    total: Number(quickPrintInv.total),
+                    subtotal: Number(quickPrintInv.total),
+                    notes: quickPrintInv.notes,
+                    items: quickPrintInv.items ?? [{ description: 'Consultation médicale', quantity: 1, unitPrice: Number(quickPrintInv.total), total: Number(quickPrintInv.total) }],
+                  }}
+                  showWatermark={quickPrintInv.status === 'CANCELLED'}
+                />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {showModal && (
