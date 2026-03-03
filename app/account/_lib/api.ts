@@ -7,7 +7,7 @@ function getApiBase(): string | null {
 
 async function _request(path: string, init: RequestInit = {}) {
   const base = getApiBase();
-  const url = base ? `${base}${path}` : path;
+  const url = base ? `${base}${path}` : `/api${path}`;
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
   const headers: Record<string,string> = { ...(init.headers as any) };

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {
   ChevronDown,
   ChevronRight,
-  ArrowLeft,
   Home,
   Building2,
   CalendarDays,
@@ -148,17 +147,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
       {/* Main content — shifted right to clear sidebar */}
       <div className="ml-48 flex-1 min-w-0">
-        {/* Top bar */}
-        <div className="sticky top-16 z-10 bg-white border-b border-gray-200 px-6 py-3">
-          <Link
-            href="/planning"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Revenir à l&apos;agenda
-          </Link>
-        </div>
-
         {/* Page content */}
         {children}
       </div>

@@ -12,20 +12,41 @@ import {
   Calendar,
   CreditCard,
   HelpCircle,
-  Bell,
   Search,
   Command,
+  Plus,
+  FileText,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
 
+const QUICK_ACTIONS = [
+  { label: 'Nouveau rendez-vous', href: '/planning',      Icon: Calendar,  color: 'text-teal-600',  bg: 'bg-teal-50'  },
+  { label: 'Nouveau patient',     href: '/patients',      Icon: User,      color: 'text-blue-600',  bg: 'bg-blue-50'  },
+  { label: 'Nouvelle note',       href: '/medical-notes', Icon: FileText,  color: 'text-amber-600', bg: 'bg-amber-50' },
+];
+
+const USER_LINKS = [
+  { label: 'Mon profil',    href: '/settings/compte', Icon: User       },
+  { label: 'Paramètres',   href: '/settings',         Icon: Settings   },
+  { label: 'Portefeuille', href: '/wallet',            Icon: CreditCard },
+  { label: 'Préférences',  href: '/preferences',      Icon: HelpCircle },
+];
+
+function getInitials(name?: string | null) {
+  if (!name) return 'U';
+  const parts = name.split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef    = useRef<HTMLDivElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
@@ -33,221 +54,168 @@ export default function Navbar() {
     router.push('/auth/login');
   };
 
-  const getInitials = (name?: string | null) => {
-    if (!name) return 'U';
-    const parts = name.split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  // Close menus when clicking outside
+  // Close dropdowns on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false);
-      }
-      if (quickActionsRef.current && !quickActionsRef.current.contains(event.target as Node)) {
-        setShowQuickActions(false);
-      }
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))    setShowUserMenu(false);
+      if (quickActionsRef.current && !quickActionsRef.current.contains(e.target as Node)) setShowQuickActions(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  return (
-    <nav className="fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white shadow-lg z-40 flex items-center">
-      <div className={`flex items-center justify-between w-full px-6 ${user ? 'ml-20' : ''}`}>
-        {/* Logo et titre */}
-        <Link href={user ? '/planning' : '/'} className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center hover:bg-slate-600 transition-colors">
-            <span className="text-xl font-bold text-teal-400">M</span>
-          </div>
-          <span className="text-lg font-bold text-white">Health Platform</span>
-          {user && (
-            <span className="ml-2 text-xs bg-teal-600 text-white px-2 py-1 rounded-full">
-              Pro
-            </span>
-          )}
-        </Link>
+  // ⌘K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (user) setShowGlobalSearch(true);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [user]);
 
-        {/* Barre de recherche globale (si connecté) */}
-        {user && (
-          <div className="flex-1 max-w-lg mx-8">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
-              <button
-                onClick={() => setShowGlobalSearch(true)}
-                className="w-full pl-10 pr-20 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-400 text-left hover:bg-slate-600 hover:border-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
-              >
-                Rechercher patients, RDV...
-              </button>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-slate-600 border border-slate-500 rounded text-xs text-slate-300">
-                  <Command className="w-3 h-3 inline" />
-                </kbd>
-                <kbd className="px-1.5 py-0.5 bg-slate-600 border border-slate-500 rounded text-xs text-slate-300">K</kbd>
-              </div>
+  return (
+    <>
+      {/* Navbar — starts at left-20 when user logged in (sidebar occupies left-0 to left-20) */}
+      <nav
+        className={`fixed top-0 right-0 h-16 bg-slate-900 border-b border-slate-800/70 z-30 flex items-center px-4 gap-3
+          ${user ? 'left-20' : 'left-0'}`}
+      >
+        {/* Logo — only when NOT logged in */}
+        {!user && (
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 mr-2 group">
+            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-md group-hover:bg-teal-500 transition-colors">
+              <span className="text-lg font-bold text-white">M</span>
             </div>
+            <div className="hidden sm:block leading-tight">
+              <p className="text-sm font-bold text-white">Health Platform</p>
+              <p className="text-[10px] text-teal-400 font-medium">Pro</p>
+            </div>
+          </Link>
+        )}
+
+        {/* Global search — when logged in */}
+        {user && (
+          <div className="flex-1 max-w-sm">
+            <button
+              onClick={() => setShowGlobalSearch(true)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg text-sm text-slate-400 hover:text-slate-300 transition-colors"
+            >
+              <Search className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 text-left">Rechercher...</span>
+              <span className="flex items-center gap-0.5 opacity-50">
+                <kbd className="px-1 py-0.5 text-[10px] bg-slate-700 border border-slate-600 rounded font-mono leading-none">
+                  <Command className="w-2.5 h-2.5 inline" />
+                </kbd>
+                <kbd className="px-1 py-0.5 text-[10px] bg-slate-700 border border-slate-600 rounded font-mono leading-none">K</kbd>
+              </span>
+            </button>
           </div>
         )}
 
-        {/* Actions à droite */}
-        <div className="flex items-center gap-2">
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right-side actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {!user ? (
             <>
               <button
                 onClick={() => router.push('/auth/login')}
-                className="px-4 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
               >
                 Connexion
               </button>
               <button
                 onClick={() => router.push('/auth/login')}
-                className="px-4 py-2 rounded-lg font-medium bg-teal-600 text-white hover:bg-teal-500 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-teal-600 text-white hover:bg-teal-500 transition-colors shadow-sm"
               >
                 S'inscrire
               </button>
             </>
           ) : (
             <>
-              {/* Actions rapides dropdown */}
+              {/* Quick-create dropdown */}
               <div className="relative" ref={quickActionsRef}>
                 <button
-                  onClick={() => setShowQuickActions(!showQuickActions)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                  onClick={() => setShowQuickActions((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-sm font-medium">Actions</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showQuickActions ? 'rotate-180' : ''}`} />
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline font-medium">Créer</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showQuickActions ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showQuickActions && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <button
-                      onClick={() => {
-                        router.push('/planning');
-                        setShowQuickActions(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                    >
-                      <Calendar className="w-4 h-4 text-teal-600" />
-                      Nouveau rendez-vous
-                    </button>
-                    <button
-                      onClick={() => {
-                        router.push('/patients');
-                        setShowQuickActions(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                    >
-                      <User className="w-4 h-4 text-blue-600" />
-                      Nouveau patient
-                    </button>
-                    <button
-                      onClick={() => {
-                        router.push('/medical-notes');
-                        setShowQuickActions(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                    >
-                      <Bell className="w-4 h-4 text-orange-600" />
-                      Nouvelle note
-                    </button>
-                    <hr className="my-1" />
-                    <button
-                      onClick={() => {
-                        router.push('/settings/agenda');
-                        setShowQuickActions(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                    >
-                      <Settings className="w-4 h-4 text-gray-500" />
-                      Configurer l'agenda
-                    </button>
+                  <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50">
+                    {QUICK_ACTIONS.map(({ label, href, Icon, color, bg }) => (
+                      <button
+                        key={href}
+                        onClick={() => { router.push(href); setShowQuickActions(false); }}
+                        className="w-full px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                      >
+                        <span className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
+                          <Icon className={`w-4 h-4 ${color}`} />
+                        </span>
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Notifications */}
+              {/* Notification bell */}
               <NotificationBell />
 
-              {/* Menu utilisateur dropdown */}
+              {/* User menu */}
               <div className="relative" ref={userMenuRef}>
                 <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-sm font-bold text-white shadow-sm flex-shrink-0">
                     {getInitials(user.fullName || user.email)}
                   </div>
-                  <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium text-white truncate max-w-[120px]">
+                  <div className="hidden md:block text-left min-w-0">
+                    <p className="text-sm font-medium text-white leading-tight truncate max-w-[110px]">
                       {user.fullName || 'Utilisateur'}
                     </p>
-                    <p className="text-xs text-slate-400 truncate max-w-[120px]">
+                    <p className="text-[10px] text-slate-400 leading-tight truncate max-w-[110px]">
                       {user.email}
                     </p>
                   </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-150 ${showUserMenu ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    {/* En-tête du menu */}
+                  <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
                     <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900">{user.fullName || 'Utilisateur'}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{user.fullName || 'Utilisateur'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>
                     </div>
 
-                    {/* Liens du menu */}
                     <div className="py-1">
-                      <Link
-                        href={"/settings/compte" as any}
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <User className="w-4 h-4" />
-                        Mon profil
-                      </Link>
-                      <Link
-                        href="/settings"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Paramètres
-                      </Link>
-                      <Link
-                        href="/wallet"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        Portefeuille
-                      </Link>
-                      <Link
-                        href="/preferences"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <HelpCircle className="w-4 h-4" />
-                        Préférences
-                      </Link>
+                      {USER_LINKS.map(({ label, href, Icon }) => (
+                        <Link
+                          key={href}
+                          href={href as any}
+                          onClick={() => setShowUserMenu(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          {label}
+                        </Link>
+                      ))}
                     </div>
 
-                    {/* Déconnexion */}
                     <div className="border-t border-gray-100 py-1">
                       <button
-                        onClick={() => {
-                          handleLogout();
-                          setShowUserMenu(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                        onClick={() => { handleLogout(); setShowUserMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
-                        <LogOut className="w-4 h-4" />
+                        <LogOut className="w-4 h-4 flex-shrink-0" />
                         Déconnexion
                       </button>
                     </div>
@@ -257,13 +225,9 @@ export default function Navbar() {
             </>
           )}
         </div>
-      </div>
+      </nav>
 
-      {/* Global Search Modal */}
-      <GlobalSearch
-        isOpen={showGlobalSearch}
-        onClose={() => setShowGlobalSearch(false)}
-      />
-    </nav>
+      <GlobalSearch isOpen={showGlobalSearch} onClose={() => setShowGlobalSearch(false)} />
+    </>
   );
 }
