@@ -521,7 +521,7 @@ export default function PatientRecordPage() {
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<string[]>(['antecedents', 'biologie', 'traitement']);
 
   const [certificates, setCertificates] = useState<MedicalCertificate[]>([]);
-  const [correspondences, setCorrespondences] = useState<MedicalCorrespondence[]>([]);
+  const [correspondencesCount, setCorrespondencesCount] = useState(0);
   const [messages] = useState<PatientMessage[]>([]);
   const [protocols, setProtocols] = useState<CareProtocol[]>([]);
   const [doctorSignature] = useState<string | null>(() =>
@@ -783,7 +783,7 @@ export default function PatientRecordPage() {
     },
     { id: 'vaccination' as const, label: 'CARNET DE VACCINATION', icon: Shield, badge: vaccinations.length },
     { id: 'certificats' as const, label: 'CERTIFICATS', icon: Award, badge: certificates.length },
-    { id: 'correspondances' as const, label: 'CORRESPONDANCES', icon: FileSignature, badge: correspondences.filter(c => !c.isRead).length || undefined },
+    { id: 'correspondances' as const, label: 'CORRESPONDANCES', icon: FileSignature, badge: correspondencesCount || undefined },
     { id: 'messagerie' as const, label: 'MESSAGERIE PATIENT', icon: Inbox, badge: messages.filter(m => m.direction === 'INCOMING' && !m.readAt).length || undefined },
     { id: 'protocoles' as const, label: 'PROTOCOLES DE SOINS', icon: Target, badge: protocols.filter(p => p.status === 'ACTIVE').length },
     { id: 'factures' as const, label: 'FACTURES', icon: Receipt, badge: invoices.length },
@@ -1082,7 +1082,7 @@ export default function PatientRecordPage() {
           )}
 
           {activeSection === 'correspondances' && (
-            <CorrespondancesSection correspondences={correspondences} onAdd={(corr: MedicalCorrespondence) => setCorrespondences(prev => [corr, ...prev])} />
+            <CorrespondancesSection patientId={patientId} currentUserId={user!.id} onCountChange={setCorrespondencesCount} />
           )}
 
           {activeSection === 'messagerie' && (
@@ -4696,11 +4696,136 @@ function CertificatsSection({ certificates, onAdd, onUpdate }: { certificates: M
 
 // Correspondances médicales Section
 // Courrier médical entre confrères: comptes-rendus, demandes d'avis, transferts de patients
-function CorrespondancesSection({ correspondences, onAdd }: { correspondences: MedicalCorrespondence[]; onAdd: (corr: MedicalCorrespondence) => void }) {
+function CorrespondancesSection({
+  patientId,
+  currentUserId,
+  onCountChange,
+}: {
+  patientId: string;
+  currentUserId: string;
+  onCountChange?: (count: number) => void;
+}) {
+  const [correspondences, setCorrespondences] = useState<MedicalCorrespondence[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState<'ALL' | 'INCOMING' | 'OUTGOING'>('ALL');
   const [showModal, setShowModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [corrForm, setCorrForm] = useState({ category: 'COMPTE_RENDU' as MedicalCorrespondence['category'], subject: '', content: '', recipientName: '', recipientSpecialty: '' });
+  const [corrForm, setCorrForm] = useState({
+    category: 'COMPTE_RENDU' as MedicalCorrespondence['category'],
+    subject: '',
+    content: '',
+    recipientId: '',
+    recipientName: '',
+  });
+  const [doctorQuery, setDoctorQuery] = useState('');
+  const [doctorResults, setDoctorResults] = useState<{ id: string; fullName: string; specialty?: string }[]>([]);
+  const [showDoctorDropdown, setShowDoctorDropdown] = useState(false);
+  const doctorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const authHeader = { Authorization: `Bearer ${token}` };
+
+  const mapCorrespondence = useCallback((c: any): MedicalCorrespondence => {
+    const isOutgoing = c.senderId === currentUserId;
+    return {
+      id: c.id,
+      type: isOutgoing ? 'OUTGOING' : 'INCOMING',
+      category: c.category,
+      subject: c.subject,
+      content: c.content,
+      senderName: c.sender?.fullName ?? 'Inconnu',
+      senderSpecialty: c.sender?.doctorProfile?.specialty ?? null,
+      recipientName: c.recipient?.fullName ?? 'Inconnu',
+      recipientSpecialty: c.recipient?.doctorProfile?.specialty ?? null,
+      date: c.createdAt,
+      isRead: c.isRead,
+      attachments: [],
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/correspondences/patient/${patientId}`, { headers: authHeader });
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: MedicalCorrespondence[] = (Array.isArray(data) ? data : []).map(mapCorrespondence);
+          setCorrespondences(mapped);
+          onCountChange?.(mapped.filter(c => !c.isRead && c.type === 'INCOMING').length);
+        }
+      } catch { /* silent */ } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
+
+  const handleDoctorSearch = (q: string) => {
+    setDoctorQuery(q);
+    setCorrForm(f => ({ ...f, recipientId: '', recipientName: q }));
+    setShowDoctorDropdown(true);
+    if (doctorTimer.current) clearTimeout(doctorTimer.current);
+    if (!q.trim()) { setDoctorResults([]); return; }
+    doctorTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/correspondences/doctors/search?q=${encodeURIComponent(q)}`, { headers: authHeader });
+        if (res.ok) setDoctorResults(await res.json());
+      } catch { /* silent */ }
+    }, 300);
+  };
+
+  const selectDoctor = (doc: { id: string; fullName: string; specialty?: string }) => {
+    setCorrForm(f => ({ ...f, recipientId: doc.id, recipientName: doc.fullName }));
+    setDoctorQuery(doc.fullName);
+    setDoctorResults([]);
+    setShowDoctorDropdown(false);
+  };
+
+  const markRead = async (id: string) => {
+    const corr = correspondences.find(c => c.id === id);
+    if (!corr || corr.isRead || corr.type !== 'INCOMING') return;
+    try {
+      await fetch(`${API_BASE_URL}/correspondences/${id}/read`, { method: 'PATCH', headers: authHeader });
+      setCorrespondences(prev => {
+        const updated = prev.map(c => c.id === id ? { ...c, isRead: true } : c);
+        onCountChange?.(updated.filter(c => !c.isRead && c.type === 'INCOMING').length);
+        return updated;
+      });
+    } catch { /* silent */ }
+  };
+
+  const handleSubmit = async () => {
+    if (!corrForm.subject || !corrForm.content || !corrForm.recipientId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/correspondences`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: corrForm.recipientId,
+          patientId,
+          category: corrForm.category,
+          subject: corrForm.subject,
+          content: corrForm.content,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setCorrespondences(prev => [mapCorrespondence(created), ...prev]);
+        setShowModal(false);
+        setCorrForm({ category: 'COMPTE_RENDU', subject: '', content: '', recipientId: '', recipientName: '' });
+        setDoctorQuery('');
+        toast.success('Courrier envoyé');
+      } else {
+        toast.error('Erreur lors de l\'envoi');
+      }
+    } catch { toast.error('Erreur réseau'); } finally {
+      setSubmitting(false);
+    }
+  };
 
   const CATEGORY_LABELS: Record<string, { label: string; description: string }> = {
     COMPTE_RENDU: { label: 'Compte-rendu', description: 'Résumé de consultation ou intervention à partager avec un confrère' },
@@ -4715,6 +4840,10 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
   );
 
   const unreadCount = correspondences.filter(c => !c.isRead && c.type === 'INCOMING').length;
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -4778,7 +4907,7 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
                   !corr.isRead && corr.type === 'INCOMING' ? 'border-teal-300 bg-teal-50/30' : 'border-gray-200 hover:border-teal-300'
                 }`}
               >
-                <div className="flex items-start justify-between cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : corr.id)}>
+                <div className="flex items-start justify-between cursor-pointer" onClick={() => { const next = isExpanded ? null : corr.id; setExpandedId(next); if (next) markRead(corr.id); }}>
                   <div className="flex items-start gap-4 flex-1">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       corr.type === 'INCOMING' ? 'bg-blue-100' : 'bg-green-100'
@@ -4831,13 +4960,15 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
+                          const replyName = corr.type === 'INCOMING' ? corr.senderName : corr.recipientName;
                           setCorrForm({
                             category: 'REPONSE_AVIS',
                             subject: `Re: ${corr.subject}`,
                             content: '',
-                            recipientName: corr.type === 'INCOMING' ? corr.senderName : corr.recipientName,
-                            recipientSpecialty: (corr.type === 'INCOMING' ? corr.senderSpecialty : corr.recipientSpecialty) || '',
+                            recipientId: '',
+                            recipientName: replyName,
                           });
+                          setDoctorQuery(replyName);
                           setShowModal(true);
                         }}
                         className="px-3 py-1.5 text-sm bg-teal-50 text-teal-700 rounded-lg hover:bg-teal-100 flex items-center gap-1"
@@ -4899,14 +5030,34 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
                 <label className="block text-sm font-medium text-gray-700 mb-1">Objet *</label>
                 <input value={corrForm.subject} onChange={e => setCorrForm(f => ({ ...f, subject: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="ex: Compte-rendu de consultation du 15/01" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire *</label>
-                  <input value={corrForm.recipientName} onChange={e => setCorrForm(f => ({ ...f, recipientName: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Dr. Dupont" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                  <input value={corrForm.recipientSpecialty} onChange={e => setCorrForm(f => ({ ...f, recipientSpecialty: e.target.value }))} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Cardiologie" />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire *</label>
+                <div className="relative">
+                  <input
+                    value={doctorQuery}
+                    onChange={e => handleDoctorSearch(e.target.value)}
+                    onFocus={() => doctorQuery && setShowDoctorDropdown(true)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    placeholder="Rechercher un médecin..."
+                  />
+                  {corrForm.recipientId && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-600 text-xs font-medium">✓</span>
+                  )}
+                  {showDoctorDropdown && doctorResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                      {doctorResults.map(doc => (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => selectDoctor(doc)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-100 last:border-0"
+                        >
+                          <span className="font-medium text-gray-900">{doc.fullName}</span>
+                          {doc.specialty && <span className="text-gray-500 text-xs ml-2">{doc.specialty}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -4915,31 +5066,13 @@ function CorrespondancesSection({ correspondences, onAdd }: { correspondences: M
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button onClick={() => { setShowModal(false); setDoctorQuery(''); setDoctorResults([]); }} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
               <button
-                disabled={!corrForm.subject || !corrForm.content || !corrForm.recipientName}
-                onClick={() => {
-                  onAdd({
-                    id: Date.now().toString(),
-                    type: 'OUTGOING',
-                    category: corrForm.category,
-                    subject: corrForm.subject,
-                    content: corrForm.content,
-                    senderName: 'Moi',
-                    senderSpecialty: null,
-                    recipientName: corrForm.recipientName,
-                    recipientSpecialty: corrForm.recipientSpecialty || null,
-                    date: new Date().toISOString(),
-                    isRead: true,
-                    attachments: [],
-                  });
-                  setShowModal(false);
-                  setCorrForm({ category: 'COMPTE_RENDU', subject: '', content: '', recipientName: '', recipientSpecialty: '' });
-                  toast.success('Courrier envoyé');
-                }}
+                disabled={!corrForm.subject || !corrForm.content || !corrForm.recipientId || submitting}
+                onClick={handleSubmit}
                 className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
               >
-                <Send className="w-4 h-4" />
+                {submitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
                 Envoyer le courrier
               </button>
             </div>

@@ -15,6 +15,7 @@ import {
   Activity,
   MessageSquare,
   ArrowRightLeft,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { label: 'Activité',       href: '/activity',      icon: Activity },
   { label: 'Messages',       href: '/messages',      icon: MessageSquare },
   { label: 'Adressages',    href: '/referrals',     icon: ArrowRightLeft },
+  { label: 'Courrier',      href: '/correspondances', icon: Mail },
 ] as const;
 
 function Tooltip({ label }: { label: string }) {
@@ -90,26 +92,27 @@ export default function DoctorSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadCorrespondences, setUnreadCorrespondences] = useState(0);
 
-  const fetchUnreadMessages = useCallback(async () => {
+  const fetchCounts = useCallback(async () => {
     if (!user) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/messages/unread-count`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadMessages(data.count || 0);
-      }
+      const headers = { Authorization: `Bearer ${token}` };
+      const [msgRes, corrRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/messages/unread-count`, { headers }),
+        fetch(`${API_BASE_URL}/correspondences/unread-count`, { headers }),
+      ]);
+      if (msgRes.ok) { const d = await msgRes.json(); setUnreadMessages(d.count || 0); }
+      if (corrRes.ok) { const d = await corrRes.json(); setUnreadCorrespondences(d.count || 0); }
     } catch { /* silent */ }
   }, [user]);
 
   useEffect(() => {
-    fetchUnreadMessages();
-    const interval = setInterval(fetchUnreadMessages, 30000);
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30000);
     return () => clearInterval(interval);
-  }, [fetchUnreadMessages]);
+  }, [fetchCounts]);
 
   if (!user) return null;
 
@@ -145,7 +148,10 @@ export default function DoctorSidebar() {
             href={href}
             icon={icon}
             active={isActive(href)}
-            badge={href === '/messages' ? (unreadMessages || undefined) : undefined}
+            badge={
+              href === '/messages' ? (unreadMessages || undefined) :
+              href === '/correspondances' ? (unreadCorrespondences || undefined) : undefined
+            }
           />
         ))}
       </nav>
