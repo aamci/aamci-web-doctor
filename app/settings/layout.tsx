@@ -23,6 +23,7 @@ import {
   Laptop,
   Stethoscope,
   Lock,
+  MessageSquare,
 } from 'lucide-react';
 
 interface NavItem {
@@ -66,6 +67,7 @@ const NAV: NavItem[] = [
   { label: 'Centre de confidentialité', href: '/settings/confidentialite', icon: Lock },
   { label: 'Journal de sécurité', href: '/settings/journal-securite', icon: Shield },
   { label: 'Ma signature', href: '/settings/ma-signature', icon: Pen },
+  { label: 'Support', href: '/settings/support', icon: MessageSquare },
 ];
 
 function NavSection({ item, pathname }: { item: NavItem; pathname: string }) {

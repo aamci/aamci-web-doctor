@@ -14,6 +14,7 @@ import {
   Settings,
   Activity,
   MessageSquare,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { label: 'Facturation',    href: '/billing',       icon: Receipt },
   { label: 'Activité',       href: '/activity',      icon: Activity },
   { label: 'Messages',       href: '/messages',      icon: MessageSquare },
+  { label: 'Adressages',    href: '/referrals',     icon: ArrowRightLeft },
 ] as const;
 
 function Tooltip({ label }: { label: string }) {
