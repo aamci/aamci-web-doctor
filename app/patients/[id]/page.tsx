@@ -4771,7 +4771,7 @@ function CorrespondancesSection({
     if (!q.trim()) { setDoctorResults([]); return; }
     doctorTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/correspondences/doctors/search?q=${encodeURIComponent(q)}`, { headers: authHeader });
+        const res = await fetch(`${API_BASE_URL}/doctor-profiles/search?q=${encodeURIComponent(q)}`, { headers: authHeader });
         if (res.ok) setDoctorResults(await res.json());
       } catch { /* silent */ }
     }, 300);

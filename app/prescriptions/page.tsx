@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/toast';
+import { required, maxLen } from '@/lib/validation';
 import {
   ArrowLeft,
   Plus,
@@ -298,10 +299,26 @@ export default function PrescriptionsPage() {
       return;
     }
 
-    if (formData.medications.every((m) => !m.name)) {
+    if (formData.medications.every((m) => !m.name?.trim())) {
       toast.warning('Veuillez ajouter au moins un médicament');
       return;
     }
+
+    const invalidMed = formData.medications.find(m => m.name?.trim() && m.name.trim().length < 2);
+    if (invalidMed) {
+      toast.warning('Le nom du médicament doit contenir au moins 2 caractères');
+      return;
+    }
+
+    if (formData.validDays < 1 || formData.validDays > 365) {
+      toast.warning('La durée de validité doit être comprise entre 1 et 365 jours');
+      return;
+    }
+
+    const diagErr = formData.diagnosis ? maxLen(formData.diagnosis, 500, 'Diagnostic') : null;
+    if (diagErr) { toast.warning(diagErr); return; }
+    const instrErr = formData.generalInstructions ? maxLen(formData.generalInstructions, 1000, 'Instructions') : null;
+    if (instrErr) { toast.warning(instrErr); return; }
 
     setIsSaving(true);
     setSaveSuccess(false);
@@ -734,6 +751,7 @@ export default function PrescriptionsPage() {
                   onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="Ex: Infection respiratoire haute"
+                  maxLength={500}
                 />
               </div>
 
@@ -765,6 +783,8 @@ export default function PrescriptionsPage() {
                             onChange={(e) => updateMedication(index, 'name', e.target.value)}
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                             required
+                            minLength={2}
+                            maxLength={200}
                           />
                         </div>
                         <input
@@ -773,6 +793,7 @@ export default function PrescriptionsPage() {
                           value={med.dosage || ''}
                           onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          maxLength={100}
                         />
                         <input
                           type="number"
@@ -790,6 +811,7 @@ export default function PrescriptionsPage() {
                           value={med.frequency || ''}
                           onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          maxLength={100}
                         />
                         <input
                           type="text"
@@ -797,6 +819,7 @@ export default function PrescriptionsPage() {
                           value={med.duration || ''}
                           onChange={(e) => updateMedication(index, 'duration', e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          maxLength={50}
                         />
                         <div className="col-span-2">
                           <input
@@ -807,6 +830,7 @@ export default function PrescriptionsPage() {
                               updateMedication(index, 'instructions', e.target.value)
                             }
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                            maxLength={300}
                           />
                         </div>
                       </div>

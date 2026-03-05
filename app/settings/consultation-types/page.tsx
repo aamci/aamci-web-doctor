@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { required, minLen, maxLen, positiveNumber, hasErrors, type FormErrors } from '@/lib/validation';
 import {
   ArrowLeft,
   Plus,
@@ -43,6 +44,7 @@ export default function ConsultationTypesPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKind, setEditingKind] = useState<AppointmentKind | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<'name' | 'description' | 'durationMins'>>({});
 
   // Form state
   const [formData, setFormData] = useState({
@@ -78,6 +80,7 @@ export default function ConsultationTypesPage() {
 
   const openCreateModal = () => {
     setEditingKind(null);
+    setFieldErrors({});
     setFormData({
       name: '',
       description: '',
@@ -90,6 +93,7 @@ export default function ConsultationTypesPage() {
 
   const openEditModal = (kind: AppointmentKind) => {
     setEditingKind(kind);
+    setFieldErrors({});
     setFormData({
       name: kind.name,
       description: kind.description || '',
@@ -102,6 +106,13 @@ export default function ConsultationTypesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: typeof fieldErrors = {
+      name: required(formData.name, 'Nom') ?? minLen(formData.name, 2, 'Nom') ?? maxLen(formData.name, 100, 'Nom'),
+      description: formData.description ? maxLen(formData.description, 300, 'Description') : null,
+      durationMins: positiveNumber(formData.durationMins, 'Durée'),
+    };
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
     const token = localStorage.getItem('token');
 
     try {
@@ -313,16 +324,19 @@ export default function ConsultationTypesPage() {
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom du type
+                  Nom du type *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setFieldErrors(fe => ({ ...fe, name: null })); }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent ${fieldErrors.name ? 'border-red-400' : ''}`}
                   placeholder="Ex: Consultation de suivi"
                   required
+                  minLength={2}
+                  maxLength={100}
                 />
+                {fieldErrors.name && <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>}
               </div>
 
               <div>
@@ -331,11 +345,13 @@ export default function ConsultationTypesPage() {
                 </label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, description: e.target.value }); setFieldErrors(fe => ({ ...fe, description: null })); }}
                   rows={2}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                  maxLength={300}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none ${fieldErrors.description ? 'border-red-400' : ''}`}
                   placeholder="Description du type de consultation..."
                 />
+                {fieldErrors.description && <p className="text-xs text-red-500 mt-1">{fieldErrors.description}</p>}
               </div>
 
               <div>

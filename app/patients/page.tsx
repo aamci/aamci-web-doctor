@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { required, minLen, maxLen, email as emailVal, phone as phoneVal, hasErrors, type FormErrors } from '@/lib/validation';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -1046,6 +1047,7 @@ function NewPatientModal({
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<'lastName' | 'firstName' | 'email' | 'phone' | 'birthDate'>>({});
   const [form, setForm] = useState<NewPatientForm>({
     gender: 'male',
     lastName: '',
@@ -1058,15 +1060,25 @@ function NewPatientModal({
     email: '',
   });
 
+  const setField = <K extends keyof NewPatientForm>(key: K, value: NewPatientForm[K]) => {
+    setForm(f => ({ ...f, [key]: value }));
+    setFieldErrors(fe => ({ ...fe, [key]: null }));
+  };
+
   const handleSubmit = async () => {
-    if (!form.lastName.trim() || !form.firstName.trim()) {
-      setError('Veuillez renseigner le nom et le prénom');
-      return;
+    const errors: typeof fieldErrors = {
+      lastName: required(form.lastName, 'Nom') ?? minLen(form.lastName, 2, 'Nom') ?? maxLen(form.lastName, 80, 'Nom'),
+      firstName: required(form.firstName, 'Prénom') ?? minLen(form.firstName, 2, 'Prénom') ?? maxLen(form.firstName, 80, 'Prénom'),
+      email: required(form.email, 'Email') ?? emailVal(form.email),
+      phone: phoneVal(form.phone),
+    };
+    if (form.birthDate) {
+      const bd = new Date(form.birthDate);
+      const today = new Date();
+      if (bd > today) errors.birthDate = 'La date de naissance ne peut pas être dans le futur';
     }
-    if (!form.email.trim()) {
-      setError('Veuillez renseigner l\'email');
-      return;
-    }
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
 
     setIsCreating(true);
     setError(null);
@@ -1160,20 +1172,26 @@ function NewPatientModal({
               <input
                 type="text"
                 value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                onChange={(e) => setField('lastName', e.target.value)}
                 placeholder="Nom"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+                required
+                maxLength={80}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50 ${fieldErrors.lastName ? 'border-red-400' : 'border-gray-200'}`}
               />
+              {fieldErrors.lastName && <p className="text-xs text-red-500 mt-1">{fieldErrors.lastName}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Prénom *</label>
               <input
                 type="text"
                 value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                onChange={(e) => setField('firstName', e.target.value)}
                 placeholder="Prénom"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+                required
+                maxLength={80}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50 ${fieldErrors.firstName ? 'border-red-400' : 'border-gray-200'}`}
               />
+              {fieldErrors.firstName && <p className="text-xs text-red-500 mt-1">{fieldErrors.firstName}</p>}
             </div>
           </div>
 
@@ -1183,9 +1201,11 @@ function NewPatientModal({
               <input
                 type="date"
                 value={form.birthDate}
-                onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+                onChange={(e) => setField('birthDate', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50 ${fieldErrors.birthDate ? 'border-red-400' : 'border-gray-200'}`}
               />
+              {fieldErrors.birthDate && <p className="text-xs text-red-500 mt-1">{fieldErrors.birthDate}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Lieu de naissance</label>
@@ -1206,20 +1226,25 @@ function NewPatientModal({
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setField('phone', e.target.value)}
                 placeholder="06 12 34 56 78"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+                maxLength={20}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50 ${fieldErrors.phone ? 'border-red-400' : 'border-gray-200'}`}
               />
+              {fieldErrors.phone && <p className="text-xs text-red-500 mt-1">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
               <input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => setField('email', e.target.value)}
                 placeholder="email@exemple.fr"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+                required
+                maxLength={100}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50 ${fieldErrors.email ? 'border-red-400' : 'border-gray-200'}`}
               />
+              {fieldErrors.email && <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>}
             </div>
           </div>
 

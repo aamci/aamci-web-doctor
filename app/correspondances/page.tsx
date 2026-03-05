@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../_providers/AuthProvider';
+import { required, minLen, maxLen, hasErrors, type FormErrors } from '@/lib/validation';
 import {
   Send,
   Inbox,
@@ -651,16 +652,23 @@ function NewCorrespondenceModal({
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<'recipient' | 'subject' | 'content'>>({});
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!recipient) { setErr('Veuillez sélectionner un destinataire'); return; }
+    const errors: typeof fieldErrors = {
+      recipient: recipient ? null : 'Veuillez sélectionner un destinataire',
+      subject: required(subject, 'Objet') ?? minLen(subject, 3, 'Objet') ?? maxLen(subject, 200, 'Objet'),
+      content: required(content, 'Contenu') ?? minLen(content, 20, 'Contenu') ?? maxLen(content, 10000, 'Contenu'),
+    };
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
     setSaving(true);
     setErr('');
     try {
       const c = await authedFetch('/correspondences', {
         method: 'POST',
-        body: JSON.stringify({ recipientId: recipient.id, category, subject, content }),
+        body: JSON.stringify({ recipientId: recipient!.id, category, subject, content }),
       });
       onSent(c);
     } catch (e: unknown) {
@@ -680,7 +688,8 @@ function NewCorrespondenceModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Destinataire *</label>
-            <DoctorSearchInput value={recipient} onChange={setRecipient} />
+            <DoctorSearchInput value={recipient} onChange={v => { setRecipient(v); setFieldErrors(fe => ({ ...fe, recipient: null })); }} />
+            {fieldErrors.recipient && <p className="text-xs text-red-500 mt-1">{fieldErrors.recipient}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -694,16 +703,23 @@ function NewCorrespondenceModal({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Objet *</label>
-              <input required value={subject} onChange={e => setSubject(e.target.value)}
+              <input required value={subject} onChange={e => { setSubject(e.target.value); setFieldErrors(fe => ({ ...fe, subject: null })); }}
                 placeholder="Objet du courrier"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                maxLength={200}
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${fieldErrors.subject ? 'border-red-400' : 'border-gray-300'}`} />
+              {fieldErrors.subject && <p className="text-xs text-red-500 mt-1">{fieldErrors.subject}</p>}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Contenu *</label>
-            <textarea required rows={6} value={content} onChange={e => setContent(e.target.value)}
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Contenu * <span className="text-gray-400 font-normal">(min. 20 caractères)</span></label>
+            <textarea required rows={6} value={content} onChange={e => { setContent(e.target.value); setFieldErrors(fe => ({ ...fe, content: null })); }}
               placeholder="Cher(e) confrère, je vous adresse ce patient…"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
+              maxLength={10000}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none ${fieldErrors.content ? 'border-red-400' : 'border-gray-300'}`} />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.content ? <p className="text-xs text-red-500">{fieldErrors.content}</p> : <span />}
+              <span className="text-xs text-gray-400">{content.length}/10000</span>
+            </div>
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
           <div className="flex justify-end gap-3 pt-1">
@@ -711,7 +727,7 @@ function NewCorrespondenceModal({
               className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
               Annuler
             </button>
-            <button type="submit" disabled={saving || !recipient}
+            <button type="submit" disabled={saving}
               className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50">
               <Send className="w-3.5 h-3.5" />
               {saving ? 'Envoi…' : 'Envoyer'}
@@ -741,6 +757,7 @@ function NewReferralModal({
   const [urgency, setUrgency] = useState('NORMAL');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<'toDoctor' | 'patient' | 'reason' | 'notes'>>({});
 
   useEffect(() => {
     if (patientQuery.length < 2) { setPatients([]); return; }
@@ -755,13 +772,19 @@ function NewReferralModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!toDoctor) { setErr('Sélectionnez un médecin destinataire'); return; }
-    if (!patient) { setErr('Sélectionnez un patient'); return; }
+    const errors: typeof fieldErrors = {
+      toDoctor: toDoctor ? null : 'Sélectionnez un médecin destinataire',
+      patient: patient ? null : 'Sélectionnez un patient',
+      reason: required(reason, 'Motif') ?? minLen(reason, 10, 'Motif') ?? maxLen(reason, 1000, 'Motif'),
+      notes: notes ? maxLen(notes, 500, 'Notes') : null,
+    };
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
     setSaving(true); setErr('');
     try {
       const r = await authedFetch('/referrals', {
         method: 'POST',
-        body: JSON.stringify({ toDoctorId: toDoctor.id, patientId: patient.id, reason, notes: notes || undefined, urgency }),
+        body: JSON.stringify({ toDoctorId: toDoctor!.id, patientId: patient!.id, reason, notes: notes || undefined, urgency }),
       });
       onSent(r);
     } catch (e: unknown) {
@@ -779,7 +802,8 @@ function NewReferralModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Médecin destinataire *</label>
-            <DoctorSearchInput value={toDoctor} onChange={setToDoctor} placeholder="Rechercher un confrère…" />
+            <DoctorSearchInput value={toDoctor} onChange={v => { setToDoctor(v); setFieldErrors(fe => ({ ...fe, toDoctor: null })); }} placeholder="Rechercher un confrère…" />
+            {fieldErrors.toDoctor && <p className="text-xs text-red-500 mt-1">{fieldErrors.toDoctor}</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Patient *</label>
@@ -789,7 +813,7 @@ function NewReferralModal({
                   <p className="text-sm font-medium text-gray-900">{patient.fullName}</p>
                   <p className="text-xs text-gray-500">{patient.email}</p>
                 </div>
-                <button type="button" onClick={() => setPatient(null)} className="p-0.5 hover:bg-gray-100 rounded">
+                <button type="button" onClick={() => { setPatient(null); setFieldErrors(fe => ({ ...fe, patient: null })); }} className="p-0.5 hover:bg-gray-100 rounded">
                   <X className="w-3.5 h-3.5 text-gray-400" />
                 </button>
               </div>
@@ -816,6 +840,7 @@ function NewReferralModal({
                 )}
               </div>
             )}
+            {fieldErrors.patient && <p className="text-xs text-red-500 mt-1">{fieldErrors.patient}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -830,16 +855,20 @@ function NewReferralModal({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Motif *</label>
-            <textarea required rows={3} value={reason} onChange={e => setReason(e.target.value)}
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Motif * <span className="text-gray-400 font-normal">(min. 10 caractères)</span></label>
+            <textarea required rows={3} value={reason} onChange={e => { setReason(e.target.value); setFieldErrors(fe => ({ ...fe, reason: null })); }}
               placeholder="Motif du transfert ou de l'aiguillage…"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
+              maxLength={1000}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none ${fieldErrors.reason ? 'border-red-400' : 'border-gray-300'}`} />
+            {fieldErrors.reason && <p className="text-xs text-red-500 mt-1">{fieldErrors.reason}</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Notes complémentaires</label>
-            <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)}
+            <textarea rows={2} value={notes} onChange={e => { setNotes(e.target.value); setFieldErrors(fe => ({ ...fe, notes: null })); }}
               placeholder="Informations utiles pour le confrère…"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
+              maxLength={500}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none ${fieldErrors.notes ? 'border-red-400' : 'border-gray-300'}`} />
+            {fieldErrors.notes && <p className="text-xs text-red-500 mt-1">{fieldErrors.notes}</p>}
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
           <div className="flex justify-end gap-3 pt-1">
@@ -847,7 +876,7 @@ function NewReferralModal({
               className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
               Annuler
             </button>
-            <button type="submit" disabled={saving || !toDoctor || !patient}
+            <button type="submit" disabled={saving}
               className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50">
               <ArrowRightLeft className="w-3.5 h-3.5" />
               {saving ? 'Envoi…' : 'Adresser le patient'}

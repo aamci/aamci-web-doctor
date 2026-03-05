@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/toast';
+import { required, minLen, maxLen, hasErrors, type FormErrors } from '@/lib/validation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -478,6 +479,7 @@ function CreateNoteModal({
   const [patients, setPatients] = useState<any[]>([]);
   const [searchPatient, setSearchPatient] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FormErrors<'patientId' | 'content' | 'title'>>({});
 
   useEffect(() => {
     if (!searchPatient || searchPatient.length < 2) {
@@ -510,10 +512,13 @@ function CreateNoteModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId || !content) {
-      toast.warning('Veuillez sélectionner un patient et rédiger la note');
-      return;
-    }
+    const errors: typeof fieldErrors = {
+      patientId: required(patientId, 'Patient'),
+      content: required(content, 'Contenu') ?? minLen(content, 10, 'Contenu') ?? maxLen(content, 5000, 'Contenu'),
+      title: title ? maxLen(title, 120, 'Titre') : null,
+    };
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
 
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -581,7 +586,7 @@ function CreateNoteModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPatientId('')}
+                  onClick={() => { setPatientId(''); setFieldErrors(fe => ({ ...fe, patientId: null })); }}
                   className="ml-auto p-1 hover:bg-teal-100 rounded"
                 >
                   <X className="w-4 h-4 text-teal-600" />
@@ -595,7 +600,7 @@ function CreateNoteModal({
                   value={searchPatient}
                   onChange={(e) => setSearchPatient(e.target.value)}
                   placeholder="Rechercher un patient..."
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${fieldErrors.patientId ? 'border-red-400' : ''}`}
                 />
                 {patients.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
@@ -616,6 +621,7 @@ function CreateNoteModal({
                 )}
               </div>
             )}
+            {fieldErrors.patientId && <p className="text-xs text-red-500 mt-1">{fieldErrors.patientId}</p>}
           </div>
 
           {/* Type de note */}
@@ -655,25 +661,33 @@ function CreateNoteModal({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); setFieldErrors(fe => ({ ...fe, title: null })); }}
               placeholder="Ex: Consultation de suivi"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+              maxLength={120}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${fieldErrors.title ? 'border-red-400' : ''}`}
             />
+            {fieldErrors.title && <p className="text-xs text-red-500 mt-1">{fieldErrors.title}</p>}
           </div>
 
           {/* Contenu */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contenu *
+              Contenu * <span className="text-gray-400 font-normal">(min. 10 caractères)</span>
             </label>
             <textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => { setContent(e.target.value); setFieldErrors(fe => ({ ...fe, content: null })); }}
               placeholder="Rédigez votre note..."
               rows={5}
               required
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
+              minLength={10}
+              maxLength={5000}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 resize-none ${fieldErrors.content ? 'border-red-400' : ''}`}
             />
+            <div className="flex justify-between items-center mt-1">
+              {fieldErrors.content ? <p className="text-xs text-red-500">{fieldErrors.content}</p> : <span />}
+              <span className="text-xs text-gray-400">{content.length}/5000</span>
+            </div>
           </div>
 
           {/* Tags */}
@@ -718,7 +732,7 @@ function CreateNoteModal({
             </button>
             <button
               type="submit"
-              disabled={loading || !patientId || !content}
+              disabled={loading}
               className="flex-1 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Création...' : 'Créer la note'}

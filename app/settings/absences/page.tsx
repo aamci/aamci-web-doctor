@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { required, maxLen, dateRange, timeRange, hasErrors, type FormErrors } from '@/lib/validation';
 import {
   Calendar,
   Plus,
@@ -106,6 +107,8 @@ export default function AbsencesPage() {
   });
 
   const [selectedHolidays, setSelectedHolidays] = useState<string[]>([]);
+  const [absenceErrors, setAbsenceErrors] = useState<FormErrors<'startDate' | 'endDate' | 'timeRange' | 'title' | 'notes'>>({});
+  const [blockedErrors, setBlockedErrors] = useState<FormErrors<'timeRange' | 'reason'>>({});
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -184,6 +187,7 @@ export default function AbsencesPage() {
 
   const handleAddAbsence = () => {
     setEditingAbsence(null);
+    setAbsenceErrors({});
     setAbsenceForm({
       type: 'vacation',
       title: '',
@@ -200,6 +204,7 @@ export default function AbsencesPage() {
 
   const handleEditAbsence = (absence: Absence) => {
     setEditingAbsence(absence);
+    setAbsenceErrors({});
     setAbsenceForm({
       type: absence.type,
       title: absence.title,
@@ -215,7 +220,15 @@ export default function AbsencesPage() {
   };
 
   const handleSaveAbsence = async () => {
-    if (!absenceForm.startDate || !absenceForm.endDate) return;
+    const errors: typeof absenceErrors = {
+      startDate: required(absenceForm.startDate, 'Date de début'),
+      endDate: required(absenceForm.endDate, 'Date de fin') ?? dateRange(absenceForm.startDate, absenceForm.endDate),
+      timeRange: !absenceForm.allDay ? timeRange(absenceForm.startTime, absenceForm.endTime) : null,
+      title: absenceForm.title ? maxLen(absenceForm.title, 100, 'Titre') : null,
+      notes: absenceForm.notes ? maxLen(absenceForm.notes, 500, 'Notes') : null,
+    };
+    setAbsenceErrors(errors);
+    if (hasErrors(errors)) return;
 
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -275,6 +288,7 @@ export default function AbsencesPage() {
 
   const handleAddBlocked = () => {
     setEditingBlocked(null);
+    setBlockedErrors({});
     setBlockedForm({
       dayOfWeek: 1,
       startTime: '12:00',
@@ -286,6 +300,7 @@ export default function AbsencesPage() {
 
   const handleEditBlocked = (blocked: BlockedTime) => {
     setEditingBlocked(blocked);
+    setBlockedErrors({});
     setBlockedForm({
       dayOfWeek: blocked.dayOfWeek,
       startTime: blocked.startTime,
@@ -296,6 +311,12 @@ export default function AbsencesPage() {
   };
 
   const handleSaveBlocked = () => {
+    const errors: typeof blockedErrors = {
+      timeRange: timeRange(blockedForm.startTime, blockedForm.endTime),
+      reason: required(blockedForm.reason, 'Motif') ?? maxLen(blockedForm.reason, 100, 'Motif'),
+    };
+    setBlockedErrors(errors);
+    if (hasErrors(errors)) return;
     const blocked: BlockedTime = {
       id: editingBlocked?.id || `block-${Date.now()}`,
       dayOfWeek: blockedForm.dayOfWeek,
@@ -719,10 +740,12 @@ export default function AbsencesPage() {
                 <input
                   type="text"
                   value={absenceForm.title}
-                  onChange={(e) => setAbsenceForm({ ...absenceForm, title: e.target.value })}
+                  onChange={(e) => { setAbsenceForm({ ...absenceForm, title: e.target.value }); setAbsenceErrors(fe => ({ ...fe, title: null })); }}
                   placeholder="Ex: Vacances d'été"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  maxLength={100}
+                  className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent ${absenceErrors.title ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {absenceErrors.title && <p className="text-xs text-red-500 mt-1">{absenceErrors.title}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -731,19 +754,23 @@ export default function AbsencesPage() {
                   <input
                     type="date"
                     value={absenceForm.startDate}
-                    onChange={(e) => setAbsenceForm({ ...absenceForm, startDate: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    onChange={(e) => { setAbsenceForm({ ...absenceForm, startDate: e.target.value }); setAbsenceErrors(fe => ({ ...fe, startDate: null, endDate: null })); }}
+                    required
+                    className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent ${absenceErrors.startDate ? 'border-red-400' : 'border-gray-200'}`}
                   />
+                  {absenceErrors.startDate && <p className="text-xs text-red-500 mt-1">{absenceErrors.startDate}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Date fin *</label>
                   <input
                     type="date"
                     value={absenceForm.endDate}
-                    onChange={(e) => setAbsenceForm({ ...absenceForm, endDate: e.target.value })}
+                    onChange={(e) => { setAbsenceForm({ ...absenceForm, endDate: e.target.value }); setAbsenceErrors(fe => ({ ...fe, endDate: null })); }}
                     min={absenceForm.startDate}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                    className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent ${absenceErrors.endDate ? 'border-red-400' : 'border-gray-200'}`}
                   />
+                  {absenceErrors.endDate && <p className="text-xs text-red-500 mt-1">{absenceErrors.endDate}</p>}
                 </div>
               </div>
 
@@ -767,7 +794,7 @@ export default function AbsencesPage() {
                     <input
                       type="time"
                       value={absenceForm.startTime}
-                      onChange={(e) => setAbsenceForm({ ...absenceForm, startTime: e.target.value })}
+                      onChange={(e) => { setAbsenceForm({ ...absenceForm, startTime: e.target.value }); setAbsenceErrors(fe => ({ ...fe, timeRange: null })); }}
                       className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     />
                   </div>
@@ -776,10 +803,11 @@ export default function AbsencesPage() {
                     <input
                       type="time"
                       value={absenceForm.endTime}
-                      onChange={(e) => setAbsenceForm({ ...absenceForm, endTime: e.target.value })}
+                      onChange={(e) => { setAbsenceForm({ ...absenceForm, endTime: e.target.value }); setAbsenceErrors(fe => ({ ...fe, timeRange: null })); }}
                       className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     />
                   </div>
+                  {absenceErrors.timeRange && <p className="col-span-2 text-xs text-red-500">{absenceErrors.timeRange}</p>}
                 </div>
               )}
 
@@ -787,11 +815,13 @@ export default function AbsencesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optionnel)</label>
                 <textarea
                   value={absenceForm.notes}
-                  onChange={(e) => setAbsenceForm({ ...absenceForm, notes: e.target.value })}
+                  onChange={(e) => { setAbsenceForm({ ...absenceForm, notes: e.target.value }); setAbsenceErrors(fe => ({ ...fe, notes: null })); }}
                   rows={2}
+                  maxLength={500}
                   placeholder="Informations complémentaires..."
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                  className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none ${absenceErrors.notes ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {absenceErrors.notes && <p className="text-xs text-red-500 mt-1">{absenceErrors.notes}</p>}
               </div>
             </div>
 
@@ -804,7 +834,6 @@ export default function AbsencesPage() {
               </button>
               <button
                 onClick={handleSaveAbsence}
-                disabled={!absenceForm.startDate || !absenceForm.endDate}
                 className="px-5 py-2.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 {editingAbsence ? 'Enregistrer' : 'Ajouter'}
@@ -850,7 +879,7 @@ export default function AbsencesPage() {
                   <input
                     type="time"
                     value={blockedForm.startTime}
-                    onChange={(e) => setBlockedForm({ ...blockedForm, startTime: e.target.value })}
+                    onChange={(e) => { setBlockedForm({ ...blockedForm, startTime: e.target.value }); setBlockedErrors(fe => ({ ...fe, timeRange: null })); }}
                     className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
@@ -859,21 +888,25 @@ export default function AbsencesPage() {
                   <input
                     type="time"
                     value={blockedForm.endTime}
-                    onChange={(e) => setBlockedForm({ ...blockedForm, endTime: e.target.value })}
+                    onChange={(e) => { setBlockedForm({ ...blockedForm, endTime: e.target.value }); setBlockedErrors(fe => ({ ...fe, timeRange: null })); }}
                     className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
+                {blockedErrors.timeRange && <p className="col-span-2 text-xs text-red-500">{blockedErrors.timeRange}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Motif</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Motif *</label>
                 <input
                   type="text"
                   value={blockedForm.reason}
-                  onChange={(e) => setBlockedForm({ ...blockedForm, reason: e.target.value })}
+                  onChange={(e) => { setBlockedForm({ ...blockedForm, reason: e.target.value }); setBlockedErrors(fe => ({ ...fe, reason: null })); }}
                   placeholder="Ex: Pause déjeuner"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  required
+                  maxLength={100}
+                  className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent ${blockedErrors.reason ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {blockedErrors.reason && <p className="text-xs text-red-500 mt-1">{blockedErrors.reason}</p>}
               </div>
             </div>
 
