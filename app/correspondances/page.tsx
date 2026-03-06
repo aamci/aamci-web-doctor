@@ -278,27 +278,29 @@ export default function CorrespondancesPage() {
   useEffect(() => { loadReferrals(); }, [loadReferrals]);
 
   const filteredCorrs = corrs.filter(c => {
+    if (!c.sender || !c.recipient) return false;
     const isSent = c.sender.id === currentUserId;
     if (corrFilter === 'SENT' && !isSent) return false;
     if (corrFilter === 'RECEIVED' && isSent) return false;
     if (corrSearch) {
       const q = corrSearch.toLowerCase();
       if (!c.subject.toLowerCase().includes(q) &&
-          !c.sender.fullName.toLowerCase().includes(q) &&
-          !c.recipient.fullName.toLowerCase().includes(q)) return false;
+          !(c.sender.fullName ?? '').toLowerCase().includes(q) &&
+          !(c.recipient.fullName ?? '').toLowerCase().includes(q)) return false;
     }
     return true;
   });
 
   const filteredRefs = referrals.filter(r => {
+    if (!r.fromDoctor || !r.toDoctor || !r.patient) return false;
     const isSent = r.fromDoctor.id === currentUserId;
     if (refFilter === 'SENT' && !isSent) return false;
     if (refFilter === 'RECEIVED' && isSent) return false;
     return true;
   });
 
-  const unreadCorrs = corrs.filter(c => !c.isRead && c.recipient.id === currentUserId).length;
-  const pendingRefs = referrals.filter(r => r.toDoctor.id === currentUserId && r.status === 'PENDING').length;
+  const unreadCorrs = corrs.filter(c => !c.isRead && c.recipient?.id === currentUserId).length;
+  const pendingRefs = referrals.filter(r => r.toDoctor?.id === currentUserId && r.status === 'PENDING').length;
 
   return (
     <div className="p-6 max-w-5xl">
@@ -391,9 +393,9 @@ export default function CorrespondancesPage() {
           ) : (
             <div className="space-y-2">
               {filteredCorrs.map(c => {
-                const isSent = c.sender.id === currentUserId;
+                const isSent = c.sender?.id === currentUserId;
                 const isExpanded = expandedId === c.id;
-                const other = isSent ? c.recipient : c.sender;
+                const other = (isSent ? c.recipient : c.sender) ?? { id: '', fullName: 'Utilisateur supprimé' };
                 const cat = CATEGORY_LABELS[c.category] ?? CATEGORY_LABELS.AUTRE;
                 const unread = !c.isRead && !isSent;
 
@@ -528,9 +530,9 @@ export default function CorrespondancesPage() {
           ) : (
             <div className="space-y-2">
               {filteredRefs.map(r => {
-                const isSent = r.fromDoctor.id === currentUserId;
+                const isSent = r.fromDoctor?.id === currentUserId;
                 const isExpanded = expandedRefId === r.id;
-                const other = isSent ? r.toDoctor : r.fromDoctor;
+                const other = (isSent ? r.toDoctor : r.fromDoctor) ?? { id: '', fullName: 'Utilisateur supprimé' };
                 const status = REFERRAL_STATUS[r.status] ?? REFERRAL_STATUS.PENDING;
                 const urgency = URGENCY_LABELS[r.urgency] ?? URGENCY_LABELS.NORMAL;
                 const isPending = r.status === 'PENDING' && !isSent;
@@ -546,7 +548,7 @@ export default function CorrespondancesPage() {
                       <Avatar user={other} size="md" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <span className="font-medium text-sm text-gray-900">{r.patient.fullName}</span>
+                          <span className="font-medium text-sm text-gray-900">{r.patient?.fullName ?? 'Patient supprimé'}</span>
                           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${status.color}`}>
                             {status.icon} {status.label}
                           </span>
