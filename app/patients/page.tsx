@@ -25,7 +25,23 @@ import {
   CalendarCheck,
   Loader2,
   RefreshCw,
+  ArrowRightLeft,
 } from 'lucide-react';
+
+interface ReceivedPatient {
+  id: string;
+  patient: {
+    id: string;
+    fullName: string | null;
+    email: string;
+    phone: string | null;
+    avatarUrl: string | null;
+    birthdate: string | null;
+  };
+  fromDoctor: { id: string; fullName: string | null };
+  respondedAt: string | null;
+  reason: string;
+}
 
 interface Patient {
   id: string;
@@ -76,8 +92,11 @@ interface NewPatientForm {
 
 export default function PatientsPage() {
   const router = useRouter();
+  const [mainTab, setMainTab] = useState<'patients' | 'received'>('patients');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [receivedPatients, setReceivedPatients] = useState<ReceivedPatient[]>([]);
+  const [loadingReceived, setLoadingReceived] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Tri et filtres
@@ -108,6 +127,10 @@ export default function PatientsPage() {
   useEffect(() => {
     fetchPatients();
   }, []);
+
+  useEffect(() => {
+    if (mainTab === 'received') fetchReceivedPatients();
+  }, [mainTab]);
 
   // Filtrage, tri et recherche
   const filteredPatients = useMemo(() => {
@@ -199,6 +222,24 @@ export default function PatientsPage() {
       console.error('Failed to fetch patients:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReceivedPatients = async () => {
+    setLoadingReceived(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/referrals/received-patients`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReceivedPatients(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch received patients:', error);
+    } finally {
+      setLoadingReceived(false);
     }
   };
 
@@ -341,6 +382,82 @@ export default function PatientsPage() {
               </button>
             </div>
           </div>
+
+          {/* Main tabs */}
+          <div className="flex gap-1 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setMainTab('patients')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                mainTab === 'patients'
+                  ? 'border-teal-600 text-teal-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Mes patients
+            </button>
+            <button
+              onClick={() => setMainTab('received')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                mainTab === 'received'
+                  ? 'border-teal-600 text-teal-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Dossiers reçus
+              {receivedPatients.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-teal-100 text-teal-700 text-xs rounded-full">
+                  {receivedPatients.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Received patients view */}
+          {mainTab === 'received' && (
+            <div>
+              {loadingReceived ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                </div>
+              ) : receivedPatients.length === 0 ? (
+                <div className="text-center py-20 text-gray-400">
+                  <ArrowRightLeft className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium text-gray-500">Aucun dossier transféré accepté</p>
+                  <p className="text-sm mt-1">Les patients transférés et acceptés apparaîtront ici.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {receivedPatients.map((r) => (
+                    <div
+                      key={r.id}
+                      onClick={() => router.push(`/patients/${r.patient.id}` as any)}
+                      className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 hover:border-teal-200 hover:shadow-sm transition-all cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center font-semibold text-teal-700 text-sm flex-shrink-0">
+                        {r.patient.fullName?.charAt(0) ?? '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{r.patient.fullName || r.patient.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{r.patient.email}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs text-gray-500">De Dr {r.fromDoctor?.fullName ?? '—'}</p>
+                        <p className="text-xs text-gray-400">
+                          {r.respondedAt ? new Date(r.respondedAt).toLocaleDateString('fr-FR') : '—'}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Regular patients list (only shown on 'patients' tab) */}
+          {mainTab === 'patients' && <>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -586,6 +703,7 @@ export default function PatientsPage() {
               </button>
             </div>
           )}
+          </>}
         </div>
       </div>
 

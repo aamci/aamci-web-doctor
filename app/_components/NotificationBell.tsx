@@ -23,6 +23,8 @@ import {
   Loader2,
   ChevronRight,
   MessageSquare,
+  ArrowRightLeft,
+  UserCheck,
 } from 'lucide-react';
 
 interface Notification {
@@ -230,6 +232,10 @@ export default function NotificationBell() {
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
       case 'NEW_MESSAGE':
         return <MessageSquare className="w-4 h-4 text-teal-500" />;
+      case 'NEW_REFERRAL':
+        return <ArrowRightLeft className="w-4 h-4 text-purple-500" />;
+      case 'REFERRAL_RESPONSE':
+        return <UserCheck className="w-4 h-4 text-teal-500" />;
       case 'INFO':
         return <Info className="w-4 h-4 text-blue-500" />;
       default:
@@ -250,6 +256,10 @@ export default function NotificationBell() {
       case 'APPOINTMENT_PENDING':
         return 'bg-amber-50 hover:bg-amber-100';
       case 'NEW_MESSAGE':
+        return 'bg-teal-50 hover:bg-teal-100';
+      case 'NEW_REFERRAL':
+        return 'bg-purple-50 hover:bg-purple-100';
+      case 'REFERRAL_RESPONSE':
         return 'bg-teal-50 hover:bg-teal-100';
       default:
         return 'bg-blue-50 hover:bg-blue-100';
