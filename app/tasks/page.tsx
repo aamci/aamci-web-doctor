@@ -26,6 +26,9 @@ import {
   MoreHorizontal,
   Filter,
   ChevronDown,
+  UserCheck,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Task {
@@ -101,6 +104,7 @@ export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'doctor' | 'patient'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const apiBase = getApiBase();
@@ -147,20 +151,14 @@ export default function TasksPage() {
     }
   };
 
-  const toggleTaskStatus = async (task: Task) => {
+  const changeTaskStatus = async (task: Task, newStatus: Task['status']) => {
     const token = localStorage.getItem('token');
-    const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-
     try {
       const res = await fetch(`${apiBase}/tasks/${task.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus }),
       });
-
       if (res.ok) {
         fetchTasks();
         fetchStats();
@@ -168,6 +166,18 @@ export default function TasksPage() {
     } catch (error) {
       console.error('Error updating task:', error);
     }
+  };
+
+  const toggleTaskStatus = (task: Task) => {
+    const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+    changeTaskStatus(task, newStatus);
+  };
+
+  const cycleStatus = (task: Task) => {
+    const order: Task['status'][] = ['TODO', 'IN_PROGRESS', 'DONE'];
+    const idx = order.indexOf(task.status);
+    const next = order[(idx + 1) % order.length];
+    changeTaskStatus(task, next);
   };
 
   const deleteTask = async (taskId: string) => {
@@ -205,7 +215,11 @@ export default function TasksPage() {
 
     const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
 
-    return matchesSearch && matchesStatus && matchesPriority;
+    let matchesScope = true;
+    if (scopeFilter === 'patient') matchesScope = !!task.patient;
+    if (scopeFilter === 'doctor') matchesScope = !task.patient;
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesScope;
   });
 
   const isOverdue = (task: Task) => {
@@ -311,6 +325,28 @@ export default function TasksPage() {
             </div>
           </div>
         )}
+
+        {/* Scope Tabs */}
+        <div className="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow-sm border border-gray-200">
+          {([
+            { key: 'all', label: 'Toutes', icon: null },
+            { key: 'doctor', label: 'Mes tâches', icon: Briefcase },
+            { key: 'patient', label: 'Patients', icon: User },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setScopeFilter(key)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-colors ${
+                scopeFilter === key
+                  ? 'bg-teal-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {Icon && <Icon className="w-4 h-4" />}
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -429,6 +465,14 @@ export default function TasksPage() {
 
                       {/* Meta info */}
                       <div className="flex flex-wrap items-center gap-3 mt-2">
+                        {/* Scope badge */}
+                        {!task.patient ? (
+                          <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                            <Briefcase className="w-3 h-3" />
+                            Médecin
+                          </span>
+                        ) : null}
+
                         {/* Category */}
                         <span className={`flex items-center gap-1 text-xs ${categoryConfig.color}`}>
                           <CategoryIcon className="w-3 h-3" />
@@ -480,6 +524,16 @@ export default function TasksPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1">
+                      {task.status !== 'CANCELLED' && (
+                        <button
+                          onClick={() => cycleStatus(task)}
+                          title="Changer le statut"
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${statusConfig.color} hover:opacity-80`}
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          {statusConfig.label}
+                        </button>
+                      )}
                       <button
                         onClick={() => setEditingTask(task)}
                         className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
@@ -538,6 +592,7 @@ function TaskModal({
   const [priority, setPriority] = useState<Task['priority']>(task?.priority || 'MEDIUM');
   const [category, setCategory] = useState<Task['category']>(task?.category || 'OTHER');
   const [status, setStatus] = useState<Task['status']>(task?.status || 'TODO');
+  const [scope, setScope] = useState<'doctor' | 'patient'>(task?.patient ? 'patient' : 'doctor');
   const [dueDate, setDueDate] = useState(
     task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
   );
@@ -595,7 +650,7 @@ function TaskModal({
         category,
         status,
         dueDate: dueDate || null,
-        patientId: patientId || null,
+        patientId: scope === 'patient' ? (patientId || null) : null,
         tags: tagsInput
           ? tagsInput
               .split(',')
@@ -644,6 +699,37 @@ function TaskModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Scope toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Type de tâche</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setScope('doctor'); setPatientId(''); setSearchPatient(''); }}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  scope === 'doctor'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <Briefcase className="w-4 h-4" />
+                Ma tâche
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope('patient')}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  scope === 'patient'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                Tâche patient
+              </button>
+            </div>
+          </div>
+
           {/* Titre */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
@@ -704,23 +790,21 @@ function TaskModal({
             </div>
           </div>
 
-          {/* Statut (si modification) */}
-          {task && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as Task['status'])}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-              >
-                {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                  <option key={key} value={key}>
-                    {config.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Statut */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as Task['status'])}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+            >
+              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                <option key={key} value={key}>
+                  {config.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Date d'échéance */}
           <div>
@@ -736,9 +820,9 @@ function TaskModal({
           </div>
 
           {/* Patient */}
-          <div>
+          {scope === 'patient' && <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Patient associé (optionnel)
+              Patient associé
             </label>
             {selectedPatient ? (
               <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
@@ -783,7 +867,7 @@ function TaskModal({
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Tags */}
           <div>

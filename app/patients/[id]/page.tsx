@@ -60,6 +60,8 @@ import {
   Video,
   ZoomIn,
   ZoomOut,
+  ArrowRightLeft,
+  UserCheck,
 } from 'lucide-react';
 import { InvoiceTemplate, PrescriptionTemplate, PrintButton } from '../../_components/templates';
 import type { Medication, InvoiceItem } from '../../_components/templates';
@@ -508,6 +510,16 @@ export default function PatientRecordPage() {
 
   // Quick actions modals
   const [showQuickInvoiceModal, setShowQuickInvoiceModal] = useState(false);
+  const [quickInvoiceItems, setQuickInvoiceItems] = useState([{ description: '', quantity: 1, unitPrice: '' as string | number }]);
+  const [quickInvoiceNotes, setQuickInvoiceNotes] = useState('');
+  const [quickInvoiceSaving, setQuickInvoiceSaving] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferSearch, setTransferSearch] = useState('');
+  const [transferResults, setTransferResults] = useState<Array<{ id: string; fullName: string | null; doctorProfile?: { specialty?: string } }>>([]);
+  const [transferDoctor, setTransferDoctor] = useState<{ id: string; fullName: string | null } | null>(null);
+  const [transferReason, setTransferReason] = useState('');
+  const [transferUrgency, setTransferUrgency] = useState('NORMAL');
+  const [transferring, setTransferring] = useState(false);
   const [showQuickPrescriptionModal, setShowQuickPrescriptionModal] = useState(false);
   const [quickPrescriptionData, setQuickPrescriptionData] = useState<{
     diagnosis?: string;
@@ -583,6 +595,84 @@ export default function PatientRecordPage() {
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
+    }
+  };
+
+  // Quick invoice creation
+  const handleQuickInvoice = async () => {
+    const validItems = quickInvoiceItems.filter(i => i.description && i.unitPrice);
+    if (validItems.length === 0) return;
+    setQuickInvoiceSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/invoices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          patientId,
+          items: validItems.map(i => ({ ...i, unitPrice: parseFloat(i.unitPrice as string) })),
+          notes: quickInvoiceNotes || undefined,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Facture créée avec succès');
+        setShowQuickInvoiceModal(false);
+        setQuickInvoiceItems([{ description: '', quantity: 1, unitPrice: '' }]);
+        setQuickInvoiceNotes('');
+        fetchInvoices();
+      } else {
+        toast.error('Erreur lors de la création de la facture');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur réseau');
+    } finally {
+      setQuickInvoiceSaving(false);
+    }
+  };
+
+  // Doctor search for transfer
+  const searchTransferDoctors = async (q: string) => {
+    if (q.length < 2) { setTransferResults([]); return; }
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/doctor-profiles/search?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransferResults(data);
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferDoctor || !transferReason.trim() || transferring) return;
+    setTransferring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/referrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ patientId, toDoctorId: transferDoctor.id, reason: transferReason, urgency: transferUrgency }),
+      });
+      if (res.ok) {
+        toast.success('Dossier transféré avec succès');
+        setShowTransferModal(false);
+        setTransferDoctor(null);
+        setTransferReason('');
+        setTransferUrgency('NORMAL');
+        setTransferSearch('');
+        setTransferResults([]);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message || 'Erreur lors du transfert');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur réseau');
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -1113,6 +1203,7 @@ export default function PatientRecordPage() {
             <ActionButton icon={MessageSquare} label="Envoyer un message" onClick={() => setActiveSection('messagerie')} />
             <ActionButton icon={Pill} label="Créer une ordonnance" onClick={() => setShowQuickPrescriptionModal(true)} />
             <ActionButton icon={Receipt} label="Créer une facture" onClick={() => setShowQuickInvoiceModal(true)} />
+            <ActionButton icon={ArrowRightLeft} label="Transférer le dossier" onClick={() => setShowTransferModal(true)} />
             <ActionButton icon={Printer} label="Imprimer le dossier" onClick={() => window.print()} />
             <ActionButton icon={Folder} label="Archiver le dossier" onClick={() => toast.info('Fonctionnalité à venir')} />
           </div>
@@ -1121,27 +1212,156 @@ export default function PatientRecordPage() {
 
       {/* Quick Invoice Modal */}
       {showQuickInvoiceModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Créer une facture pour {patient.fullName}</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-lg my-4">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white rounded-t-xl z-10">
+              <h3 className="font-semibold">Créer une facture — {patient.fullName}</h3>
               <button onClick={() => setShowQuickInvoiceModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 text-center">
-              <Receipt className="w-12 h-12 text-teal-500 mx-auto mb-3" />
-              <p className="text-sm text-gray-600 mb-4">
-                Pour créer une facture détaillée avec le template professionnel
-              </p>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lignes de facturation</label>
+                {quickInvoiceItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-start">
+                    <input
+                      value={item.description}
+                      onChange={e => { const n = [...quickInvoiceItems]; n[idx] = { ...n[idx], description: e.target.value }; setQuickInvoiceItems(n); }}
+                      className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                      placeholder="Description"
+                    />
+                    <input
+                      type="number" min="1" value={item.quantity}
+                      onChange={e => { const n = [...quickInvoiceItems]; n[idx] = { ...n[idx], quantity: parseInt(e.target.value) || 1 }; setQuickInvoiceItems(n); }}
+                      className="w-16 px-3 py-2 border rounded-lg text-sm"
+                    />
+                    <input
+                      type="number" step="0.01" value={item.unitPrice}
+                      onChange={e => { const n = [...quickInvoiceItems]; n[idx] = { ...n[idx], unitPrice: e.target.value }; setQuickInvoiceItems(n); }}
+                      className="w-24 px-3 py-2 border rounded-lg text-sm"
+                      placeholder="Prix €"
+                    />
+                    {quickInvoiceItems.length > 1 && (
+                      <button onClick={() => setQuickInvoiceItems(quickInvoiceItems.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded mt-0.5">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setQuickInvoiceItems([...quickInvoiceItems, { description: '', quantity: 1, unitPrice: '' }])}
+                  className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1 mt-1"
+                >
+                  <Plus className="w-3 h-3" /> Ajouter une ligne
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={quickInvoiceNotes} onChange={e => setQuickInvoiceNotes(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} placeholder="Notes optionnelles..." />
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-right">
+                <span className="text-sm text-gray-600">Total : </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {quickInvoiceItems.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} €
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-4 pb-4">
+              <button onClick={() => setShowQuickInvoiceModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
               <button
-                onClick={() => {
-                  setShowQuickInvoiceModal(false);
-                  router.push('/billing');
-                }}
-                className="w-full py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                onClick={handleQuickInvoice}
+                disabled={quickInvoiceSaving || quickInvoiceItems.every(i => !i.description || !i.unitPrice)}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
               >
-                Aller à la facturation
+                {quickInvoiceSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Créer la facture
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold">Transférer le dossier — {patient.fullName}</h3>
+              <button onClick={() => { setShowTransferModal(false); setTransferDoctor(null); setTransferSearch(''); setTransferResults([]); setTransferReason(''); }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Doctor search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Médecin destinataire *</label>
+                {transferDoctor ? (
+                  <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                    <UserCheck className="w-4 h-4 text-teal-600" />
+                    <span className="font-medium text-teal-900 flex-1">{transferDoctor.fullName}</span>
+                    <button onClick={() => { setTransferDoctor(null); setTransferSearch(''); setTransferResults([]); }} className="p-1 hover:bg-teal-100 rounded">
+                      <X className="w-4 h-4 text-teal-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={transferSearch}
+                      onChange={e => { setTransferSearch(e.target.value); searchTransferDoctors(e.target.value); }}
+                      placeholder="Rechercher un médecin..."
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
+                    />
+                    {transferResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
+                        {transferResults.map(d => (
+                          <button key={d.id} type="button" onClick={() => { setTransferDoctor(d); setTransferSearch(''); setTransferResults([]); }}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-50 text-sm">
+                            <p className="font-medium">{d.fullName}</p>
+                            {d.doctorProfile?.specialty && <p className="text-xs text-gray-500">{d.doctorProfile.specialty}</p>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Motif du transfert *</label>
+                <textarea
+                  value={transferReason}
+                  onChange={e => setTransferReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg text-sm resize-none"
+                  placeholder="Motif de l'adressage..."
+                />
+              </div>
+
+              {/* Urgency */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Urgence</label>
+                <select value={transferUrgency} onChange={e => setTransferUrgency(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="LOW">Faible</option>
+                  <option value="NORMAL">Normale</option>
+                  <option value="HIGH">Haute</option>
+                  <option value="URGENT">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-4 pb-4">
+              <button onClick={() => setShowTransferModal(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+              <button
+                onClick={handleTransfer}
+                disabled={!transferDoctor || !transferReason.trim() || transferring}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {transferring && <Loader2 className="w-4 h-4 animate-spin" />}
+                <ArrowRightLeft className="w-4 h-4" />
+                Transférer
               </button>
             </div>
           </div>
