@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   Calendar,
   User,
-  Tag,
   X,
   Trash2,
   Edit,
@@ -23,12 +22,6 @@ import {
   Pill,
   Stethoscope,
   Briefcase,
-  MoreHorizontal,
-  Filter,
-  ChevronDown,
-  UserCheck,
-  ChevronRight,
-  RefreshCw,
 } from 'lucide-react';
 
 interface Task {
@@ -76,6 +69,13 @@ const STATUS_CONFIG = {
   CANCELLED: { label: 'Annulé', color: 'bg-red-100 text-red-700', icon: X },
 };
 
+const COLUMNS: { status: Task['status']; label: string; headerColor: string; borderColor: string; dotColor: string }[] = [
+  { status: 'TODO', label: 'À faire', headerColor: 'bg-gray-50 border-gray-200', borderColor: 'border-t-gray-400', dotColor: 'bg-gray-400' },
+  { status: 'IN_PROGRESS', label: 'En cours', headerColor: 'bg-blue-50 border-blue-200', borderColor: 'border-t-blue-500', dotColor: 'bg-blue-500' },
+  { status: 'DONE', label: 'Terminé', headerColor: 'bg-green-50 border-green-200', borderColor: 'border-t-green-500', dotColor: 'bg-green-500' },
+  { status: 'CANCELLED', label: 'Annulé', headerColor: 'bg-red-50 border-red-200', borderColor: 'border-t-red-400', dotColor: 'bg-red-400' },
+];
+
 const CATEGORY_CONFIG = {
   FOLLOW_UP: { label: 'Suivi patient', icon: User, color: 'text-teal-600' },
   CALL: { label: 'Appel', icon: Phone, color: 'text-blue-600' },
@@ -102,11 +102,12 @@ export default function TasksPage() {
   const [stats, setStats] = useState<TaskStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('active');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [scopeFilter, setScopeFilter] = useState<'all' | 'doctor' | 'patient'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<Task['status'] | null>(null);
   const apiBase = getApiBase();
 
   useEffect(() => {
@@ -168,18 +169,6 @@ export default function TasksPage() {
     }
   };
 
-  const toggleTaskStatus = (task: Task) => {
-    const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-    changeTaskStatus(task, newStatus);
-  };
-
-  const cycleStatus = (task: Task) => {
-    const order: Task['status'][] = ['TODO', 'IN_PROGRESS', 'DONE'];
-    const idx = order.indexOf(task.status);
-    const next = order[(idx + 1) % order.length];
-    changeTaskStatus(task, next);
-  };
-
   const deleteTask = async (taskId: string) => {
     if (!confirm('Supprimer cette tâche ?')) return;
 
@@ -205,22 +194,37 @@ export default function TasksPage() {
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.patient?.fullName.toLowerCase().includes(searchQuery.toLowerCase());
-
-    let matchesStatus = true;
-    if (statusFilter === 'active') {
-      matchesStatus = task.status === 'TODO' || task.status === 'IN_PROGRESS';
-    } else if (statusFilter !== 'all') {
-      matchesStatus = task.status === statusFilter;
-    }
-
     const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-
     let matchesScope = true;
     if (scopeFilter === 'patient') matchesScope = !!task.patient;
     if (scopeFilter === 'doctor') matchesScope = !task.patient;
-
-    return matchesSearch && matchesStatus && matchesPriority && matchesScope;
+    return matchesSearch && matchesPriority && matchesScope;
   });
+
+  const tasksByStatus = (status: Task['status']) => filteredTasks.filter((t) => t.status === status);
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('taskId', taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTaskId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, status: Task['status']) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('taskId');
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.status !== status) {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+      changeTaskStatus(task, status);
+    }
+    setDraggedTaskId(null);
+    setDragOverColumn(null);
+  };
 
   const isOverdue = (task: Task) => {
     if (!task.dueDate || task.status === 'DONE' || task.status === 'CANCELLED') return false;
@@ -248,311 +252,220 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-6 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Mes Tâches</h1>
-            <p className="text-gray-600 text-sm">
-              {stats?.todo || 0} à faire, {stats?.inProgress || 0} en cours
-            </p>
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Nouvelle tâche
-          </button>
-        </div>
-
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Circle className="w-5 h-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.todo}</p>
-                  <p className="text-xs text-gray-500">À faire</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.overdue}</p>
-                  <p className="text-xs text-gray-500">En retard</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Clock className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.todayDue}</p>
-                  <p className="text-xs text-gray-500">Aujourd'hui</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.completionRate}%</p>
-                  <p className="text-xs text-gray-500">Complétées</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Scope Tabs */}
-        <div className="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow-sm border border-gray-200">
-          {([
-            { key: 'all', label: 'Toutes', icon: null },
-            { key: 'doctor', label: 'Mes tâches', icon: Briefcase },
-            { key: 'patient', label: 'Patients', icon: User },
-          ] as const).map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setScopeFilter(key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-colors ${
-                scopeFilter === key
-                  ? 'bg-teal-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {Icon && <Icon className="w-4 h-4" />}
-              {label}
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Top bar */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="max-w-screen-xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <ArrowLeft className="w-5 h-5" />
             </button>
-          ))}
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher une tâche..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            />
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="active">En cours</option>
-            <option value="all">Toutes</option>
-            <option value="TODO">À faire</option>
-            <option value="IN_PROGRESS">En cours</option>
-            <option value="DONE">Terminées</option>
-          </select>
-
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="all">Toutes priorités</option>
-            <option value="URGENT">Urgent</option>
-            <option value="HIGH">Haute</option>
-            <option value="MEDIUM">Moyenne</option>
-            <option value="LOW">Basse</option>
-          </select>
-        </div>
-
-        {/* Tasks List */}
-        {filteredTasks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune tâche</h3>
-            <p className="text-gray-500 mb-4">
-              {statusFilter === 'active'
-                ? 'Toutes vos tâches sont terminées !'
-                : 'Commencez par créer une nouvelle tâche'}
-            </p>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900">Mes Tâches</h1>
+              <p className="text-gray-500 text-sm">{stats?.todo || 0} à faire · {stats?.inProgress || 0} en cours · {stats?.completionRate || 0}% complétées</p>
+            </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium"
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 text-sm font-medium"
             >
-              Créer une tâche
+              <Plus className="w-4 h-4" />
+              Nouvelle tâche
             </button>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredTasks.map((task) => {
-              const priorityConfig = PRIORITY_CONFIG[task.priority];
-              const statusConfig = STATUS_CONFIG[task.status];
-              const categoryConfig = CATEGORY_CONFIG[task.category];
-              const StatusIcon = statusConfig.icon;
-              const CategoryIcon = categoryConfig.icon;
-              const taskOverdue = isOverdue(task);
 
-              return (
-                <div
-                  key={task.id}
-                  className={`bg-white rounded-xl shadow-sm border p-4 transition-all ${
-                    task.status === 'DONE'
-                      ? 'border-gray-100 opacity-60'
-                      : taskOverdue
-                        ? 'border-red-200 bg-red-50/50'
-                        : 'border-gray-200 hover:shadow-md'
+          {/* Filters row */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Scope tabs */}
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              {([
+                { key: 'all' as const, label: 'Toutes', icon: null as React.ElementType | null },
+                { key: 'doctor' as const, label: 'Médecin', icon: Briefcase as React.ElementType },
+                { key: 'patient' as const, label: 'Patients', icon: User as React.ElementType },
+              ]).map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setScopeFilter(key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    scopeFilter === key ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => toggleTaskStatus(task)}
-                      className={`mt-0.5 p-1 rounded-full transition-colors ${
-                        task.status === 'DONE'
-                          ? 'text-green-600 hover:bg-green-50'
-                          : 'text-gray-400 hover:text-teal-600 hover:bg-teal-50'
-                      }`}
-                    >
-                      {task.status === 'DONE' ? (
-                        <CheckCircle className="w-5 h-5" />
-                      ) : (
-                        <Circle className="w-5 h-5" />
-                      )}
-                    </button>
+                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <h3
-                            className={`font-medium ${
-                              task.status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-900'
-                            }`}
-                          >
-                            {task.title}
-                          </h3>
-                          {task.description && (
-                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                              {task.description}
-                            </p>
-                          )}
-                        </div>
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
 
-                        {/* Priority dot */}
-                        <div className={`w-2 h-2 rounded-full ${priorityConfig.dotColor} mt-2`} />
+            {/* Priority filter */}
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="all">Toutes priorités</option>
+              <option value="URGENT">Urgent</option>
+              <option value="HIGH">Haute</option>
+              <option value="MEDIUM">Moyenne</option>
+              <option value="LOW">Basse</option>
+            </select>
+
+            {/* Stats chips */}
+            {stats && stats.overdue > 0 && (
+              <span className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-lg border border-red-200">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {stats.overdue} en retard
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Kanban board */}
+      <div className="flex-1 overflow-x-auto p-6">
+        <div className="flex gap-4 h-full" style={{ minWidth: `${COLUMNS.length * 280 + (COLUMNS.length - 1) * 16}px` }}>
+          {COLUMNS.map((col) => {
+            const colTasks = tasksByStatus(col.status);
+            const isOver = dragOverColumn === col.status;
+            return (
+              <div
+                key={col.status}
+                className="flex flex-col flex-1 min-w-[260px]"
+                onDragOver={(e) => { e.preventDefault(); setDragOverColumn(col.status); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null); }}
+                onDrop={(e) => handleDrop(e, col.status)}
+              >
+                {/* Column header */}
+                <div className={`flex items-center justify-between px-3 py-2.5 rounded-t-xl border border-b-0 ${col.headerColor}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
+                    <span className="text-sm font-semibold text-gray-700">{col.label}</span>
+                  </div>
+                  <span className="text-xs font-medium text-gray-500 bg-white/70 px-2 py-0.5 rounded-full">
+                    {colTasks.length}
+                  </span>
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  className={`flex-1 rounded-b-xl border border-t-4 ${col.borderColor} transition-colors overflow-y-auto ${
+                    isOver ? 'bg-teal-50/60 border-teal-300' : 'bg-gray-50/80 border-gray-200'
+                  }`}
+                  style={{ minHeight: '60vh' }}
+                >
+                  <div className="p-2 space-y-2">
+                    {colTasks.length === 0 && (
+                      <div className={`flex items-center justify-center h-20 rounded-lg border-2 border-dashed text-xs text-gray-400 transition-colors ${
+                        isOver ? 'border-teal-400 text-teal-500 bg-teal-50' : 'border-gray-300'
+                      }`}>
+                        Déposer ici
                       </div>
+                    )}
+                    {colTasks.map((task) => {
+                      const priorityConfig = PRIORITY_CONFIG[task.priority];
+                      const categoryConfig = CATEGORY_CONFIG[task.category];
+                      const CategoryIcon = categoryConfig.icon;
+                      const taskOverdue = isOverdue(task);
+                      const isDragging = draggedTaskId === task.id;
 
-                      {/* Meta info */}
-                      <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {/* Scope badge */}
-                        {!task.patient ? (
-                          <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                            <Briefcase className="w-3 h-3" />
-                            Médecin
-                          </span>
-                        ) : null}
-
-                        {/* Category */}
-                        <span className={`flex items-center gap-1 text-xs ${categoryConfig.color}`}>
-                          <CategoryIcon className="w-3 h-3" />
-                          {categoryConfig.label}
-                        </span>
-
-                        {/* Due date */}
-                        {task.dueDate && (
-                          <span
-                            className={`flex items-center gap-1 text-xs ${
-                              taskOverdue ? 'text-red-600 font-medium' : 'text-gray-500'
-                            }`}
-                          >
-                            <Calendar className="w-3 h-3" />
-                            {new Date(task.dueDate).toLocaleDateString('fr-FR', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                            {taskOverdue && ' (en retard)'}
-                          </span>
-                        )}
-
-                        {/* Patient */}
-                        {task.patient && (
-                          <Link
-                            href={`/patients/${task.patient.id}`}
-                            className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700"
-                          >
-                            <User className="w-3 h-3" />
-                            {task.patient.fullName}
-                          </Link>
-                        )}
-
-                        {/* Tags */}
-                        {task.tags.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            {task.tags.slice(0, 2).map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
-                      {task.status !== 'CANCELLED' && (
-                        <button
-                          onClick={() => cycleStatus(task)}
-                          title="Changer le statut"
-                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${statusConfig.color} hover:opacity-80`}
+                      return (
+                        <div
+                          key={task.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, task.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`bg-white rounded-lg border p-3 cursor-grab active:cursor-grabbing transition-all select-none ${
+                            isDragging
+                              ? 'opacity-40 shadow-lg rotate-1'
+                              : taskOverdue
+                                ? 'border-red-200 hover:shadow-md'
+                                : 'border-gray-200 hover:shadow-md hover:-translate-y-0.5'
+                          }`}
                         >
-                          <RefreshCw className="w-3 h-3" />
-                          {statusConfig.label}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setEditingTask(task)}
-                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                          {/* Title row */}
+                          <div className="flex items-start gap-2 mb-2">
+                            <p className={`flex-1 text-sm font-medium leading-snug ${
+                              task.status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-800'
+                            }`}>
+                              {task.title}
+                            </p>
+                            <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${priorityConfig.dotColor}`} title={priorityConfig.label} />
+                          </div>
+
+                          {/* Description */}
+                          {task.description && (
+                            <p className="text-xs text-gray-500 mb-2 line-clamp-2">{task.description}</p>
+                          )}
+
+                          {/* Meta */}
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                            <span className={`flex items-center gap-1 text-xs ${categoryConfig.color}`}>
+                              <CategoryIcon className="w-3 h-3" />
+                              {categoryConfig.label}
+                            </span>
+                            {task.dueDate && (
+                              <span className={`flex items-center gap-1 text-xs ${taskOverdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                                <Calendar className="w-3 h-3" />
+                                {new Date(task.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                {taskOverdue && ' ⚠'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {task.patient ? (
+                                <Link
+                                  href={`/patients/${task.patient.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 truncate max-w-[120px]"
+                                >
+                                  <User className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{task.patient.fullName}</span>
+                                </Link>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Briefcase className="w-3 h-3" />
+                                  Médecin
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                onClick={() => setEditingTask(task)}
+                                className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deleteTask(task.id)}
+                                className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Create/Edit Modal */}
