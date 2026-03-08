@@ -5899,33 +5899,77 @@ const PREDEFINED_TEMPLATES: ConsultationTemplate[] = [
 function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number>(0);
+
   const [cameraStarted, setCameraStarted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0); // 0–255
 
-  // Stop camera on unmount
+  // FIX: assign srcObject after the <video> element is in the DOM
+  useEffect(() => {
+    if (cameraStarted && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [cameraStarted]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cancelAnimationFrame(animFrameRef.current);
+      audioContextRef.current?.close();
     };
   }, []);
+
+  const startAudioAnalyzer = (stream: MediaStream) => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        setAudioLevel(avg);
+        animFrameRef.current = requestAnimationFrame(tick);
+      };
+      animFrameRef.current = requestAnimationFrame(tick);
+    } catch { /* AudioContext not supported */ }
+  };
+
+  const stopAudioAnalyzer = () => {
+    cancelAnimationFrame(animFrameRef.current);
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    setAudioLevel(0);
+  };
 
   const startCamera = async () => {
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      // srcObject assigned via useEffect after <video> mounts
       setCameraStarted(true);
+      startAudioAnalyzer(stream);
     } catch {
       setCameraError("Impossible d'accéder à la caméra ou au microphone. Vérifiez les permissions.");
     }
   };
 
   const stopCamera = () => {
+    stopAudioAnalyzer();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -5943,6 +5987,13 @@ function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
     if (track) { track.enabled = !track.enabled; setIsMicOn(track.enabled); }
   };
 
+  const updateVideoElement = () => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = null;
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  };
+
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
       const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -5953,7 +6004,7 @@ function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
         if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
         localStreamRef.current.addTrack(newTrack);
       }
-      if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+      updateVideoElement();
       setIsScreenSharing(false);
     } else {
       try {
@@ -5965,12 +6016,16 @@ function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
           if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
           localStreamRef.current.addTrack(screenTrack);
         }
-        if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+        updateVideoElement();
         screenTrack.onended = () => toggleScreenShare();
         setIsScreenSharing(true);
       } catch { /* user cancelled */ }
     }
   };
+
+  // Audio level bars (5 bars, height based on audioLevel 0–255)
+  const bars = [0.3, 0.6, 1, 0.7, 0.4];
+  const normalizedLevel = Math.min(audioLevel / 60, 1); // 60 = typical speaking threshold
 
   return (
     <div className={`mb-5 rounded-xl overflow-hidden border border-purple-200 bg-gray-900 transition-all ${isExpanded ? 'h-[480px]' : 'h-auto'}`}>
@@ -6037,15 +6092,40 @@ function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
               Partage d'écran
             </div>
           )}
+          {/* Audio level indicator — top right */}
+          <div className="absolute top-3 right-3 flex items-end gap-[2px] h-5">
+            {isMicOn ? (
+              bars.map((multiplier, i) => (
+                <div
+                  key={i}
+                  className="w-[3px] rounded-full bg-green-400 transition-all duration-75"
+                  style={{ height: `${Math.max(20, normalizedLevel * multiplier * 100)}%`, opacity: normalizedLevel * multiplier > 0.05 ? 1 : 0.3 }}
+                />
+              ))
+            ) : (
+              bars.map((_, i) => (
+                <div key={i} className="w-[3px] rounded-full bg-red-400 opacity-40" style={{ height: '20%' }} />
+              ))
+            )}
+          </div>
           {/* Controls overlay */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
-            <button
-              onClick={toggleMic}
-              title={isMicOn ? 'Couper le micro' : 'Activer le micro'}
-              className={`p-2.5 rounded-full text-white transition-colors ${isMicOn ? 'bg-gray-700/80 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'}`}
-            >
-              {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            </button>
+            {/* Mic button with audio ring */}
+            <div className="relative">
+              {isMicOn && normalizedLevel > 0.15 && (
+                <span
+                  className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-40"
+                  style={{ transform: `scale(${1 + normalizedLevel * 0.5})` }}
+                />
+              )}
+              <button
+                onClick={toggleMic}
+                title={isMicOn ? 'Couper le micro' : 'Activer le micro'}
+                className={`relative p-2.5 rounded-full text-white transition-colors ${isMicOn ? 'bg-gray-700/80 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'}`}
+              >
+                {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+            </div>
             <button
               onClick={toggleVideo}
               title={isVideoOn ? 'Désactiver la caméra' : 'Activer la caméra'}
@@ -6055,7 +6135,7 @@ function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
             </button>
             <button
               onClick={toggleScreenShare}
-              title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
+              title={isScreenSharing ? 'Arrêter le partage' : "Partager l'écran"}
               className={`p-2.5 rounded-full text-white transition-colors ${isScreenSharing ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-700/80 hover:bg-gray-600'}`}
             >
               <MonitorUp className="w-4 h-4" />
