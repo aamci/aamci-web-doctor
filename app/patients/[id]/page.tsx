@@ -5347,9 +5347,11 @@ function MessagerieSection({ patient }: { messages?: PatientMessage[]; patient: 
   const handleSend = async () => {
     if (!newMessage.trim()) return;
     setSending(true);
+    const content = newMessage.trim();
+    setNewMessage('');
     try {
       const token = localStorage.getItem('token');
-      const body: any = { content: newMessage.trim(), recipientId: patient.id };
+      const body: any = { content, recipientId: patient.id };
       if (conversationId) body.conversationId = conversationId;
       const res = await fetch(`${API_BASE_URL}/messages/send`, {
         method: 'POST',
@@ -5358,11 +5360,14 @@ function MessagerieSection({ patient }: { messages?: PatientMessage[]; patient: 
       });
       if (res.ok) {
         const sent = await res.json();
-        setChatMessages(prev => [...prev, sent]);
+        // Use original plaintext content, not the API response (avoids encryption display bug)
+        setChatMessages(prev => [...prev, { ...sent, content }]);
         if (!conversationId && sent.conversationId) setConversationId(sent.conversationId);
-        setNewMessage('');
+      } else {
+        setNewMessage(content);
       }
     } catch (e) {
+      setNewMessage(content);
       console.error('Error sending message:', e);
     } finally {
       setSending(false);

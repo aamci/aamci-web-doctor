@@ -320,6 +320,8 @@ function MessagesPage() {
     if (!newMessage.trim() || !selectedConversation) return;
 
     setSending(true);
+    const content = newMessage.trim();
+    setNewMessage('');
 
     try {
       const token = localStorage.getItem('token');
@@ -331,7 +333,7 @@ function MessagesPage() {
         },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
-          content: newMessage.trim(),
+          content,
         }),
       });
 
@@ -340,7 +342,7 @@ function MessagesPage() {
         const newMsg: Message = {
           id: sentMsg.id,
           senderId: sentMsg.senderId,
-          content: sentMsg.content,
+          content,  // Use original plaintext, not the API response (avoids encryption display bug)
           timestamp: sentMsg.createdAt,
           read: true,
           type: 'text',
@@ -360,12 +362,12 @@ function MessagesPage() {
         setSelectedConversation(prev =>
           prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
         );
-
-        setNewMessage('');
       } else {
+        setNewMessage(content);
         toast.error('Erreur lors de l\'envoi du message');
       }
     } catch (error) {
+      setNewMessage(content);
       console.error('Error sending message:', error);
       toast.error('Erreur lors de l\'envoi du message');
     } finally {
