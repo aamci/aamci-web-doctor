@@ -58,6 +58,12 @@ import {
   Target,
   Briefcase,
   Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  MonitorUp,
+  Minimize2,
+  Maximize2,
   ZoomIn,
   ZoomOut,
   ArrowRightLeft,
@@ -5889,6 +5895,185 @@ const PREDEFINED_TEMPLATES: ConsultationTemplate[] = [
   },
 ];
 
+// ─── Panneau vidéo intégré pour téléconsultation ─────────────────────────────
+function TeleconsultationVideoPanel({ patientName }: { patientName: string }) {
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const [cameraStarted, setCameraStarted] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Stop camera on unmount
+  useEffect(() => {
+    return () => {
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      setCameraStarted(true);
+    } catch {
+      setCameraError("Impossible d'accéder à la caméra ou au microphone. Vérifiez les permissions.");
+    }
+  };
+
+  const stopCamera = () => {
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    setCameraStarted(false);
+    setIsScreenSharing(false);
+  };
+
+  const toggleVideo = () => {
+    const track = localStreamRef.current?.getVideoTracks()[0];
+    if (track) { track.enabled = !track.enabled; setIsVideoOn(track.enabled); }
+  };
+
+  const toggleMic = () => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (track) { track.enabled = !track.enabled; setIsMicOn(track.enabled); }
+  };
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newTrack = camStream.getVideoTracks()[0];
+      const oldTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (oldTrack) oldTrack.stop();
+      if (localStreamRef.current) {
+        if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
+        localStreamRef.current.addTrack(newTrack);
+      }
+      if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+      setIsScreenSharing(false);
+    } else {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        const oldTrack = localStreamRef.current?.getVideoTracks()[0];
+        if (oldTrack) oldTrack.stop();
+        if (localStreamRef.current) {
+          if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
+          localStreamRef.current.addTrack(screenTrack);
+        }
+        if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+        screenTrack.onended = () => toggleScreenShare();
+        setIsScreenSharing(true);
+      } catch { /* user cancelled */ }
+    }
+  };
+
+  return (
+    <div className={`mb-5 rounded-xl overflow-hidden border border-purple-200 bg-gray-900 transition-all ${isExpanded ? 'h-[480px]' : 'h-auto'}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800 border-b border-gray-700">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+          <span className="text-sm font-medium text-white">Téléconsultation — {patientName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {cameraStarted && (
+            <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 text-gray-400 hover:text-white">
+              {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          )}
+          {cameraStarted && (
+            <button onClick={stopCamera} className="p-1 text-gray-400 hover:text-red-400" title="Arrêter la caméra">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      {!cameraStarted ? (
+        <div className="flex flex-col items-center justify-center py-8 px-4 gap-4">
+          {cameraError ? (
+            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/30 px-4 py-3 rounded-lg">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {cameraError}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">Démarrez la caméra pour commencer la téléconsultation</p>
+          )}
+          <button
+            onClick={startCamera}
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Video className="w-4 h-4" />
+            Démarrer la caméra
+          </button>
+        </div>
+      ) : (
+        <div className={`relative bg-gray-900 flex items-center justify-center ${isExpanded ? 'h-[380px]' : 'h-[220px]'}`}>
+          {/* Local video */}
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+          {/* Camera off overlay */}
+          {!isVideoOn && (
+            <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center gap-2">
+              <VideoOff className="w-8 h-8 text-gray-500" />
+              <span className="text-sm text-gray-500">Caméra désactivée</span>
+            </div>
+          )}
+          {/* Screen sharing badge */}
+          {isScreenSharing && (
+            <div className="absolute top-3 left-3 px-2 py-1 bg-teal-600 text-white text-xs rounded-full flex items-center gap-1">
+              <MonitorUp className="w-3 h-3" />
+              Partage d'écran
+            </div>
+          )}
+          {/* Controls overlay */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <button
+              onClick={toggleMic}
+              title={isMicOn ? 'Couper le micro' : 'Activer le micro'}
+              className={`p-2.5 rounded-full text-white transition-colors ${isMicOn ? 'bg-gray-700/80 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'}`}
+            >
+              {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={toggleVideo}
+              title={isVideoOn ? 'Désactiver la caméra' : 'Activer la caméra'}
+              className={`p-2.5 rounded-full text-white transition-colors ${isVideoOn ? 'bg-gray-700/80 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'}`}
+            >
+              {isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={toggleScreenShare}
+              title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
+              className={`p-2.5 rounded-full text-white transition-colors ${isScreenSharing ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-700/80 hover:bg-gray-600'}`}
+            >
+              <MonitorUp className="w-4 h-4" />
+            </button>
+            <button
+              onClick={stopCamera}
+              title="Arrêter la téléconsultation"
+              className="p-2.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+            >
+              <Phone className="w-4 h-4 rotate-[135deg]" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; onRegisterSave?: (fn: (() => Promise<void>) | null) => void }) {
   const router = useRouter();
   const [activeConsultation, setActiveConsultation] = useState<Consultation | null>(null);
@@ -5897,6 +6082,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [consultationMode, setConsultationMode] = useState<'PRESENTIEL' | 'TELECONSULTATION'>('PRESENTIEL');
   const [motif, setMotif] = useState('');
   const [notes, setNotes] = useState('');
   const [interrogatoire, setInterrogatoire] = useState('');
@@ -6027,6 +6213,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
 
   const startConsultation = async (mode: 'PRESENTIEL' | 'TELECONSULTATION' = 'PRESENTIEL') => {
     setShowTypeModal(false);
+    setConsultationMode(mode);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/consultations`, {
@@ -6907,6 +7094,11 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
             </button>
           </div>
         </div>
+
+        {/* Panneau vidéo téléconsultation */}
+        {consultationMode === 'TELECONSULTATION' && (
+          <TeleconsultationVideoPanel patientName={patient.fullName || 'Patient'} />
+        )}
 
         {/* Layout principal - 2 colonnes */}
         <div className="flex gap-6">
