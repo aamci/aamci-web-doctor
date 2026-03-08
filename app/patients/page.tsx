@@ -229,21 +229,15 @@ export default function PatientsPage() {
     setLoadingReceived(true);
     try {
       const token = localStorage.getItem('token');
-      console.log('[fetchReceivedPatients] appel /referrals/received-patients');
       const res = await fetch(`${API_BASE_URL}/referrals/received-patients`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('[fetchReceivedPatients] HTTP status:', res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log('[fetchReceivedPatients] data reçue:', JSON.stringify(data));
         setReceivedPatients(data);
-      } else {
-        const errText = await res.text();
-        console.error('[fetchReceivedPatients] réponse erreur:', errText);
       }
     } catch (error) {
-      console.error('[fetchReceivedPatients] exception:', error);
+      console.error('Failed to fetch received patients:', error);
     } finally {
       setLoadingReceived(false);
     }

@@ -863,10 +863,10 @@ export default function PatientRecordPage() {
       icon: TestTube,
       collapsible: true,
       subItems: [
-        { label: 'Poids', value: latestBiometrics.weight ? `${latestBiometrics.weight.value} kg` : '-', icon: Scale, color: 'text-blue-500' },
-        { label: 'Taille', value: latestBiometrics.height ? `${latestBiometrics.height.value} cm` : '-', icon: Ruler, color: 'text-green-500' },
-        { label: 'Tension', value: latestBiometrics.blood_pressure ? `${latestBiometrics.blood_pressure.value}/${latestBiometrics.blood_pressure.valueSecondary} mmHg` : '-', icon: Activity, color: 'text-red-500' },
-        { label: 'Température', value: latestBiometrics.temperature ? `${latestBiometrics.temperature.value}°C` : '-', icon: Thermometer, color: 'text-orange-500' },
+        { label: 'Poids', value: latestBiometrics.weight ? `${Number(latestBiometrics.weight.value).toFixed(1)} kg` : '-', icon: Scale, color: 'text-blue-500' },
+        { label: 'Taille', value: latestBiometrics.height ? `${Number(latestBiometrics.height.value).toFixed(1)} cm` : '-', icon: Ruler, color: 'text-green-500' },
+        { label: 'Tension', value: latestBiometrics.blood_pressure ? `${Number(latestBiometrics.blood_pressure.value).toFixed(1)}/${Number(latestBiometrics.blood_pressure.valueSecondary).toFixed(1)} mmHg` : '-', icon: Activity, color: 'text-red-500' },
+        { label: 'Température', value: latestBiometrics.temperature ? `${Number(latestBiometrics.temperature.value).toFixed(1)}°C` : '-', icon: Thermometer, color: 'text-orange-500' },
         { label: 'Résultats labo', value: labResults.length > 0 ? `${labResults.length}` : 'Aucun', icon: TestTube, color: 'text-purple-500' },
         { label: 'Historique mesures', value: '6 éléments', icon: History, color: 'text-teal-500', link: true },
       ]
@@ -1022,13 +1022,13 @@ export default function PatientRecordPage() {
             {latestBiometrics.weight && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Poids:</span>
-                <span className="font-medium">{latestBiometrics.weight.value} kg</span>
+                <span className="font-medium">{Number(latestBiometrics.weight.value).toFixed(1)} kg</span>
               </div>
             )}
             {latestBiometrics.height && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Taille:</span>
-                <span className="font-medium">{latestBiometrics.height.value} cm</span>
+                <span className="font-medium">{Number(latestBiometrics.height.value).toFixed(1)} cm</span>
               </div>
             )}
             {latestBiometrics.blood_pressure && (
@@ -1791,25 +1791,25 @@ function HomeSection({ patient, profile, age, appointments, treatments, treatmen
           <h3 className="font-semibold text-gray-900 mb-4">Dernières mesures biométriques</h3>
           <div className="grid grid-cols-5 gap-4">
             {latestBiometrics.weight && (
-              <BiometricCard icon={Scale} label="Poids" value={`${latestBiometrics.weight.value} kg`} date={latestBiometrics.weight.measuredAt} />
+              <BiometricCard icon={Scale} label="Poids" value={`${Number(latestBiometrics.weight.value).toFixed(1)} kg`} date={latestBiometrics.weight.measuredAt} />
             )}
             {latestBiometrics.height && (
-              <BiometricCard icon={Ruler} label="Taille" value={`${latestBiometrics.height.value} cm`} date={latestBiometrics.height.measuredAt} />
+              <BiometricCard icon={Ruler} label="Taille" value={`${Number(latestBiometrics.height.value).toFixed(1)} cm`} date={latestBiometrics.height.measuredAt} />
             )}
             {latestBiometrics.blood_pressure && (
               <BiometricCard
                 icon={Activity}
                 label="Tension"
-                value={`${latestBiometrics.blood_pressure.value}/${latestBiometrics.blood_pressure.valueSecondary}`}
+                value={`${Number(latestBiometrics.blood_pressure.value).toFixed(1)}/${Number(latestBiometrics.blood_pressure.valueSecondary).toFixed(1)}`}
                 date={latestBiometrics.blood_pressure.measuredAt}
                 isAbnormal={latestBiometrics.blood_pressure.isAbnormal}
               />
             )}
             {latestBiometrics.temperature && (
-              <BiometricCard icon={Thermometer} label="Température" value={`${latestBiometrics.temperature.value}°C`} date={latestBiometrics.temperature.measuredAt} />
+              <BiometricCard icon={Thermometer} label="Température" value={`${Number(latestBiometrics.temperature.value).toFixed(1)}°C`} date={latestBiometrics.temperature.measuredAt} />
             )}
             {latestBiometrics.heart_rate && (
-              <BiometricCard icon={Heart} label="Fréq. cardiaque" value={`${latestBiometrics.heart_rate.value} bpm`} date={latestBiometrics.heart_rate.measuredAt} />
+              <BiometricCard icon={Heart} label="Fréq. cardiaque" value={`${Number(latestBiometrics.heart_rate.value).toFixed(1)} bpm`} date={latestBiometrics.heart_rate.measuredAt} />
             )}
           </div>
         </div>
@@ -3966,11 +3966,11 @@ function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHisto
               <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Dernières mesures</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{displayWeight ?? '-'}</p>
+                  <p className="text-2xl font-bold text-gray-900">{displayWeight != null ? Number(displayWeight).toFixed(1) : '-'}</p>
                   <p className="text-sm text-gray-500">Poids (kg)</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{displayHeight ?? '-'}</p>
+                  <p className="text-2xl font-bold text-gray-900">{displayHeight != null ? Number(displayHeight).toFixed(1) : '-'}</p>
                   <p className="text-sm text-gray-500">Taille (cm)</p>
                 </div>
                 <div className="text-center">
@@ -3997,12 +3997,12 @@ function BiologieSection({ latestBiometrics, labResults, patientId, onFetchHisto
                       <span>{new Date(entry.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à {new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                      {entry.weight != null && <span>Poids: <strong>{entry.weight} kg</strong></span>}
-                      {entry.height != null && <span>Taille: <strong>{entry.height} cm</strong></span>}
-                      {entry.bmi != null && <span>IMC: <strong>{entry.bmi}</strong></span>}
+                      {entry.weight != null && <span>Poids: <strong>{Number(entry.weight).toFixed(1)} kg</strong></span>}
+                      {entry.height != null && <span>Taille: <strong>{Number(entry.height).toFixed(1)} cm</strong></span>}
+                      {entry.bmi != null && <span>IMC: <strong>{Number(entry.bmi).toFixed(1)}</strong></span>}
                       {entry.bp && <span>TA: <strong>{entry.bp}</strong></span>}
-                      {entry.heartRate != null && <span>FC: <strong>{entry.heartRate} bpm</strong></span>}
-                      {entry.temperature != null && <span>T°: <strong>{entry.temperature}°C</strong></span>}
+                      {entry.heartRate != null && <span>FC: <strong>{Number(entry.heartRate).toFixed(1)} bpm</strong></span>}
+                      {entry.temperature != null && <span>T°: <strong>{Number(entry.temperature).toFixed(1)}°C</strong></span>}
                     </div>
                   </div>
                 ))}
@@ -5885,11 +5885,13 @@ const PREDEFINED_TEMPLATES: ConsultationTemplate[] = [
 ];
 
 function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; onRegisterSave?: (fn: (() => Promise<void>) | null) => void }) {
+  const router = useRouter();
   const [activeConsultation, setActiveConsultation] = useState<Consultation | null>(null);
   const [consultationHistory, setConsultationHistory] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [motif, setMotif] = useState('');
   const [notes, setNotes] = useState('');
   const [interrogatoire, setInterrogatoire] = useState('');
@@ -6018,7 +6020,8 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
     fetchConsultations();
   }, [patient.id]);
 
-  const startConsultation = async () => {
+  const startConsultation = async (mode: 'PRESENTIEL' | 'TELECONSULTATION' = 'PRESENTIEL') => {
+    setShowTypeModal(false);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/consultations`, {
@@ -6027,7 +6030,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ patientId: patient.id }),
+        body: JSON.stringify({ patientId: patient.id, mode }),
       });
 
       if (response.ok) {
@@ -6129,7 +6132,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
         setAnalyses([]);
         setCourriers([]);
         setImageries([]);
-        setShowHistory(true);
+        router.push('/patients');
       } else {
         toast.error('Erreur lors de la clôture de la consultation');
       }
@@ -6752,7 +6755,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
               Retour
             </button>
             <button
-              onClick={startConsultation}
+              onClick={() => setShowTypeModal(true)}
               className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -6760,6 +6763,27 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
             </button>
           </div>
         </div>
+
+        {/* Modal choix type depuis historique */}
+        {showTypeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowTypeModal(false)}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-[420px] mx-4" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Type de consultation</h3>
+              <p className="text-sm text-gray-500 mb-6">Choisissez le mode de consultation</p>
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={() => startConsultation('PRESENTIEL')} className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-all group">
+                  <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200"><Stethoscope className="w-6 h-6 text-teal-600" /></div>
+                  <div className="text-center"><p className="font-semibold text-gray-900 text-sm">En cabinet</p><p className="text-xs text-gray-500 mt-0.5">Consultation présentielle</p></div>
+                </button>
+                <button onClick={() => startConsultation('TELECONSULTATION')} className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-purple-500 hover:bg-purple-50 transition-all group">
+                  <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center group-hover:bg-purple-200"><Video className="w-6 h-6 text-purple-600" /></div>
+                  <div className="text-center"><p className="font-semibold text-gray-900 text-sm">Téléconsultation</p><p className="text-xs text-gray-500 mt-0.5">Consultation à distance</p></div>
+                </button>
+              </div>
+              <button onClick={() => setShowTypeModal(false)} className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
+            </div>
+          </div>
+        )}
 
         {consultationHistory.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
@@ -6829,6 +6853,17 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm font-medium text-gray-900">Consultation active</span>
             </div>
+            {(activeConsultation as any).mode === 'TELECONSULTATION' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                <Video className="w-3 h-3" />
+                Téléconsultation
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
+                <Stethoscope className="w-3 h-3" />
+                En cabinet
+              </span>
+            )}
             <span className="text-xs text-gray-500">
               Démarrée le {formatConsultationDate(activeConsultation.startedAt)}
             </span>
@@ -6851,9 +6886,17 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
               Enregistrer
             </button>
             <button
+              onClick={endConsultation}
+              disabled={saving}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Terminer
+            </button>
+            <button
               onClick={cancelConsultation}
               disabled={saving}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
             >
               Annuler
             </button>
@@ -8184,7 +8227,7 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
             </button>
           )}
           <button
-            onClick={startConsultation}
+            onClick={() => setShowTypeModal(true)}
             className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -8192,6 +8235,48 @@ function ConsultationSection({ patient, onRegisterSave }: { patient: Patient; on
           </button>
         </div>
       </div>
+
+      {/* Modal choix type de consultation */}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowTypeModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[420px] mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Type de consultation</h3>
+            <p className="text-sm text-gray-500 mb-6">Choisissez le mode de consultation</p>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => startConsultation('PRESENTIEL')}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                  <Stethoscope className="w-6 h-6 text-teal-600" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-900 text-sm">En cabinet</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Consultation présentielle</p>
+                </div>
+              </button>
+              <button
+                onClick={() => startConsultation('TELECONSULTATION')}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-gray-200 hover:border-purple-500 hover:bg-purple-50 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                  <Video className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-900 text-sm">Téléconsultation</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Consultation à distance</p>
+                </div>
+              </button>
+            </div>
+            <button
+              onClick={() => setShowTypeModal(false)}
+              className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
         <Stethoscope className="w-12 h-12 mx-auto text-gray-300 mb-4" />
