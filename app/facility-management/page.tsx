@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
-import { Users, Calendar, Settings, ChevronDown, UserPlus, Mail, Shield, Trash2, Loader2, Crown, TrendingUp, Wallet, CalendarCheck, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Users, Calendar, Settings, ChevronDown, UserPlus, Mail, Shield, Trash2, Loader2, Crown, TrendingUp, Wallet, CalendarCheck, ArrowUpRight, ArrowDownRight, Building2, Pencil, Check, X, Phone, MapPin, Globe, GraduationCap, Briefcase, Star, Bell } from 'lucide-react';
 import DoctorAvailability from './_components/DoctorAvailability';
 import DoctorPreferences from './_components/DoctorPreferences';
 
@@ -48,20 +47,18 @@ interface TeamMember {
   isManager: boolean;
 }
 
-type TabKey = 'availability' | 'preferences' | 'finances' | 'staff';
+type TabKey = 'cabinet' | 'availability' | 'preferences' | 'finances' | 'staff';
 
-// Tabs visible per role
 function getVisibleTabs(role?: string): TabKey[] {
   switch (role) {
-    case 'FACILITY_MANAGER': return ['availability', 'preferences', 'finances', 'staff'];
-    case 'DOCTOR':           return ['availability', 'preferences'];
-    case 'SECRETARY':        return ['availability', 'preferences', 'staff'];
+    case 'FACILITY_MANAGER': return ['cabinet', 'availability', 'preferences', 'finances', 'staff'];
+    case 'DOCTOR':           return ['cabinet', 'availability', 'preferences', 'staff'];
+    case 'SECRETARY':        return ['availability', 'preferences'];
     default:                 return ['availability', 'preferences'];
   }
 }
 
 export default function FacilityManagementPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -80,6 +77,15 @@ export default function FacilityManagementPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteErr, setInviteErr] = useState<string | null>(null);
 
+  // Unread team invitations banner
+  const [teamInviteBanner, setTeamInviteBanner] = useState<string | null>(null);
+
+  // Cabinet state
+  const [cabinetData, setCabinetData] = useState<any>(null);
+  const [cabinetEditing, setCabinetEditing] = useState(false);
+  const [cabinetForm, setCabinetForm] = useState<any>({});
+  const [savingCabinet, setSavingCabinet] = useState(false);
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
   const visibleTabs = useMemo(() => getVisibleTabs(user?.role), [user?.role]);
@@ -92,24 +98,146 @@ export default function FacilityManagementPage() {
   }, [visibleTabs]);
 
   useEffect(() => {
-    fetchManagedDoctors();
-  }, []);
+    if (user) fetchManagedDoctors();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE_URL}/notifications?unreadOnly=true`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then((notifs: any[]) => {
+        const inv = notifs.find(n => n.type === 'TEAM_INVITATION' || n.type === 'TEAM_JOINED');
+        if (inv) setTeamInviteBanner(inv.message);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'cabinet') fetchCabinet();
+  }, [activeTab]);
 
   const fetchManagedDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/facility-managers/me/doctors`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDoctors(data);
-        if (data.length > 0) setSelectedDoctor(data[0]);
+
+      if (user?.role === 'DOCTOR') {
+        // DOCTOR: always manages themselves
+        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const me = await res.json();
+          const self: Doctor = {
+            id: me.id,
+            fullName: me.fullName,
+            email: me.email,
+            doctorProfile: me.doctorProfile ?? { specialty: '', city: '' },
+          };
+          setDoctors([self]);
+          setSelectedDoctor(self);
+        }
+      } else if (user?.role === 'SECRETARY') {
+        const res = await fetch(`${API_BASE_URL}/team/my-membership`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const memberships = await res.json();
+          const doctorList: Doctor[] = memberships
+            .filter((m: any) => m.owner)
+            .map((m: any) => ({
+              id: m.owner.id,
+              fullName: m.owner.fullName,
+              email: m.owner.email,
+              doctorProfile: m.owner.doctorProfile ?? { specialty: '', city: '' },
+            }));
+          setDoctors(doctorList);
+          if (doctorList.length > 0) setSelectedDoctor(doctorList[0]);
+        }
+      } else {
+        // FACILITY_MANAGER
+        const response = await fetch(`${API_BASE_URL}/facility-managers/me/doctors`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setDoctors(data);
+          if (data.length > 0) setSelectedDoctor(data[0]);
+        }
       }
     } catch (error) {
       console.error('Error fetching managed doctors:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCabinet = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (user?.role === 'FACILITY_MANAGER') {
+        const res = await fetch(`${API_BASE_URL}/facility-managers/my-facility`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const services = typeof data.services === 'string'
+            ? JSON.parse(data.services)
+            : data.services ?? [];
+          const parsed = { ...data, services };
+          setCabinetData(parsed);
+          setCabinetForm(parsed);
+        }
+      } else if (user?.role === 'DOCTOR') {
+        const res = await fetch(`${API_BASE_URL}/doctor-profiles/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCabinetData(data);
+          setCabinetForm(data);
+        }
+      }
+    } catch (e) {
+      console.error('fetchCabinet error', e);
+    }
+  };
+
+  const saveCabinet = async () => {
+    setSavingCabinet(true);
+    try {
+      const token = localStorage.getItem('token');
+      let url = '';
+      let method = 'PUT';
+      let body: any = cabinetForm;
+
+      if (user?.role === 'FACILITY_MANAGER') {
+        url = `${API_BASE_URL}/facility-managers/my-facility`;
+        method = 'PATCH';
+      } else if (user?.role === 'DOCTOR') {
+        url = `${API_BASE_URL}/doctor-profiles/me`;
+        method = 'PUT';
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const services = typeof updated.services === 'string'
+          ? JSON.parse(updated.services)
+          : updated.services ?? updated.services;
+        setCabinetData({ ...updated, ...(services !== undefined ? { services } : {}) });
+        setCabinetEditing(false);
+      }
+    } catch (e) {
+      console.error('saveCabinet error', e);
+    } finally {
+      setSavingCabinet(false);
     }
   };
 
@@ -220,40 +348,55 @@ export default function FacilityManagementPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Team invitation banner */}
+        {teamInviteBanner && (
+          <div className="flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-xl p-4 mb-6">
+            <Bell className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-teal-800">{teamInviteBanner}</div>
+            <button onClick={() => setTeamInviteBanner(null)} className="text-teal-500 hover:text-teal-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Users className="w-8 h-8 text-teal-600" />
-            Gestion des disponibilités
+            {user?.role === 'DOCTOR' ? <Building2 className="w-8 h-8 text-teal-600" /> : <Users className="w-8 h-8 text-teal-600" />}
+            {user?.role === 'DOCTOR' ? 'Mon cabinet' : 'Gestion des disponibilités'}
           </h1>
           <p className="text-gray-600 mt-2">
-            Gérez les emplois du temps et préférences de vos médecins
+            {user?.role === 'DOCTOR'
+              ? 'Gérez votre profil, votre équipe et vos disponibilités'
+              : 'Gérez les emplois du temps et préférences de vos médecins'}
           </p>
         </div>
 
-        {/* Doctor Selector */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Sélectionnez un médecin
-          </label>
-          <div className="relative">
-            <select
-              value={selectedDoctor?.id || ''}
-              onChange={(e) => {
-                const doctor = doctors.find((d) => d.id === e.target.value);
-                setSelectedDoctor(doctor || null);
-              }}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-900 font-medium"
-            >
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.fullName} - {doctor.doctorProfile.specialty} ({doctor.doctorProfile.city})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+        {/* Doctor Selector — hidden for DOCTOR (always themselves) */}
+        {user?.role !== 'DOCTOR' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sélectionnez un médecin
+            </label>
+            <div className="relative">
+              <select
+                value={selectedDoctor?.id || ''}
+                onChange={(e) => {
+                  const doctor = doctors.find((d) => d.id === e.target.value);
+                  setSelectedDoctor(doctor || null);
+                }}
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-900 font-medium"
+              >
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.fullName} - {doctor.doctorProfile.specialty} ({doctor.doctorProfile.city})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
-        </div>
+        )}
 
         {selectedDoctor && (
           <>
@@ -278,7 +421,20 @@ export default function FacilityManagementPage() {
             {/* Tabs */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
               <div className="border-b border-gray-200">
-                <div className="flex">
+                <div className="flex overflow-x-auto">
+                  {visibleTabs.includes('cabinet') && (
+                    <button
+                      onClick={() => setActiveTab('cabinet')}
+                      className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
+                        activeTab === 'cabinet'
+                          ? 'border-teal-600 text-teal-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Building2 className="w-5 h-5" />
+                      {user?.role === 'DOCTOR' ? 'Mon cabinet' : 'Établissement'}
+                    </button>
+                  )}
                   {visibleTabs.includes('availability') && (
                     <button
                       onClick={() => setActiveTab('availability')}
@@ -335,6 +491,227 @@ export default function FacilityManagementPage() {
               </div>
 
               <div className="p-6">
+                {activeTab === 'cabinet' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {user?.role === 'DOCTOR' ? 'Profil du cabinet' : 'Informations de l\'établissement'}
+                      </h3>
+                      {!cabinetEditing ? (
+                        <button
+                          onClick={() => setCabinetEditing(true)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" /> Modifier
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setCabinetEditing(false); setCabinetForm(cabinetData); }}
+                            className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                          >
+                            <X className="w-4 h-4" /> Annuler
+                          </button>
+                          <button
+                            onClick={saveCabinet}
+                            disabled={savingCabinet}
+                            className="flex items-center gap-1 px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                          >
+                            {savingCabinet ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            Enregistrer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {!cabinetData ? (
+                      <div className="text-center py-10 text-gray-400">
+                        <Building2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Chargement des informations…</p>
+                      </div>
+                    ) : user?.role === 'DOCTOR' ? (
+                      /* ── DOCTOR: DoctorProfile fields ── */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Spécialité</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.specialty ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, specialty: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><Star className="w-4 h-4 text-teal-500" />{cabinetData.specialty || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Type de cabinet</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.hospitalType ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, hospitalType: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><Briefcase className="w-4 h-4 text-teal-500" />{cabinetData.hospitalType || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.address ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, address: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-teal-500" />{cabinetData.address || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.city ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, city: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900">{cabinetData.city || '—'}</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Présentation</label>
+                          {cabinetEditing ? (
+                            <textarea rows={4} value={cabinetForm.presentation ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, presentation: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none" />
+                          ) : (
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{cabinetData.presentation || '—'}</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="flex items-center gap-1 text-xs font-medium text-gray-500 mb-1"><GraduationCap className="w-4 h-4" /> Formations</label>
+                          {cabinetEditing ? (
+                            <textarea rows={3} value={cabinetForm.formations ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, formations: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none" />
+                          ) : (
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{cabinetData.formations || '—'}</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="flex items-center gap-1 text-xs font-medium text-gray-500 mb-1"><Briefcase className="w-4 h-4" /> Expériences</label>
+                          {cabinetEditing ? (
+                            <textarea rows={3} value={cabinetForm.experiences ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, experiences: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none" />
+                          ) : (
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{cabinetData.experiences || '—'}</p>
+                          )}
+                        </div>
+                        {cabinetData.facilities?.length > 0 && (
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-gray-500 mb-2">Établissements associés</label>
+                            <div className="flex flex-wrap gap-2">
+                              {cabinetData.facilities.map((f: any) => (
+                                <span key={f.id} className="px-3 py-1 bg-teal-50 text-teal-700 text-xs rounded-full border border-teal-100 font-medium">
+                                  {f.name} · {f.city}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* ── FACILITY_MANAGER: Facility fields ── */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Nom de l'établissement</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.name ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, name: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm font-semibold text-gray-900">{cabinetData.name || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
+                          {cabinetEditing ? (
+                            <select value={cabinetForm.type ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, type: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                              <option value="CLINIC">Clinique</option>
+                              <option value="CHU">CHU</option>
+                              <option value="POLYCLINIC">Polyclinique</option>
+                              <option value="CENTER">Centre médical</option>
+                            </select>
+                          ) : (
+                            <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">{cabinetData.type}</span>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.address ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, address: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-teal-500" />{cabinetData.address || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.city ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, city: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900">{cabinetData.city || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Téléphone</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.phone ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, phone: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><Phone className="w-4 h-4 text-teal-500" />{cabinetData.phone || '—'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                          {cabinetEditing ? (
+                            <input type="email" value={cabinetForm.email ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, email: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2"><Mail className="w-4 h-4 text-teal-500" />{cabinetData.email || '—'}</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Site web</label>
+                          {cabinetEditing ? (
+                            <input value={cabinetForm.website ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, website: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+                          ) : (
+                            <p className="text-sm text-gray-900 flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-teal-500" />
+                              {cabinetData.website ? <a href={cabinetData.website} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">{cabinetData.website}</a> : '—'}
+                            </p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
+                          {cabinetEditing ? (
+                            <textarea rows={3} value={cabinetForm.description ?? ''} onChange={e => setCabinetForm((f: any) => ({...f, description: e.target.value}))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none" />
+                          ) : (
+                            <p className="text-sm text-gray-700">{cabinetData.description || '—'}</p>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-2">Services proposés</label>
+                          {cabinetEditing ? (
+                            <input
+                              value={Array.isArray(cabinetForm.services) ? cabinetForm.services.join(', ') : ''}
+                              onChange={e => setCabinetForm((f: any) => ({...f, services: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean)}))}
+                              placeholder="Cardiologie, Pédiatrie, Urgences…"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            />
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {(Array.isArray(cabinetData.services) ? cabinetData.services : []).map((s: string) => (
+                                <span key={s} className="px-3 py-1 bg-teal-50 text-teal-700 text-xs rounded-full border border-teal-100 font-medium">{s}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {activeTab === 'availability' && (
                   <DoctorAvailability doctorId={selectedDoctor.id} />
                 )}

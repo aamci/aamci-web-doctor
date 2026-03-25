@@ -16,24 +16,35 @@ import {
   MessageSquare,
   ArrowRightLeft,
   Mail,
+  Building2,
+  Video,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-const NAV_ITEMS = [
-  { label: 'Planning',       href: '/planning',      icon: Calendar },
-  { label: 'Disponibilités', href: '/availability',  icon: Clock },
-  { label: 'Notes',          href: '/medical-notes', icon: FileText },
-  { label: 'Tâches',         href: '/tasks',         icon: CheckSquare },
-  { label: 'Patients',       href: '/patients',      icon: Users },
-  { label: 'Réservations',   href: '/reservations',  icon: CalendarCheck },
-  { label: 'Facturation',    href: '/billing',       icon: Receipt },
-  { label: 'Activité',       href: '/activity',      icon: Activity },
-  { label: 'Messages',       href: '/messages',      icon: MessageSquare },
-  { label: 'Adressages',    href: '/referrals',     icon: ArrowRightLeft },
-  { label: 'Courrier',      href: '/correspondances', icon: Mail },
-] as const;
+// roles autorisés par item (undefined = tous les rôles pro)
+const NAV_ITEMS_DOCTOR = [
+  { label: 'Planning',     href: '/planning',            icon: Calendar,       roles: undefined },
+  { label: 'Notes',        href: '/medical-notes',       icon: FileText,       roles: ['DOCTOR'] },
+  { label: 'Tâches',       href: '/tasks',               icon: CheckSquare,    roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Patients',     href: '/patients',            icon: Users,          roles: undefined },
+  { label: 'Réservations', href: '/reservations',        icon: CalendarCheck,  roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Équipe',       href: '/team',                icon: Building2,      roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Facturation',  href: '/billing',             icon: Receipt,        roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Activité',     href: '/activity',            icon: Activity,       roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Messagerie',   href: '/messages',            icon: MessageSquare,  roles: undefined },
+  { label: 'Visio',        href: '/teleconsultation',    icon: Video,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Adressages',   href: '/referrals',           icon: ArrowRightLeft, roles: ['DOCTOR'] },
+  { label: 'Cabinet',      href: '/facility-management', icon: Building2,      roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+];
+
+const NAV_ITEMS_SECRETARY = [
+  { label: 'Agenda',   href: '/agenda',              icon: Calendar,      roles: undefined },
+  { label: 'Patients', href: '/patients',            icon: Users,         roles: undefined },
+  { label: 'Cabinet',  href: '/facility-management', icon: Building2,     roles: undefined },
+  { label: 'Messages', href: '/messages',            icon: MessageSquare, roles: undefined },
+];
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -61,7 +72,7 @@ function NavLink({
   active: boolean;
 }) {
   return (
-    <Link href={href as any} className="relative group flex items-center justify-center w-full py-0.5">
+    <Link href={href as any} className="relative group flex flex-col items-center justify-center w-full py-1">
       {/* Left accent bar */}
       <span
         className={`absolute left-0 top-1/2 -translate-y-1/2 w-0.5 rounded-r-full transition-all duration-200
@@ -69,7 +80,7 @@ function NavLink({
       />
 
       <div
-        className={`relative flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-150
+        className={`relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150
           ${active
             ? 'bg-teal-500/10 text-teal-400'
             : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
@@ -82,6 +93,10 @@ function NavLink({
           </span>
         )}
       </div>
+
+      <span className={`text-[9px] font-medium mt-0.5 transition-colors leading-tight text-center ${active ? 'text-teal-400' : 'text-slate-500 group-hover:text-slate-300'}`}>
+        {label}
+      </span>
 
       <Tooltip label={label} />
     </Link>
@@ -118,6 +133,8 @@ export default function DoctorSidebar() {
 
   const isActive = (href: string) => {
     if (href === '/planning') return pathname === '/' || pathname === '/dashboard' || pathname.startsWith('/planning');
+    if (href === '/agenda') return pathname === '/agenda' || (user?.role === 'SECRETARY' && (pathname === '/' || pathname === '/dashboard'));
+    if (href === '/teleconsultation') return pathname.startsWith('/teleconsultation') || pathname.startsWith('/visio');
     return pathname?.startsWith(href);
   };
 
@@ -132,7 +149,7 @@ export default function DoctorSidebar() {
     <aside className="fixed top-0 left-0 h-screen w-20 bg-slate-900 border-r border-slate-800/70 flex flex-col z-40 select-none">
       {/* Logo — same height as navbar (64px / h-16) */}
       <div className="h-16 flex items-center justify-center border-b border-slate-800/70 flex-shrink-0">
-        <Link href="/planning" className="group">
+        <Link href={(user?.role === 'SECRETARY' ? '/agenda' : '/planning') as any} className="group">
           <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center shadow-md group-hover:bg-teal-500 transition-colors">
             <span className="text-xl font-bold text-white">M</span>
           </div>
@@ -141,19 +158,21 @@ export default function DoctorSidebar() {
 
       {/* Main navigation */}
       <nav className="flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {NAV_ITEMS.map(({ label, href, icon }) => (
-          <NavLink
-            key={href}
-            label={label}
-            href={href}
-            icon={icon}
-            active={isActive(href)}
-            badge={
-              href === '/messages' ? (unreadMessages || undefined) :
-              href === '/correspondances' ? (unreadCorrespondences || undefined) : undefined
-            }
-          />
-        ))}
+        {(user?.role === 'SECRETARY' ? NAV_ITEMS_SECRETARY : NAV_ITEMS_DOCTOR)
+          .filter(item => !item.roles || item.roles.includes(user?.role ?? ''))
+          .map(({ label, href, icon }) => (
+            <NavLink
+              key={href}
+              label={label}
+              href={href}
+              icon={icon}
+              active={isActive(href)}
+              badge={
+                href === '/messages' ? (unreadMessages || undefined) :
+                href === '/correspondances' ? (unreadCorrespondences || undefined) : undefined
+              }
+            />
+          ))}
       </nav>
 
       {/* Bottom: settings + avatar */}

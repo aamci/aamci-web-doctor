@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Settings, User, Bell, CheckCircle, Monitor, Calendar, BellRing, Clock, Stethoscope, ChevronRight, Laptop } from 'lucide-react';
+import { Settings, User, Bell, CheckCircle, Monitor, Calendar, BellRing, Clock, Stethoscope, ChevronRight, Laptop, CalendarClock } from 'lucide-react';
 
 interface DoctorProfile {
   id: string;
@@ -134,6 +134,7 @@ export default function SettingsPage() {
             { href: '/settings/absences', label: 'Absences', icon: <Clock className="w-5 h-5" />, color: 'text-orange-500' },
             { href: '/settings/calendar-sync', label: 'Calendrier externe', icon: <Monitor className="w-5 h-5" />, color: 'text-indigo-500' },
             { href: '/settings/application', label: 'Application', icon: <Laptop className="w-5 h-5" />, color: 'text-teal-500' },
+            { href: '/availability', label: 'Disponibilités', icon: <CalendarClock className="w-5 h-5" />, color: 'text-teal-600' },
           ].map((item) => (
             <Link
               key={item.href}

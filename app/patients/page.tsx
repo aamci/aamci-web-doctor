@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { required, minLen, maxLen, email as emailVal, phone as phoneVal, hasErrors, type FormErrors } from '@/lib/validation';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../_providers/AuthProvider';
 import {
   Search,
   Phone,
@@ -92,6 +93,8 @@ interface NewPatientForm {
 
 export default function PatientsPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isSecretary = user?.role === 'SECRETARY';
   const [mainTab, setMainTab] = useState<'patients' | 'received'>('patients');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,7 +399,7 @@ export default function PatientsPage() {
               <Users className="w-4 h-4" />
               Mes patients
             </button>
-            <button
+            {!isSecretary && <button
               onClick={() => setMainTab('received')}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 mainTab === 'received'
@@ -411,7 +414,7 @@ export default function PatientsPage() {
                   {receivedPatients.length}
                 </span>
               )}
-            </button>
+            </button>}
           </div>
 
           {/* Received patients view */}

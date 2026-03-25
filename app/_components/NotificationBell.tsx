@@ -25,6 +25,8 @@ import {
   MessageSquare,
   ArrowRightLeft,
   UserCheck,
+  UserPlus,
+  Building2,
 } from 'lucide-react';
 
 interface Notification {
@@ -52,7 +54,7 @@ interface Notification {
   };
 }
 
-type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts' | 'messages';
+type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts' | 'messages' | 'team';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -236,6 +238,11 @@ export default function NotificationBell() {
         return <ArrowRightLeft className="w-4 h-4 text-purple-500" />;
       case 'REFERRAL_RESPONSE':
         return <UserCheck className="w-4 h-4 text-teal-500" />;
+      case 'TEAM_INVITATION':
+      case 'TEAM_JOINED':
+        return <UserPlus className="w-4 h-4 text-teal-600" />;
+      case 'TEAM_DEACTIVATED':
+        return <Building2 className="w-4 h-4 text-gray-500" />;
       case 'INFO':
         return <Info className="w-4 h-4 text-blue-500" />;
       default:
@@ -260,6 +267,9 @@ export default function NotificationBell() {
       case 'NEW_REFERRAL':
         return 'bg-purple-50 hover:bg-purple-100';
       case 'REFERRAL_RESPONSE':
+        return 'bg-teal-50 hover:bg-teal-100';
+      case 'TEAM_INVITATION':
+      case 'TEAM_JOINED':
         return 'bg-teal-50 hover:bg-teal-100';
       default:
         return 'bg-blue-50 hover:bg-blue-100';
@@ -292,6 +302,7 @@ export default function NotificationBell() {
     if (filter === 'appointments') return n.type.includes('APPOINTMENT');
     if (filter === 'alerts') return n.type === 'ALERT' || n.type.includes('CANCELLED');
     if (filter === 'messages') return n.type === 'NEW_MESSAGE';
+    if (filter === 'team') return n.type.startsWith('TEAM_');
     return true;
   });
 
@@ -302,6 +313,9 @@ export default function NotificationBell() {
 
     if (notification.type === 'NEW_MESSAGE') {
       router.push('/messages');
+      setIsOpen(false);
+    } else if (notification.type === 'TEAM_INVITATION' || notification.type === 'TEAM_JOINED') {
+      router.push('/facility-management');
       setIsOpen(false);
     } else if (notification.relatedAppointmentId) {
       router.push('/reservations');
@@ -371,6 +385,7 @@ export default function NotificationBell() {
                 { value: 'appointments', label: 'RDV' },
                 { value: 'alerts', label: 'Alertes' },
                 { value: 'messages', label: 'Messages' },
+                { value: 'team', label: 'Équipe' },
               ].map((f) => (
                 <button
                   key={f.value}

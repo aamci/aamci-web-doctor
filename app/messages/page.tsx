@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/lib/toast';
 import { useAuth } from '../_providers/AuthProvider';
@@ -37,6 +38,7 @@ import {
   Flag,
   Loader2,
   Stethoscope,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 interface Message {
@@ -458,12 +460,20 @@ function MessagesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/correspondances"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+            title="Correspondances médicales"
+          >
+            <ArrowRightLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Correspondances</span>
+          </Link>
           <button
             onClick={() => loadConversations()}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             title="Actualiser"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => { setSelectedDoctor(null); setDoctorSearch(''); setDoctorResults([]); setFirstMessage(''); setShowNewConvModal(true); }}

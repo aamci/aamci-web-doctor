@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../_providers/AuthProvider';
+import { Eye, EyeOff, Key, Sparkles, Lock, ArrowRight } from 'lucide-react';
 
 function getApiBase(): string | null {
   let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
@@ -128,223 +129,274 @@ export default function Login() {
     }
   }
 
+  const inputCls = 'w-full px-4 py-3 bg-white rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 border-0';
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-700 to-blue-900 text-white flex-col justify-between p-12">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">🩺</span>
-          <span className="text-xl font-bold tracking-tight">Espace Médecin</span>
+    <div className="min-h-screen flex" style={{ background: '#0d1523' }}>
+
+      {/* ── Left panel — form ─────────────────────────────────────────── */}
+      <div className="flex-1 lg:w-[45%] lg:flex-none flex flex-col justify-center px-8 sm:px-14 py-12" style={{ background: '#0d1523' }}>
+        {/* Logo */}
+        <div className="flex items-center gap-2 mb-12">
+          <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center">
+            <span className="text-white font-bold text-sm">M</span>
+          </div>
+          <span className="text-white font-semibold text-sm tracking-wide">MedPro</span>
         </div>
-        <div>
-          <h1 className="text-4xl font-bold leading-tight mb-4">
-            Gérez votre pratique médicale en toute simplicité
-          </h1>
-          <p className="text-blue-200 text-lg mb-10">
-            Planning, patients, prescriptions et facturation — tout en un seul endroit.
-          </p>
-          <div className="space-y-4">
-            {[
-              { icon: '📅', label: 'Planning intelligent', desc: 'Gérez vos disponibilités et rendez-vous' },
-              { icon: '👥', label: 'Dossiers patients', desc: 'Historique complet et notes médicales' },
-              { icon: '💰', label: 'Suivi des revenus', desc: 'Wallet, paiements et bilans financiers' },
-            ].map((f) => (
-              <div key={f.label} className="flex items-start gap-4">
-                <span className="text-2xl">{f.icon}</span>
-                <div>
-                  <p className="font-semibold">{f.label}</p>
-                  <p className="text-blue-300 text-sm">{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-blue-400 text-sm">© 2026 Plateforme Santé — Tous droits réservés</p>
-      </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-6 lg:hidden">
-            <span className="text-2xl">🩺</span>
-            <span className="text-lg font-bold text-gray-900">Espace Médecin</span>
-          </div>
+        <div className="max-w-sm w-full mx-auto lg:mx-0">
 
-          {/* Tabs */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-8">
-            {(['login', 'register'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setErr(null); setRegErr(null); setRegSuccess(false); }}
-                className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                  tab === t
-                    ? 'bg-blue-700 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {t === 'login' ? 'Connexion' : 'Créer un compte'}
-              </button>
-            ))}
-          </div>
-
-          {/* ── LOGIN ── */}
-          {tab === 'login' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Bon retour !</h2>
-              <p className="text-gray-500 text-sm mb-6">Connectez-vous à votre espace médecin</p>
+          {tab === 'login' ? (
+            <>
+              <h1 className="text-3xl font-bold text-white mb-1">Identifiez-vous</h1>
+              <p className="text-slate-400 text-sm mb-8">Accedez a votre espace de soins coordonnes</p>
 
               <form onSubmit={(e) => { e.preventDefault(); void handleLogin(); }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email professionnel</label>
+                  <label className="block text-slate-300 text-xs font-medium mb-1.5">Adresse e-mail</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="vous@clinique.fr"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={inputCls}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                  <div className="flex gap-2">
+                  <label className="block text-slate-300 text-xs font-medium mb-1.5">Mot de passe</label>
+                  <div className="relative">
                     <input
                       type={showPwd ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={inputCls + ' pr-11'}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPwd((s) => !s)}
-                      className="px-3 py-2.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
+                      onClick={() => setShowPwd(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showPwd ? 'Masquer' : 'Voir'}
+                      {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded" />
-                    Se souvenir de moi
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => router.push('/auth/forgot-password' as any)}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Mot de passe oublié ?
-                  </button>
-                </div>
-
-                {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{err}</div>}
+                {err && (
+                  <div className="text-red-400 text-xs px-1">{err}</div>
+                )}
                 {showResend && !resendSuccess && (
                   <button
                     type="button"
                     onClick={handleResend}
                     disabled={resendLoading}
-                    className="w-full py-2.5 border border-teal-400 text-teal-600 rounded-lg text-sm hover:bg-teal-50 disabled:opacity-50"
+                    className="w-full py-2.5 border border-teal-500/40 text-teal-400 rounded-xl text-sm hover:bg-teal-500/10 disabled:opacity-50 transition-colors"
                   >
-                    {resendLoading ? 'Envoi…' : "📧 Renvoyer l'email de vérification"}
+                    {resendLoading ? 'Envoi…' : "Renvoyer l'email de vérification"}
                   </button>
                 )}
-                {resendSuccess && <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">Email envoyé ! Vérifiez votre boîte mail.</div>}
+                {resendSuccess && (
+                  <div className="text-teal-400 text-xs px-1">Email envoyé ! Vérifiez votre boîte mail.</div>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-700 text-white rounded-lg font-semibold text-sm hover:bg-blue-800 disabled:opacity-50 transition-colors"
+                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold text-sm tracking-widest uppercase transition-colors disabled:opacity-50 mt-2"
                 >
-                  {loading ? 'Connexion…' : 'Se connecter'}
+                  {loading ? 'Connexion…' : 'Continuer'}
+                </button>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-slate-400 text-xs cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-teal-500"
+                    />
+                    Se souvenir de moi
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/auth/forgot-password' as any)}
+                    className="text-teal-400 text-xs hover:text-teal-300 transition-colors"
+                  >
+                    Un probleme pour vous connecter ?
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 my-2">
+                  <div className="flex-1 h-px bg-slate-700" />
+                  <span className="text-slate-500 text-xs">OU</span>
+                  <div className="flex-1 h-px bg-slate-700" />
+                </div>
+
+                <button
+                  type="button"
+                  className="w-full py-3 flex items-center justify-center gap-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-colors"
+                >
+                  <Key className="w-4 h-4" />
+                  S&apos;identifier avec Pro Santé Connect
                 </button>
               </form>
-            </div>
-          )}
 
-          {/* ── REGISTER ── */}
-          {tab === 'register' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Créer un compte médecin</h2>
-              <p className="text-gray-500 text-sm mb-6">Rejoignez la plateforme en quelques secondes</p>
+              <p className="text-center text-slate-500 text-xs mt-8">
+                Pas encore de compte ?{' '}
+                <button
+                  onClick={() => { setTab('register'); setErr(null); }}
+                  className="text-teal-400 hover:text-teal-300 font-medium transition-colors"
+                >
+                  Creer un compte
+                </button>
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-white mb-1">Creer un compte</h1>
+              <p className="text-slate-400 text-sm mb-8">Rejoignez la plateforme en quelques secondes</p>
 
               {regSuccess ? (
-                <div className="bg-green-50 border border-green-200 text-green-800 p-6 rounded-xl text-center">
-                  <div className="text-3xl mb-2">✉️</div>
-                  <p className="font-semibold mb-1">Inscription réussie !</p>
-                  <p className="text-sm text-green-700">
-                    Un email de vérification a été envoyé à <strong>{regEmail}</strong>. Vérifiez votre boîte mail pour activer votre compte.
+                <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-6 text-center">
+                  <p className="text-teal-300 font-semibold mb-1">Inscription reussie !</p>
+                  <p className="text-slate-400 text-sm">
+                    Un email de verification a ete envoye a <span className="text-white">{regEmail}</span>.
                   </p>
                   <button
-                    onClick={() => setTab('login')}
-                    className="mt-4 text-sm text-blue-600 hover:underline"
+                    onClick={() => { setTab('login'); setRegSuccess(false); }}
+                    className="mt-4 text-teal-400 text-sm hover:text-teal-300 transition-colors"
                   >
-                    Retour à la connexion
+                    Retour a la connexion
                   </button>
                 </div>
               ) : (
                 <form onSubmit={(e) => { e.preventDefault(); void handleRegister(); }} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                    <label className="block text-slate-300 text-xs font-medium mb-1.5">Nom complet</label>
                     <input
                       type="text"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       placeholder="Dr Jean Dupont"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={inputCls}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email professionnel</label>
+                    <label className="block text-slate-300 text-xs font-medium mb-1.5">Email professionnel</label>
                     <input
                       type="email"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="vous@clinique.fr"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={inputCls}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                    <div className="flex gap-2">
+                    <label className="block text-slate-300 text-xs font-medium mb-1.5">Mot de passe</label>
+                    <div className="relative">
                       <input
                         type={showRegPwd ? 'text' : 'password'}
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        placeholder="Min. 8 caractères"
-                        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Min. 8 caracteres"
+                        className={inputCls + ' pr-11'}
                       />
                       <button
                         type="button"
-                        onClick={() => setShowRegPwd((s) => !s)}
-                        className="px-3 py-2.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
+                        onClick={() => setShowRegPwd(s => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showRegPwd ? 'Masquer' : 'Voir'}
+                        {showRegPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
 
-                  {regErr && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{regErr}</div>}
+                  {regErr && <div className="text-red-400 text-xs px-1">{regErr}</div>}
 
                   <button
                     type="submit"
                     disabled={regLoading}
-                    className="w-full py-3 bg-blue-700 text-white rounded-lg font-semibold text-sm hover:bg-blue-800 disabled:opacity-50 transition-colors"
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold text-sm tracking-widest uppercase transition-colors disabled:opacity-50 mt-2"
                   >
-                    {regLoading ? 'Inscription…' : 'Créer mon compte'}
+                    {regLoading ? 'Inscription…' : 'Creer mon compte'}
                   </button>
 
-                  <p className="text-xs text-gray-500 text-center">
-                    En créant un compte, vous acceptez les conditions d&apos;utilisation de la plateforme.
+                  <p className="text-slate-600 text-[11px] text-center">
+                    En creant un compte, vous acceptez les conditions d&apos;utilisation.
                   </p>
                 </form>
               )}
-            </div>
+
+              <p className="text-center text-slate-500 text-xs mt-8">
+                Deja un compte ?{' '}
+                <button
+                  onClick={() => { setTab('login'); setRegErr(null); setRegSuccess(false); }}
+                  className="text-teal-400 hover:text-teal-300 font-medium transition-colors"
+                >
+                  Se connecter
+                </button>
+              </p>
+            </>
           )}
+        </div>
+      </div>
+
+      {/* ── Right panel — branding ────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12"
+        style={{ background: '#101e34' }}
+      >
+        {/* "NOUVEAU" badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-500/40 bg-teal-500/10 w-fit mb-8">
+          <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+          <span className="text-teal-400 text-xs font-semibold tracking-wider uppercase">Nouveau</span>
+        </div>
+
+        <h2 className="text-4xl font-bold text-white leading-tight mb-6">
+          Votre vocation, c&apos;est de soigner.{' '}
+          La notre, c&apos;est de vous simplifier le quotidien.
+        </h2>
+
+        <p className="text-amber-400 text-sm leading-relaxed mb-10 max-w-md">
+          Chaque minute gagnee se transforme en temps medical de qualite.
+          Concentrez-vous sur vos patients, on s&apos;occupe du reste.
+        </p>
+
+        <div className="space-y-4 mb-12">
+          {[
+            "Facilitez l'acces aux soins pour vos patients",
+            "Profitez d'une interface tout-en-un, 100% integree",
+            "Valorisez votre expertise et votre temps medical",
+          ].map((item) => (
+            <div key={item} className="flex items-center gap-3">
+              <ArrowRight className="w-4 h-4 text-teal-400 flex-shrink-0" />
+              <span className="text-slate-200 text-sm">{item}</span>
+            </div>
+          ))}
+        </div>
+
+        <button className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-semibold transition-colors w-fit">
+          Decouvrir la plateforme
+          <ArrowRight className="w-4 h-4" />
+        </button>
+
+        {/* Trust badges */}
+        <div className="mt-12 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-1.5 text-slate-500 text-xs">
+            <Lock className="w-3.5 h-3.5" />
+            <span>Donnees hebergees en France, conformement au RGPD, en serveurs certifies</span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            {['ISO 27001', 'RGPD', 'Chiffrement E2E'].map(tag => (
+              <span
+                key={tag}
+                className="px-2.5 py-1 rounded-full border border-slate-700 text-slate-500 text-[11px]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
