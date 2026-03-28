@@ -42,22 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const apiBase = getApiBase();
       const url = apiBase ? `${apiBase}/auth/me` : '/api/auth/me';
 
-      // Get token from localStorage
       const token = localStorage.getItem('token');
 
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // Add Authorization header if token exists
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
 
       const res = await fetch(url, {
-        credentials: 'include', // Still send cookies as fallback
+        credentials: 'include',
         headers,
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
 
       if (res.ok) {
         const userData = await res.json();
