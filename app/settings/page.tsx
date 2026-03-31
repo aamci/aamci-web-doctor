@@ -1,348 +1,205 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Settings, User, Bell, CheckCircle, Monitor, Calendar, BellRing, Clock, Stethoscope, ChevronRight, Laptop, CalendarClock } from 'lucide-react';
+import {
+  Stethoscope,
+  Clock,
+  Monitor,
+  Building2,
+  CalendarDays,
+  Bell,
+  User,
+  Shield,
+  Pen,
+  Laptop,
+  MessageSquare,
+  ChevronRight,
+  Check,
+  AlertTriangle,
+  Loader2,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
 
-interface DoctorProfile {
-  id: string;
-  specialty: string | null;
-  hospitalType: string | null;
-  address: string | null;
-  city: string | null;
-  presentation: string | null;
-  formations: string | null;
-  experiences: string | null;
-  autoConfirmPatientBookings: boolean;
+function getApiBase(): string {
+  let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  b = b.trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+  if (!b) return 'http://localhost:3000';
+  try { new URL(b); return b; } catch { return 'http://localhost:3000'; }
 }
 
+const SECTIONS = [
+  {
+    title: 'Cabinet',
+    items: [
+      { label: 'Types de consultation', desc: 'Gérer les types et durées de vos consultations', href: '/settings/consultation-types', icon: Stethoscope, color: 'text-violet-600 bg-violet-50' },
+      { label: 'Absences & indisponibilités', desc: 'Planifier vos congés et absences', href: '/settings/absences', icon: Clock, color: 'text-orange-600 bg-orange-50' },
+      { label: 'Calendrier externe', desc: 'Synchroniser avec Google Calendar ou iCal', href: '/settings/calendar-sync', icon: Monitor, color: 'text-indigo-600 bg-indigo-50' },
+      { label: 'Établissement', desc: 'Gérer votre cabinet ou clinique', href: '/facility-management', icon: Building2, color: 'text-blue-600 bg-blue-50' },
+    ],
+  },
+  {
+    title: 'Agenda',
+    items: [
+      { label: 'Affichage agenda', desc: 'Zoom, créneaux, heures affichées', href: '/settings/agenda', icon: CalendarDays, color: 'text-green-600 bg-green-50' },
+      { label: 'Notifications', desc: 'Rappels, canaux et heures de tranquillité', href: '/settings/notifications', icon: Bell, color: 'text-blue-600 bg-blue-50' },
+    ],
+  },
+  {
+    title: 'Compte & Sécurité',
+    items: [
+      { label: 'Profil & compte', desc: 'Informations personnelles, mot de passe', href: '/settings/compte', icon: User, color: 'text-teal-600 bg-teal-50' },
+      { label: 'Confidentialité', desc: 'Double authentification, données et RGPD', href: '/settings/confidentialite', icon: Shield, color: 'text-red-600 bg-red-50' },
+      { label: 'Journal de sécurité', desc: 'Historique des connexions et accès', href: '/settings/journal-securite', icon: Shield, color: 'text-slate-600 bg-slate-100' },
+      { label: 'Ma signature', desc: 'Signature électronique pour les documents', href: '/settings/ma-signature', icon: Pen, color: 'text-amber-600 bg-amber-50' },
+    ],
+  },
+  {
+    title: 'Application',
+    items: [
+      { label: 'Paramètres app', desc: 'Thème, langue, mises à jour automatiques', href: '/settings/application', icon: Laptop, color: 'text-teal-600 bg-teal-50' },
+      { label: 'Support', desc: 'Aide, signalement de problèmes', href: '/settings/support', icon: MessageSquare, color: 'text-slate-600 bg-slate-100' },
+    ],
+  },
+];
+
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<DoctorProfile | null>(null);
+  const apiBase = useMemo(() => getApiBase(), []);
+  const [autoConfirm, setAutoConfirm] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${apiBase}/doctor-profiles/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setAutoConfirm(data.autoConfirmPatientBookings ?? true); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [apiBase]);
 
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/doctor-profiles/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      } else if (response.status === 404) {
-        // Profil n'existe pas encore, créer un profil vide
-        setProfile({
-          id: '',
-          specialty: null,
-          hospitalType: null,
-          address: null,
-          city: null,
-          presentation: null,
-          formations: null,
-          experiences: null,
-          autoConfirmPatientBookings: true,
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateProfile = async (data: Partial<DoctorProfile>) => {
+  async function saveAutoConfirm(value: boolean) {
     setSaving(true);
-    setMessage(null);
-
+    setFeedback(null);
+    const token = localStorage.getItem('token');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/doctor-profiles/me`, {
+      const r = await fetch(`${apiBase}/doctor-profiles/me`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoConfirmPatientBookings: value }),
       });
-
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setProfile(updatedProfile);
-        setMessage({ type: 'success', text: 'Paramètres enregistrés avec succès' });
-        setTimeout(() => setMessage(null), 3000);
-      } else {
-        setMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
+      if (!r.ok) throw new Error();
+      setAutoConfirm(value);
+      setFeedback({ type: 'success', text: 'Préférence enregistrée' });
+    } catch {
+      setFeedback({ type: 'error', text: 'Impossible d\'enregistrer' });
     } finally {
       setSaving(false);
+      setTimeout(() => setFeedback(null), 3000);
     }
-  };
-
-  const handleAutoConfirmChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.checked;
-    if (profile) {
-      setProfile({ ...profile, autoConfirmPatientBookings: newValue });
-      await updateProfile({ autoConfirmPatientBookings: newValue });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-8 max-w-3xl">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-          <div className="space-y-4">
-            <div className="h-32 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Gérez les paramètres de votre compte et de vos rendez-vous
-        </p>
+        <h1 className="text-xl font-bold text-slate-900">Paramètres</h1>
+        <p className="text-sm text-slate-500 mt-1">Gérez les préférences de votre espace médecin</p>
       </div>
 
-        {/* Navigation sous-pages */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
-          {[
-            { href: '/settings/notifications', label: 'Notifications', icon: <BellRing className="w-5 h-5" />, color: 'text-blue-500' },
-            { href: '/settings/consultation-types', label: 'Types de consultation', icon: <Stethoscope className="w-5 h-5" />, color: 'text-purple-500' },
-            { href: '/settings/agenda', label: 'Agenda', icon: <Calendar className="w-5 h-5" />, color: 'text-green-500' },
-            { href: '/settings/absences', label: 'Absences', icon: <Clock className="w-5 h-5" />, color: 'text-orange-500' },
-            { href: '/settings/calendar-sync', label: 'Calendrier externe', icon: <Monitor className="w-5 h-5" />, color: 'text-indigo-500' },
-            { href: '/settings/application', label: 'Application', icon: <Laptop className="w-5 h-5" />, color: 'text-teal-500' },
-            { href: '/availability', label: 'Disponibilités', icon: <CalendarClock className="w-5 h-5" />, color: 'text-teal-600' },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href as any}
-              className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-teal-300 hover:shadow-sm transition-all group"
-            >
-              <span className={item.color}>{item.icon}</span>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 flex-1">{item.label}</span>
-              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-teal-500 transition-colors" />
-            </Link>
-          ))}
-        </div>
-
-        {/* Message de feedback */}
-        {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {message.type === 'success' && <CheckCircle className="w-5 h-5" />}
-            {message.text}
-          </div>
-        )}
-
-        {/* Section Rendez-vous */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Bell className="w-6 h-6 text-teal-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Paramètres des rendez-vous
-            </h2>
-          </div>
-
-          <div className="space-y-6">
-            {/* Confirmation automatique */}
-            <div className="flex items-start justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex-1 pr-4">
-                <h3 className="font-medium text-gray-900 mb-1">
-                  Confirmation automatique des rendez-vous patients
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Lorsque cette option est activée, les rendez-vous pris par les patients sont
-                  automatiquement confirmés. Sinon, ils restent en attente de votre validation.
-                </p>
-                <div className="mt-3 text-sm">
-                  <div className="flex items-center gap-2 text-green-700">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span>
-                      <strong>Activé :</strong> Les patients reçoivent une confirmation immédiate
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-amber-700 mt-1">
-                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                    <span>
-                      <strong>Désactivé :</strong> Vous devez valider chaque demande manuellement
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={profile?.autoConfirmPatientBookings ?? true}
-                    onChange={handleAutoConfirmChange}
-                    disabled={saving}
-                    className="sr-only peer"
-                  />
-                  <div className="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-teal-600"></div>
-                </label>
-              </div>
-            </div>
-
-            {/* Statut actuel */}
-            <div
-              className={`p-4 rounded-lg border ${
-                profile?.autoConfirmPatientBookings
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-amber-50 border-amber-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-sm font-medium ${
-                    profile?.autoConfirmPatientBookings ? 'text-green-800' : 'text-amber-800'
-                  }`}
-                >
-                  Statut actuel :
-                </span>
-                <span
-                  className={`text-sm ${
-                    profile?.autoConfirmPatientBookings ? 'text-green-700' : 'text-amber-700'
-                  }`}
-                >
-                  {profile?.autoConfirmPatientBookings
-                    ? 'Les rendez-vous patients sont confirmés automatiquement'
-                    : 'Les rendez-vous patients nécessitent votre validation'}
-                </span>
-              </div>
+      {/* Auto-confirm card — the one unique setting on this page */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-sm font-semibold text-slate-900">Confirmation automatique des rendez-vous</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Lorsque activé, les réservations patients sont confirmées immédiatement.
+              Sinon, chaque demande requiert votre validation manuelle.
+            </p>
+            <div className="flex items-center gap-4 mt-3 text-xs">
+              <span className="flex items-center gap-1.5 text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Activé : confirmation immédiate
+              </span>
+              <span className="flex items-center gap-1.5 text-amber-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Désactivé : validation manuelle
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* Section Profil (informations de base) */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <User className="w-6 h-6 text-teal-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Informations du profil
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Spécialité
-              </label>
-              <input
-                type="text"
-                value={profile?.specialty || ''}
-                onChange={(e) =>
-                  setProfile(profile ? { ...profile, specialty: e.target.value } : null)
-                }
-                onBlur={() => profile && updateProfile({ specialty: profile.specialty })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                placeholder="Ex: Médecine générale"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type d'établissement
-              </label>
-              <select
-                value={profile?.hospitalType || ''}
-                onChange={(e) => {
-                  const newValue = e.target.value || null;
-                  setProfile(profile ? { ...profile, hospitalType: newValue } : null);
-                  if (profile) updateProfile({ hospitalType: newValue });
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {loading ? (
+              <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+            ) : (
+              <button
+                onClick={() => saveAutoConfirm(!autoConfirm)}
+                disabled={saving}
+                className="flex items-center gap-2 disabled:opacity-50"
+                aria-label="Basculer confirmation automatique"
               >
-                <option value="">Sélectionner...</option>
-                <option value="Cabinet privé">Cabinet privé</option>
-                <option value="Clinique">Clinique</option>
-                <option value="CHU">CHU</option>
-                <option value="Hôpital">Hôpital</option>
-                <option value="Centre de santé">Centre de santé</option>
-                <option value="Polyclinique">Polyclinique</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ville
-              </label>
-              <input
-                type="text"
-                value={profile?.city || ''}
-                onChange={(e) =>
-                  setProfile(profile ? { ...profile, city: e.target.value } : null)
+                {saving
+                  ? <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
+                  : autoConfirm
+                    ? <ToggleRight className="w-9 h-9 text-teal-600" />
+                    : <ToggleLeft className="w-9 h-9 text-slate-400" />
                 }
-                onBlur={() => profile && updateProfile({ city: profile.city })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                placeholder="Ex: Paris"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Adresse
-              </label>
-              <input
-                type="text"
-                value={profile?.address || ''}
-                onChange={(e) =>
-                  setProfile(profile ? { ...profile, address: e.target.value } : null)
+                <span className={`text-sm font-medium ${autoConfirm ? 'text-teal-700' : 'text-slate-500'}`}>
+                  {autoConfirm ? 'Activé' : 'Désactivé'}
+                </span>
+              </button>
+            )}
+
+            {feedback && (
+              <span className={`flex items-center gap-1 text-xs ${feedback.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                {feedback.type === 'success'
+                  ? <Check className="w-3 h-3" />
+                  : <AlertTriangle className="w-3 h-3" />
                 }
-                onBlur={() => profile && updateProfile({ address: profile.address })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                placeholder="Ex: 123 Rue de la Santé"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Présentation
-              </label>
-              <textarea
-                value={profile?.presentation || ''}
-                onChange={(e) =>
-                  setProfile(profile ? { ...profile, presentation: e.target.value } : null)
-                }
-                onBlur={() => profile && updateProfile({ presentation: profile.presentation })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                rows={3}
-                placeholder="Décrivez brièvement votre pratique..."
-              />
-            </div>
+                {feedback.text}
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Note informative */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Note :</strong> Les rendez-vous que vous créez directement pour vos patients
-            sont toujours confirmés automatiquement, indépendamment de ce paramètre.
-          </p>
-        </div>
       </div>
+
+      {/* All sections */}
+      <div className="space-y-6">
+        {SECTIONS.map((section) => (
+          <div key={section.title}>
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
+              {section.title}
+            </h2>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href as any}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.color}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900">{item.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{item.desc}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-teal-500 transition-colors shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

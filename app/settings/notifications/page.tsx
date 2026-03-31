@@ -1,522 +1,237 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../../_providers/AuthProvider';
 import {
-  Bell,
-  BellOff,
-  Mail,
-  Smartphone,
-  Monitor,
-  Calendar,
-  CreditCard,
-  User,
-  AlertTriangle,
-  Settings,
-  Save,
-  ArrowLeft,
-  RefreshCw,
-  Check,
-  Volume2,
-  VolumeX,
-  Clock,
-  MessageSquare,
-  Pill,
-  FileText,
+  Bell, BellOff, Mail, Smartphone, Monitor, Calendar, CreditCard,
+  User, Save, RefreshCw, Check, Volume2, VolumeX, Clock,
+  MessageSquare, Pill, Settings, Loader2,
 } from 'lucide-react';
 
-interface NotificationChannel {
-  email: boolean;
-  push: boolean;
-  inApp: boolean;
-}
+interface NotificationChannel { email: boolean; push: boolean; inApp: boolean; }
 
 interface NotificationPreferences {
-  // Global settings
-  globalEnabled: boolean;
-  soundEnabled: boolean;
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-
-  // By category
-  appointments: NotificationChannel & {
-    reminders: boolean;
-    reminderTiming: number; // hours before
-  };
-  payments: NotificationChannel;
-  patients: NotificationChannel;
-  prescriptions: NotificationChannel;
-  messages: NotificationChannel;
-  system: NotificationChannel;
+  globalEnabled: boolean; soundEnabled: boolean;
+  quietHoursEnabled: boolean; quietHoursStart: string; quietHoursEnd: string;
+  appointments: NotificationChannel & { reminders: boolean; reminderTiming: number };
+  payments: NotificationChannel; patients: NotificationChannel;
+  prescriptions: NotificationChannel; messages: NotificationChannel; system: NotificationChannel;
 }
 
-const defaultPreferences: NotificationPreferences = {
-  globalEnabled: true,
-  soundEnabled: true,
-  quietHoursEnabled: false,
-  quietHoursStart: '22:00',
-  quietHoursEnd: '08:00',
-
-  appointments: {
-    email: true,
-    push: true,
-    inApp: true,
-    reminders: true,
-    reminderTiming: 24,
-  },
-  payments: {
-    email: true,
-    push: false,
-    inApp: true,
-  },
-  patients: {
-    email: false,
-    push: true,
-    inApp: true,
-  },
-  prescriptions: {
-    email: true,
-    push: true,
-    inApp: true,
-  },
-  messages: {
-    email: false,
-    push: true,
-    inApp: true,
-  },
-  system: {
-    email: false,
-    push: false,
-    inApp: true,
-  },
+const DEFAULT: NotificationPreferences = {
+  globalEnabled: true, soundEnabled: true, quietHoursEnabled: false,
+  quietHoursStart: '22:00', quietHoursEnd: '08:00',
+  appointments: { email: true, push: true, inApp: true, reminders: true, reminderTiming: 24 },
+  payments: { email: true, push: false, inApp: true },
+  patients: { email: false, push: true, inApp: true },
+  prescriptions: { email: true, push: true, inApp: true },
+  messages: { email: false, push: true, inApp: true },
+  system: { email: false, push: false, inApp: true },
 };
+
+const TOGGLE = `relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none`;
+const INPUT_BASE = `px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`;
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)}
+      className={`${TOGGLE} ${checked ? 'bg-teal-600' : 'bg-slate-200'}`}>
+      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+    </button>
+  );
+}
 
 export default function NotificationPreferencesPage() {
   const { user } = useAuth();
-  const router = useRouter();
-
-  const [preferences, setPreferences] = useState<NotificationPreferences>(defaultPreferences);
+  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').trim().replace(/\/+$/, '') || 'http://localhost:3000';
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-
-  const authedFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+  const authedFetch = useCallback((url: string, init?: RequestInit) => {
     const token = localStorage.getItem('token');
-    const res = await fetch(`${apiBaseUrl}${url}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers,
-      },
+    return fetch(`${apiBase}${url}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers as any) },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }, [apiBaseUrl]);
+  }, [apiBase]);
 
   useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const data = await authedFetch('/users/notification-preferences');
-        setPreferences({ ...defaultPreferences, ...data });
-      } catch (error) {
-        console.error('Error loading preferences:', error);
-        // Load from localStorage as fallback
-        const saved = localStorage.getItem('notification_preferences');
-        if (saved) {
-          setPreferences({ ...defaultPreferences, ...JSON.parse(saved) });
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadPreferences();
-  }, [authedFetch]);
+    authedFetch('/users/notification-preferences')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPrefs({ ...DEFAULT, ...d }); })
+      .catch(() => {
+        const saved = localStorage.getItem('notif_prefs_pro');
+        if (saved) { try { setPrefs({ ...DEFAULT, ...JSON.parse(saved) }); } catch { /* ignore */ } }
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-  const updatePreference = <K extends keyof NotificationPreferences>(
-    key: K,
-    value: NotificationPreferences[K]
-  ) => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
-    setHasChanges(true);
-    setSaved(false);
+  const update = <K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]) => {
+    setPrefs(p => ({ ...p, [key]: value }));
+    setDirty(true); setSaved(false);
   };
 
-  const updateChannelPreference = (
-    category: 'appointments' | 'payments' | 'patients' | 'prescriptions' | 'messages' | 'system',
-    channel: keyof NotificationChannel,
-    value: boolean
-  ) => {
-    setPreferences(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [channel]: value,
-      },
-    }));
-    setHasChanges(true);
-    setSaved(false);
-  };
+  const updateChannel = (
+    cat: 'appointments' | 'payments' | 'patients' | 'prescriptions' | 'messages' | 'system',
+    ch: keyof NotificationChannel, value: boolean
+  ) => { setPrefs(p => ({ ...p, [cat]: { ...p[cat], [ch]: value } })); setDirty(true); setSaved(false); };
 
-  const savePreferences = async () => {
+  const save = async () => {
     setSaving(true);
-    try {
-      await authedFetch('/users/notification-preferences', {
-        method: 'PATCH',
-        body: JSON.stringify(preferences),
-      });
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-    }
-    // Always save to localStorage as backup
-    localStorage.setItem('notification_preferences', JSON.stringify(preferences));
-    setSaving(false);
-    setSaved(true);
-    setHasChanges(false);
-  };
-
-  const resetToDefaults = () => {
-    setPreferences(defaultPreferences);
-    setHasChanges(true);
-    setSaved(false);
+    try { await authedFetch('/users/notification-preferences', { method: 'PATCH', body: JSON.stringify(prefs) }); } catch { /* ignore */ }
+    localStorage.setItem('notif_prefs_pro', JSON.stringify(prefs));
+    setSaving(false); setSaved(true); setDirty(false);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   const categories = [
-    {
-      id: 'appointments' as const,
-      label: 'Rendez-vous',
-      description: 'Confirmations, rappels, annulations',
-      icon: <Calendar className="w-5 h-5 text-blue-500" />,
-      hasReminders: true,
-    },
-    {
-      id: 'payments' as const,
-      label: 'Paiements',
-      description: 'Paiements reçus, remboursements',
-      icon: <CreditCard className="w-5 h-5 text-green-500" />,
-    },
-    {
-      id: 'patients' as const,
-      label: 'Patients',
-      description: 'Nouveaux patients, mises à jour profil',
-      icon: <User className="w-5 h-5 text-purple-500" />,
-    },
-    {
-      id: 'prescriptions' as const,
-      label: 'Ordonnances',
-      description: 'Expirations, renouvellements',
-      icon: <Pill className="w-5 h-5 text-orange-500" />,
-    },
-    {
-      id: 'messages' as const,
-      label: 'Messages',
-      description: 'Nouveaux messages, réponses',
-      icon: <MessageSquare className="w-5 h-5 text-teal-500" />,
-    },
-    {
-      id: 'system' as const,
-      label: 'Système',
-      description: 'Mises à jour, maintenance',
-      icon: <Settings className="w-5 h-5 text-gray-500" />,
-    },
+    { id: 'appointments' as const, label: 'Rendez-vous', desc: 'Confirmations, rappels, annulations', icon: <Calendar className="w-4 h-4 text-blue-500" />, hasReminders: true },
+    { id: 'payments' as const, label: 'Paiements', desc: 'Paiements reçus, remboursements', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
+    { id: 'patients' as const, label: 'Patients', desc: 'Nouveaux patients, mises à jour', icon: <User className="w-4 h-4 text-violet-500" /> },
+    { id: 'prescriptions' as const, label: 'Ordonnances', desc: 'Expirations, renouvellements', icon: <Pill className="w-4 h-4 text-orange-500" /> },
+    { id: 'messages' as const, label: 'Messages', desc: 'Nouveaux messages, réponses', icon: <MessageSquare className="w-4 h-4 text-teal-500" /> },
+    { id: 'system' as const, label: 'Système', desc: 'Mises à jour, maintenance', icon: <Settings className="w-4 h-4 text-slate-400" /> },
   ];
 
-  const reminderOptions = [
-    { value: 1, label: '1 heure avant' },
-    { value: 2, label: '2 heures avant' },
-    { value: 4, label: '4 heures avant' },
-    { value: 12, label: '12 heures avant' },
-    { value: 24, label: '24 heures avant' },
-    { value: 48, label: '48 heures avant' },
-  ];
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="w-8 h-8 text-teal-600 animate-spin" />
-          <p className="text-gray-600">Chargement des préférences...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-teal-500 animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-8">
-      <div className="max-w-3xl mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Préférences de notification</h1>
-              <p className="text-gray-500">Gérez comment et quand vous recevez des notifications</p>
-            </div>
-          </div>
-          <button
-            onClick={savePreferences}
-            disabled={!hasChanges || saving}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              hasChanges && !saving
-                ? 'bg-teal-600 text-white hover:bg-teal-700'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {saving ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : saved ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            {saving ? 'Enregistrement...' : saved ? 'Enregistré' : 'Enregistrer'}
-          </button>
+    <>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Notifications</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Gérez comment et quand vous recevez des alertes</p>
         </div>
+        <button onClick={save} disabled={!dirty || saving}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${dirty && !saving ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Enregistrement…' : saved ? 'Enregistré' : 'Enregistrer'}
+        </button>
+      </div>
 
-        {/* Global Settings */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-teal-600" />
-            Paramètres généraux
-          </h2>
+      {/* Global */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-4">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-800">Paramètres généraux</h2>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {/* Global on/off */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-3">
+              {prefs.globalEnabled ? <Bell className="w-4 h-4 text-teal-600" /> : <BellOff className="w-4 h-4 text-slate-400" />}
+              <div>
+                <p className="text-sm font-medium text-slate-800">Notifications activées</p>
+                <p className="text-xs text-slate-400">Recevoir toutes les notifications</p>
+              </div>
+            </div>
+            <Toggle checked={prefs.globalEnabled} onChange={v => update('globalEnabled', v)} />
+          </div>
 
-          <div className="space-y-4">
-            {/* Global Toggle */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          {prefs.globalEnabled && <>
+            {/* Sound */}
+            <div className="flex items-center justify-between px-5 py-4">
               <div className="flex items-center gap-3">
-                {preferences.globalEnabled ? (
-                  <Bell className="w-5 h-5 text-teal-600" />
-                ) : (
-                  <BellOff className="w-5 h-5 text-gray-400" />
-                )}
+                {prefs.soundEnabled ? <Volume2 className="w-4 h-4 text-blue-500" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
                 <div>
-                  <p className="font-medium text-gray-900">Notifications activées</p>
-                  <p className="text-sm text-gray-500">Recevoir toutes les notifications</p>
+                  <p className="text-sm font-medium text-slate-800">Sons</p>
+                  <p className="text-xs text-slate-400">Jouer un son à la réception</p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.globalEnabled}
-                  onChange={e => updatePreference('globalEnabled', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-              </label>
+              <Toggle checked={prefs.soundEnabled} onChange={v => update('soundEnabled', v)} />
             </div>
 
-            {preferences.globalEnabled && (
-              <>
-                {/* Sound Toggle */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {preferences.soundEnabled ? (
-                      <Volume2 className="w-5 h-5 text-blue-500" />
-                    ) : (
-                      <VolumeX className="w-5 h-5 text-gray-400" />
-                    )}
-                    <div>
-                      <p className="font-medium text-gray-900">Sons de notification</p>
-                      <p className="text-sm text-gray-500">Jouer un son à la réception</p>
-                    </div>
+            {/* Quiet hours */}
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-violet-500" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">Heures calmes</p>
+                    <p className="text-xs text-slate-400">Suspendre les notifications de nuit</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preferences.soundEnabled}
-                      onChange={e => updatePreference('soundEnabled', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                  </label>
                 </div>
-
-                {/* Quiet Hours */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-purple-500" />
-                      <div>
-                        <p className="font-medium text-gray-900">Heures calmes</p>
-                        <p className="text-sm text-gray-500">Désactiver les notifications pendant certaines heures</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={preferences.quietHoursEnabled}
-                        onChange={e => updatePreference('quietHoursEnabled', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
+                <Toggle checked={prefs.quietHoursEnabled} onChange={v => update('quietHoursEnabled', v)} />
+              </div>
+              {prefs.quietHoursEnabled && (
+                <div className="flex items-center gap-3 ml-7 mt-2">
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">De</p>
+                    <input type="time" value={prefs.quietHoursStart} onChange={e => update('quietHoursStart', e.target.value)} className={INPUT_BASE} />
                   </div>
-
-                  {preferences.quietHoursEnabled && (
-                    <div className="flex items-center gap-4 mt-3 pl-8">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">De</label>
-                        <input
-                          type="time"
-                          value={preferences.quietHoursStart}
-                          onChange={e => updatePreference('quietHoursStart', e.target.value)}
-                          className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                      <span className="text-gray-400 mt-5">→</span>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">À</label>
-                        <input
-                          type="time"
-                          value={preferences.quietHoursEnd}
-                          onChange={e => updatePreference('quietHoursEnd', e.target.value)}
-                          className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Category Settings */}
-        {preferences.globalEnabled && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-teal-600" />
-                Notifications par catégorie
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Choisissez les canaux pour chaque type de notification</p>
-            </div>
-
-            {/* Channel Headers */}
-            <div className="grid grid-cols-[1fr_80px_80px_80px] gap-2 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-500">
-              <div>Catégorie</div>
-              <div className="text-center flex items-center justify-center gap-1">
-                <Mail className="w-3.5 h-3.5" />
-                Email
-              </div>
-              <div className="text-center flex items-center justify-center gap-1">
-                <Smartphone className="w-3.5 h-3.5" />
-                Push
-              </div>
-              <div className="text-center flex items-center justify-center gap-1">
-                <Monitor className="w-3.5 h-3.5" />
-                App
-              </div>
-            </div>
-
-            {/* Categories */}
-            <div className="divide-y divide-gray-100">
-              {categories.map(category => (
-                <div key={category.id} className="p-4">
-                  <div className="grid grid-cols-[1fr_80px_80px_80px] gap-2 items-center">
-                    <div className="flex items-center gap-3">
-                      {category.icon}
-                      <div>
-                        <p className="font-medium text-gray-900">{category.label}</p>
-                        <p className="text-xs text-gray-500">{category.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={preferences[category.id].email}
-                        onChange={e => updateChannelPreference(category.id, 'email', e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={preferences[category.id].push}
-                        onChange={e => updateChannelPreference(category.id, 'push', e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={preferences[category.id].inApp}
-                        onChange={e => updateChannelPreference(category.id, 'inApp', e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                      />
-                    </div>
+                  <span className="text-slate-300 mt-5">→</span>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">À</p>
+                    <input type="time" value={prefs.quietHoursEnd} onChange={e => update('quietHoursEnd', e.target.value)} className={INPUT_BASE} />
                   </div>
-
-                  {/* Appointment Reminders */}
-                  {category.hasReminders && category.id === 'appointments' && (
-                    <div className="mt-4 ml-8 p-3 bg-blue-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-blue-500" />
-                          <span className="text-sm font-medium text-gray-700">Rappels automatiques</span>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={preferences.appointments.reminders}
-                            onChange={e => setPreferences(prev => ({
-                              ...prev,
-                              appointments: { ...prev.appointments, reminders: e.target.checked }
-                            }))}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                        </label>
-                      </div>
-                      {preferences.appointments.reminders && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">Envoyer</span>
-                          <select
-                            value={preferences.appointments.reminderTiming}
-                            onChange={e => {
-                              setPreferences(prev => ({
-                                ...prev,
-                                appointments: { ...prev.appointments, reminderTiming: Number(e.target.value) }
-                              }));
-                              setHasChanges(true);
-                            }}
-                            className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            {reminderOptions.map(opt => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
-
-        {/* Reset Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={resetToDefaults}
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Réinitialiser par défaut
-          </button>
+          </>}
         </div>
       </div>
-    </div>
+
+      {/* Per-category */}
+      {prefs.globalEnabled && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-800">Par catégorie</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Choisissez les canaux pour chaque type</p>
+          </div>
+          {/* Column headers */}
+          <div className="grid grid-cols-[1fr_72px_72px_72px] px-5 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-medium text-slate-400">
+            <div>Catégorie</div>
+            <div className="text-center flex items-center justify-center gap-1"><Mail className="w-3 h-3" /> Email</div>
+            <div className="text-center flex items-center justify-center gap-1"><Smartphone className="w-3 h-3" /> Push</div>
+            <div className="text-center flex items-center justify-center gap-1"><Monitor className="w-3 h-3" /> App</div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {categories.map(cat => (
+              <div key={cat.id} className="px-5 py-3.5">
+                <div className="grid grid-cols-[1fr_72px_72px_72px] items-center">
+                  <div className="flex items-center gap-3">
+                    {cat.icon}
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{cat.label}</p>
+                      <p className="text-xs text-slate-400">{cat.desc}</p>
+                    </div>
+                  </div>
+                  {(['email', 'push', 'inApp'] as const).map(ch => (
+                    <div key={ch} className="flex justify-center">
+                      <input type="checkbox" checked={prefs[cat.id][ch]} onChange={e => updateChannel(cat.id, ch, e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer" />
+                    </div>
+                  ))}
+                </div>
+                {cat.hasReminders && cat.id === 'appointments' && (
+                  <div className="mt-3 ml-7 flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                    <input type="checkbox" checked={prefs.appointments.reminders}
+                      onChange={e => setPrefs(p => ({ ...p, appointments: { ...p.appointments, reminders: e.target.checked } }))}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                    <span className="text-xs text-slate-700 font-medium">Rappels automatiques</span>
+                    {prefs.appointments.reminders && (
+                      <select value={prefs.appointments.reminderTiming}
+                        onChange={e => { setPrefs(p => ({ ...p, appointments: { ...p.appointments, reminderTiming: +e.target.value } })); setDirty(true); }}
+                        className="ml-auto px-2 py-1 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        {[1,2,4,12,24,48].map(h => <option key={h} value={h}>{h < 24 ? `${h}h avant` : `${h/24}j avant`}</option>)}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end mt-4">
+        <button onClick={() => { setPrefs(DEFAULT); setDirty(true); setSaved(false); }}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors">
+          <RefreshCw className="w-3.5 h-3.5" /> Réinitialiser par défaut
+        </button>
+      </div>
+    </>
   );
 }
