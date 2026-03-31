@@ -202,6 +202,10 @@ export default function AbsencesPage() {
     setShowBlockedModal(true);
   };
 
+  const handleDeleteBlocked = (id: string) => {
+    saveBlockedTimes(blockedTimes.filter(b => b.id !== id));
+  };
+
   const handleSaveBlocked = () => {
     const errors: typeof blockedErrors = {
       timeRange: timeRange(blockedForm.startTime, blockedForm.endTime),
