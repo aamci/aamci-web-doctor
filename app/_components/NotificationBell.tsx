@@ -54,7 +54,7 @@ interface Notification {
   };
 }
 
-type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts' | 'messages' | 'team';
+type NotificationFilter = 'all' | 'unread' | 'appointments' | 'alerts' | 'messages' | 'team' | 'referrals';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -303,6 +303,7 @@ export default function NotificationBell() {
     if (filter === 'alerts') return n.type === 'ALERT' || n.type.includes('CANCELLED');
     if (filter === 'messages') return n.type === 'NEW_MESSAGE';
     if (filter === 'team') return n.type.startsWith('TEAM_');
+    if (filter === 'referrals') return n.type === 'NEW_REFERRAL' || n.type === 'REFERRAL_RESPONSE';
     return true;
   });
 
@@ -313,6 +314,9 @@ export default function NotificationBell() {
 
     if (notification.type === 'NEW_MESSAGE') {
       router.push('/messages');
+      setIsOpen(false);
+    } else if (notification.type === 'NEW_REFERRAL' || notification.type === 'REFERRAL_RESPONSE') {
+      router.push('/patients?tab=received');
       setIsOpen(false);
     } else if (notification.type === 'TEAM_INVITATION' || notification.type === 'TEAM_JOINED') {
       router.push('/facility-management');
@@ -378,13 +382,14 @@ export default function NotificationBell() {
             </div>
 
             {/* Filters */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {[
                 { value: 'all', label: 'Tout' },
                 { value: 'unread', label: 'Non lues' },
                 { value: 'appointments', label: 'RDV' },
-                { value: 'alerts', label: 'Alertes' },
+                { value: 'referrals', label: 'Transferts' },
                 { value: 'messages', label: 'Messages' },
+                { value: 'alerts', label: 'Alertes' },
                 { value: 'team', label: 'Équipe' },
               ].map((f) => (
                 <button
@@ -432,7 +437,11 @@ export default function NotificationBell() {
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        notification.read ? 'bg-gray-100' : 'bg-white shadow-sm'
+                        notification.read
+                          ? 'bg-gray-100'
+                          : notification.type === 'NEW_REFERRAL' || notification.type === 'REFERRAL_RESPONSE'
+                            ? 'bg-purple-100'
+                            : 'bg-white shadow-sm'
                       }`}>
                         {getNotificationIcon(notification.type)}
                       </div>

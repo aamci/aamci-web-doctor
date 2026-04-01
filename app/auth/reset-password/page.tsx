@@ -1,6 +1,8 @@
 'use client';
+
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Lock, Eye, EyeOff, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 function getApiBase(): string | null {
   let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
@@ -54,88 +56,105 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-        <div className="flex items-center gap-2 mb-8">
-          <span className="text-2xl">🩺</span>
-          <span className="text-lg font-bold text-gray-900">Espace Médecin</span>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-[420px]">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
+            <span className="text-xl font-bold text-white">M</span>
+          </div>
+          <span className="text-white text-lg font-bold">MedPro</span>
         </div>
 
         {success ? (
           <div className="text-center">
-            <div className="text-5xl mb-4">✅</div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Mot de passe réinitialisé !</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.
+            <div className="w-16 h-16 bg-teal-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-teal-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Mot de passe mis à jour !</h1>
+            <p className="text-slate-400 text-sm mb-8">
+              Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.
             </p>
             <button
               onClick={() => router.push('/auth/login' as any)}
-              className="w-full py-3 bg-blue-700 text-white rounded-lg font-semibold text-sm hover:bg-blue-800 transition-colors"
+              className="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-semibold text-sm transition-colors"
             >
               Se connecter
             </button>
           </div>
         ) : (
           <>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Nouveau mot de passe</h2>
-            <p className="text-gray-500 text-sm mb-6">Choisissez un mot de passe sécurisé pour votre compte.</p>
+            <h1 className="text-2xl font-bold text-white mb-2">Nouveau mot de passe</h1>
+            <p className="text-slate-400 text-sm mb-8">
+              Choisissez un mot de passe sécurisé d'au moins 8 caractères.
+            </p>
 
             {!token && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
-                Lien invalide ou expiré. Veuillez refaire une demande de réinitialisation.
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm mb-4 flex items-start gap-3">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Lien invalide ou expiré. Veuillez refaire une demande de réinitialisation.</span>
+              </div>
+            )}
+
+            {err && (
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm mb-4 flex items-start gap-3">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{err}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de passe</label>
-                <div className="flex gap-2">
+                <label className="block text-slate-300 text-xs font-medium mb-1.5">Nouveau mot de passe</label>
+                <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 8 caractères"
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-11 pr-11 py-3 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
                   />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                   <button
                     type="button"
-                    onClick={() => setShowPwd((s) => !s)}
-                    className="px-3 py-2.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
+                    onClick={() => setShowPwd(s => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300 transition-colors"
                   >
-                    {showPwd ? 'Masquer' : 'Voir'}
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {err && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-                  {err}
+                <label className="block text-slate-300 text-xs font-medium mb-1.5">Confirmer le mot de passe</label>
+                <div className="relative">
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-11 pr-4 py-3 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all"
+                  />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                 </div>
-              )}
+              </div>
 
               <button
                 type="submit"
                 disabled={loading || !token}
-                className="w-full py-3 bg-blue-700 text-white rounded-lg font-semibold text-sm hover:bg-blue-800 disabled:opacity-50 transition-colors"
+                className="w-full py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Enregistrement…' : 'Enregistrer le mot de passe'}
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Enregistrement…</>
+                ) : (
+                  'Enregistrer le mot de passe'
+                )}
               </button>
 
               <button
                 type="button"
                 onClick={() => router.push('/auth/forgot-password' as any)}
-                className="w-full py-2.5 text-sm text-gray-600 hover:text-gray-900"
+                className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-300 transition-colors"
               >
                 ← Refaire une demande
               </button>

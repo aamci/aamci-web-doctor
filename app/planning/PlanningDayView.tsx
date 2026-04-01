@@ -2,6 +2,7 @@
 
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Video } from 'lucide-react';
 import styles from './PlanningDayView.module.css';
 import EmptyState from './EmptyState';
 import AppointmentTooltip from './AppointmentTooltip';
@@ -12,11 +13,14 @@ interface Appointment {
   kind?: {
     id: string;
     name: string;
+    isTelemedicine?: boolean;
+    color?: string | null;
   };
   patient?: {
     id: string;
     fullName?: string;
   };
+  status?: string;
 }
 
 interface Slot {
@@ -37,8 +41,54 @@ interface Props {
   isCopyMode?: boolean;
 }
 
+function getCardStyle(kind?: { name?: string; color?: string | null; isTelemedicine?: boolean }, status?: string) {
+  if (status === 'CANCELLED') {
+    return { cls: 'bg-gray-100 border-gray-300 text-gray-400 opacity-50 line-through', style: {} };
+  }
+
+  const isPending = status === 'PENDING';
+  const borderStyle = isPending ? 'border-dashed' : 'border-solid';
+
+  if (kind?.color) {
+    return {
+      cls: `${borderStyle} text-gray-800`,
+      style: {
+        backgroundColor: `${kind.color}1A`,
+        borderColor: kind.color,
+        borderLeftWidth: '3px',
+        borderLeftColor: kind.color,
+      },
+    };
+  }
+
+  if (kind?.isTelemedicine) {
+    return isPending
+      ? { cls: 'bg-purple-50 border-purple-400 border-dashed text-purple-900', style: {} }
+      : { cls: 'bg-purple-50 border-purple-400 text-purple-900', style: { borderLeftWidth: '3px' } };
+  }
+
+  const palette = [
+    { bg: 'bg-blue-50',    border: 'border-blue-400',    text: 'text-blue-900' },
+    { bg: 'bg-teal-50',    border: 'border-teal-400',    text: 'text-teal-900' },
+    { bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-900' },
+    { bg: 'bg-orange-50',  border: 'border-orange-400',  text: 'text-orange-900' },
+    { bg: 'bg-rose-50',    border: 'border-rose-400',    text: 'text-rose-900' },
+    { bg: 'bg-indigo-50',  border: 'border-indigo-400',  text: 'text-indigo-900' },
+  ];
+  const name = kind?.name || '';
+  const idx = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % palette.length;
+  const { bg, border, text } = palette[idx];
+  return { cls: `${bg} ${border} ${text} ${borderStyle}`, style: { borderLeftWidth: '3px' } };
+}
+
+function StatusDot({ status }: { status: string }) {
+  if (status === 'CONFIRMED') return <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />;
+  if (status === 'PENDING')   return <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />;
+  if (status === 'NO_SHOW')   return <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />;
+  return null;
+}
+
 export default function PlanningDayView({ slots, currentDate, hours, onAppointmentClick, onSlotClick, isCopyMode = false }: Props) {
-  // Filtrer les créneaux pour la date actuelle
   const daySlots = slots.filter((slot) => {
     const slotDate = new Date(slot.start);
     return (
@@ -48,21 +98,9 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
     );
   });
 
-  // Organiser les créneaux par heure
-  const getSlotForHour = (hour: number) => {
-    return daySlots.filter((slot) => {
-      const slotHour = new Date(slot.start).getHours();
-      return slotHour === hour;
-    });
-  };
+  const getSlotForHour = (hour: number) =>
+    daySlots.filter((slot) => new Date(slot.start).getHours() === hour);
 
-  const getStatusColor = (status: string) => {
-    return status === 'ACTIVE'
-      ? 'bg-green-100 border-green-400 text-green-700'
-      : 'bg-gray-100 border-gray-400 text-gray-700';
-  };
-
-  // Vérifier si aucun slot
   if (daySlots.length === 0) {
     return (
       <div className={styles.dayView}>
@@ -99,11 +137,9 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
 
           return (
             <div key={hour} className={styles.timeSlot}>
-              {/* Colonne heure */}
               <div className={styles.hourLabel}>{hour}:00</div>
 
-              {/* Colonne créneaux */}
-              <div className={`${styles.slotContainer} ${isCopyMode && hasAvailableSlots ? 'bg-yellow-50 border-2 border-yellow-300 rounded cursor-copy' : ''}`}>
+              <div className={`${styles.slotContainer} ${isCopyMode && hasAvailableSlots ? 'bg-amber-50 border-2 border-amber-300 rounded cursor-copy' : ''}`}>
                 {hourSlots.length === 0 ? (
                   <div className={styles.emptySlot}>
                     <span className="text-gray-400 text-xs">Aucun créneau</span>
@@ -117,60 +153,59 @@ export default function PlanningDayView({ slots, currentDate, hours, onAppointme
                     const isExcluded = slot.isExcluded || slot.status === 'EXCLUDED';
                     const isGenerated = slot.isGenerated && !appointment;
 
-                    // Afficher les slots générés vides comme cliquables
-                    if (isGenerated) {
-                      return (
-                        <div
-                          key={slot.id}
-                          className={`${styles.slotCard} cursor-pointer hover:bg-blue-50 transition-colors border border-dashed border-gray-300`}
-                          onClick={() => onSlotClick(slot)}
-                          title="Cliquez pour créer un rendez-vous"
-                        >
-                          <div className={styles.slotHeader}>
-                            <span className={styles.slotTime}>
-                              {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Style pour slots exclus (grisé sans texte)
                     if (isExcluded) {
                       return (
                         <div
                           key={slot.id}
                           className={`${styles.slotCard} ${styles.excludedSlot}`}
                           title="Période non disponible"
-                        >
-                          {/* Slot grisé vide */}
-                        </div>
+                        />
                       );
                     }
 
-                    // Afficher uniquement les rendez-vous réservés
-                    if (isBooked) {
+                    if (isGenerated) {
                       return (
-                        <AppointmentTooltip
+                        <div
                           key={slot.id}
-                          appointment={{ ...appointment, start: slot.start, end: slot.end }}
-                          className={`${styles.slotCard} bg-blue-50 border-blue-400 text-blue-700 cursor-pointer hover:opacity-80`}
-                          onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                          className={`${styles.slotCard} cursor-pointer hover:bg-blue-50 transition-colors border border-dashed border-slate-300`}
+                          onClick={() => onSlotClick(slot)}
+                          title="Cliquer pour créer un rendez-vous"
                         >
                           <div className={styles.slotHeader}>
                             <span className={styles.slotTime}>
                               {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
                             </span>
-                            <span className={styles.statusBadge}>
-                              {appointment?.kind?.name || 'Rendez-vous'}
-                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (isBooked) {
+                      const kind = appointment?.kind;
+                      const status = appointment?.status || 'PENDING';
+                      const patientName = appointment?.patient?.fullName || 'Patient';
+                      const { cls, style } = getCardStyle(kind, status);
+
+                      return (
+                        <AppointmentTooltip
+                          key={slot.id}
+                          appointment={{ ...appointment, start: slot.start, end: slot.end }}
+                          className={`${styles.slotCard} ${cls} cursor-pointer hover:opacity-80 transition-all border rounded`}
+                          style={style}
+                          onClick={() => onAppointmentClick({ ...appointment, start: slot.start, end: slot.end })}
+                        >
+                          <div className={styles.slotHeader}>
+                            <div className="flex items-center gap-1.5">
+                              <StatusDot status={status} />
+                              <span className={styles.slotTime}>
+                                {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                              </span>
+                              {kind?.isTelemedicine && <Video className="w-3 h-3 shrink-0 opacity-70" />}
+                            </div>
                           </div>
                           <div className={styles.slotBody}>
-                            {appointment?.patient && (
-                              <div className={styles.patientInfo}>
-                                Patient: <strong>{appointment.patient.fullName}</strong>
-                              </div>
-                            )}
+                            <div className="text-[11px] font-medium opacity-80">{kind?.name || 'Consultation'}</div>
+                            <div className="text-[11px] opacity-70">{patientName}</div>
                           </div>
                         </AppointmentTooltip>
                       );

@@ -68,6 +68,9 @@ export type AppointmentKind = {
   name: string;
   description?: string;
   doctorId?: string;
+  isTelemedicine: boolean;
+  durationMins: number;
+  color?: string | null;
 };
 
 function getApiBase(): string | null {

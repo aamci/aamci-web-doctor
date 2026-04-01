@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { X, Video } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
@@ -13,7 +13,8 @@ interface Patient {
 interface AppointmentKind {
   id: string;
   name: string;
-  duration?: number;
+  durationMins?: number;
+  isTelemedicine?: boolean;
 }
 
 interface Appointment {
@@ -231,18 +232,40 @@ export default function EditAppointmentModal({
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Type de consultation
             </label>
-            <select
-              value={selectedKindId}
-              onChange={(e) => setSelectedKindId(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              <option value="">Consultation générale</option>
-              {appointmentKinds.map((kind) => (
-                <option key={kind.id} value={kind.id}>
-                  {kind.name} {kind.duration ? `(${kind.duration}min)` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-1 gap-1.5">
+                {appointmentKinds.map((kind) => (
+                  <button
+                    key={kind.id}
+                    type="button"
+                    onClick={() => setSelectedKindId(kind.id)}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors text-left ${
+                      selectedKindId === kind.id
+                        ? kind.isTelemedicine
+                          ? 'border-purple-400 bg-purple-50 text-purple-900'
+                          : 'border-teal-400 bg-teal-50 text-teal-900'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {kind.isTelemedicine && (
+                        <Video className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                      )}
+                      <span className="font-medium">{kind.name}</span>
+                      {kind.isTelemedicine && (
+                        <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">Visio</span>
+                      )}
+                    </span>
+                    {kind.durationMins && (
+                      <span className="text-xs text-gray-400 shrink-0">{kind.durationMins}min</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {selectedKindId === '' && (
+                <p className="text-xs text-gray-400 mt-1">Aucun type sélectionné — la consultation restera inchangée</p>
+              )}
+            </div>
           </div>
 
           {/* Date */}

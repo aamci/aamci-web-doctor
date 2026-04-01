@@ -3,13 +3,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { User, Phone, Mail, Clock } from 'lucide-react';
+import { User, Phone, Mail, Clock, Video } from 'lucide-react';
 
 interface AppointmentData {
   id?: string;
   status?: string;
   notes?: string;
-  kind?: { name: string };
+  kind?: { name: string; isTelemedicine?: boolean };
   patient?: {
     fullName?: string;
     email?: string;
@@ -25,6 +25,7 @@ interface Props {
   appointment: AppointmentData;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: () => void;
 }
 
@@ -38,7 +39,7 @@ function statusBadge(status: string) {
   }
 }
 
-export default function AppointmentTooltip({ appointment, children, className, onClick }: Props) {
+export default function AppointmentTooltip({ appointment, children, className, style, onClick }: Props) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos]         = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const ref                   = useRef<HTMLDivElement>(null);
@@ -74,6 +75,7 @@ export default function AppointmentTooltip({ appointment, children, className, o
       <div
         ref={ref}
         className={className}
+        style={style}
         onClick={onClick}
         onMouseEnter={show}
         onMouseLeave={hide}
@@ -91,7 +93,15 @@ export default function AppointmentTooltip({ appointment, children, className, o
           {/* En-tête : type + statut */}
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-gray-800 truncate">{kindName}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                {appointment.kind?.isTelemedicine && (
+                  <Video size={12} className="text-purple-500 shrink-0" />
+                )}
+                <span className="text-xs font-semibold text-gray-800 truncate">{kindName}</span>
+                {appointment.kind?.isTelemedicine && (
+                  <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">Visio</span>
+                )}
+              </div>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${color}`}>
                 {label}
               </span>

@@ -82,16 +82,18 @@ export default function ApplicationSettingsPage() {
     load();
   }, [isElectron, getSettings, autoLaunchIsEnabled, getCacheStats, isOnline]);
 
+  // Apply theme to DOM (mirrors ThemeProvider logic so changes are instant)
   useEffect(() => {
+    const root = document.documentElement;
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else if (theme === 'light') {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     } else {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', prefersDark);
+      root.classList.toggle('dark', prefersDark);
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = (e: MediaQueryListEvent) => document.documentElement.classList.toggle('dark', e.matches);
+      const handler = (e: MediaQueryListEvent) => root.classList.toggle('dark', e.matches);
       mq.addEventListener('change', handler);
       return () => mq.removeEventListener('change', handler);
     }
@@ -246,7 +248,7 @@ export default function ApplicationSettingsPage() {
                       : 'border-slate-200 hover:border-slate-300'
                   }`}>
                   <Icon className={`w-5 h-5 ${theme === id ? 'text-teal-600' : 'text-slate-400'}`} />
-                  <span className={`text-xs font-medium ${theme === id ? 'text-teal-700' : 'text-slate-600'}`}>{label}</span>
+                  <span className={`text-xs font-medium ${theme === id ? 'text-teal-700' : 'text-slate-500'}`}>{label}</span>
                 </button>
               ))}
             </div>

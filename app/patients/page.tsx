@@ -96,6 +96,14 @@ export default function PatientsPage() {
   const { user } = useAuth();
   const isSecretary = user?.role === 'SECRETARY';
   const [mainTab, setMainTab] = useState<'patients' | 'received'>('patients');
+
+  // Open "Dossiers reçus" tab when navigated from a notification
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'received') setMainTab('received');
+    }
+  }, []);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [receivedPatients, setReceivedPatients] = useState<ReceivedPatient[]>([]);
@@ -431,29 +439,78 @@ export default function PatientsPage() {
                   <p className="text-sm mt-1">Les patients transférés et acceptés apparaîtront ici.</p>
                 </div>
               ) : (
-                <div className="grid gap-3">
-                  {receivedPatients.map((r) => (
-                    <div
-                      key={r.id}
-                      onClick={() => router.push(`/patients/${r.patient.id}` as any)}
-                      className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 hover:border-teal-200 hover:shadow-sm transition-all cursor-pointer"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center font-semibold text-teal-700 text-sm flex-shrink-0">
-                        {r.patient.fullName?.charAt(0) ?? '?'}
+                <div className="space-y-3">
+                  {/* Summary bar */}
+                  <div className="flex items-center gap-2 px-1 mb-1">
+                    <span className="text-sm font-medium text-gray-700">{receivedPatients.length} dossier{receivedPatients.length > 1 ? 's' : ''} transféré{receivedPatients.length > 1 ? 's' : ''}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-xs text-gray-400">Tous acceptés</span>
+                  </div>
+
+                  {receivedPatients.map((r) => {
+                    const initials = r.patient.fullName
+                      ? r.patient.fullName.trim().split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase()
+                      : (r.patient.email[0] ?? '?').toUpperCase();
+                    const age = r.patient.birthdate
+                      ? (() => { const b = new Date(r.patient.birthdate!); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() - b.getMonth() < 0 || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; })()
+                      : null;
+
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => router.push(`/patients/${r.patient.id}` as any)}
+                        className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 hover:border-purple-200 hover:shadow-sm transition-all cursor-pointer group"
+                      >
+                        {/* Avatar */}
+                        <div className="w-11 h-11 rounded-full bg-purple-100 flex items-center justify-center font-bold text-purple-700 text-sm shrink-0">
+                          {initials}
+                        </div>
+
+                        {/* Patient info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-semibold text-gray-900 truncate">{r.patient.fullName || r.patient.email}</p>
+                            {age && <span className="text-xs text-gray-400 shrink-0">{age} ans</span>}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {r.patient.email && (
+                              <span className="text-xs text-gray-400 truncate">{r.patient.email}</span>
+                            )}
+                            {r.patient.phone && (
+                              <>
+                                <span className="text-gray-200">·</span>
+                                <span className="text-xs text-gray-400">{r.patient.phone}</span>
+                              </>
+                            )}
+                          </div>
+                          {r.reason && (
+                            <div className="mt-1.5 flex items-start gap-1">
+                              <FileText className="w-3 h-3 text-purple-400 shrink-0 mt-0.5" />
+                              <p className="text-xs text-gray-500 italic line-clamp-1">{r.reason}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Transfer meta */}
+                        <div className="text-right shrink-0 space-y-1">
+                          <div className="flex items-center gap-1 justify-end">
+                            <ArrowRightLeft className="w-3 h-3 text-purple-400" />
+                            <p className="text-xs font-medium text-gray-700">Dr {r.fromDoctor?.fullName ?? '—'}</p>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            {r.respondedAt
+                              ? new Date(r.respondedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : '—'}
+                          </p>
+                          <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-medium rounded-full">
+                            Accepté
+                          </span>
+                        </div>
+
+                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-purple-400 transition-colors shrink-0" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{r.patient.fullName || r.patient.email}</p>
-                        <p className="text-xs text-gray-500 truncate">{r.patient.email}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xs text-gray-500">De Dr {r.fromDoctor?.fullName ?? '—'}</p>
-                        <p className="text-xs text-gray-400">
-                          {r.respondedAt ? new Date(r.respondedAt).toLocaleDateString('fr-FR') : '—'}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

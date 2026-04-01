@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, User, Calendar, Clock, UserPlus, ChevronLeft } from 'lucide-react';
+import { X, Search, User, Calendar, Clock, UserPlus, ChevronLeft, Video } from 'lucide-react';
 import { toast } from '../_components/Toaster';
 
 interface Patient {
@@ -15,7 +15,9 @@ interface AppointmentKind {
   id: string;
   name: string;
   description?: string;
-  duration?: number;
+  durationMins?: number;
+  isTelemedicine?: boolean;
+  color?: string | null;
 }
 
 interface CreateAppointmentModalProps {
@@ -564,31 +566,65 @@ export default function CreateAppointmentModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           {/* Type de consultation */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
               Type de consultation *
             </label>
-            <select
-              value={selectedKindId}
-              onChange={(e) => setSelectedKindId(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={appointmentKinds.length === 0}
-            >
-              <option value="">
-                {appointmentKinds.length === 0
-                  ? 'Chargement...'
-                  : 'Sélectionner'}
-              </option>
-              {appointmentKinds.map((kind) => (
-                <option key={kind.id} value={kind.id}>
-                  {kind.name} {kind.duration ? `(${kind.duration}min)` : ''}
-                </option>
-              ))}
-            </select>
-            {appointmentKinds.length === 0 && (
-              <p className="mt-1 text-xs text-orange-600">
-                Aucun type disponible
-              </p>
+            {appointmentKinds.length === 0 ? (
+              <p className="text-xs text-orange-600 py-1">Chargement des types…</p>
+            ) : (
+              <div className="space-y-1">
+                {/* Présentiel */}
+                {appointmentKinds.filter(k => !k.isTelemedicine).length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Présentiel</p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {appointmentKinds.filter(k => !k.isTelemedicine).map((kind) => (
+                        <button
+                          key={kind.id}
+                          type="button"
+                          onClick={() => setSelectedKindId(kind.id)}
+                          className={`flex items-center justify-between px-2.5 py-2 rounded-lg border text-xs transition-colors text-left ${
+                            selectedKindId === kind.id
+                              ? 'border-teal-400 bg-teal-50 text-teal-900'
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <span className="font-medium">{kind.name}</span>
+                          {kind.durationMins && <span className="text-gray-400">{kind.durationMins}min</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Téléconsultation */}
+                {appointmentKinds.filter(k => k.isTelemedicine).length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide mb-1 mt-2 flex items-center gap-1">
+                      <Video className="w-3 h-3" /> Téléconsultation
+                    </p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {appointmentKinds.filter(k => k.isTelemedicine).map((kind) => (
+                        <button
+                          key={kind.id}
+                          type="button"
+                          onClick={() => setSelectedKindId(kind.id)}
+                          className={`flex items-center justify-between px-2.5 py-2 rounded-lg border text-xs transition-colors text-left ${
+                            selectedKindId === kind.id
+                              ? 'border-purple-400 bg-purple-50 text-purple-900'
+                              : 'border-purple-100 bg-purple-50/40 hover:border-purple-300 text-gray-700'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Video className="w-3 h-3 text-purple-400 shrink-0" />
+                            <span className="font-medium">{kind.name}</span>
+                          </span>
+                          {kind.durationMins && <span className="text-gray-400">{kind.durationMins}min</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
