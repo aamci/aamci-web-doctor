@@ -285,3 +285,15 @@
     min-height: 50px;
   }
 }
+
+/* ── Dark mode overrides ────────────────────────────────────── */
+:global(html.dark) .weekView  { background: hsl(215 27.9% 10%); }
+:global(html.dark) .header    { background: hsl(215 27.9% 12%); border-bottom-color: hsl(215 27.9% 18%); }
+:global(html.dark) .dayHeader { border-right-color: hsl(215 27.9% 18%); }
+:global(html.dark) .dayName   { color: hsl(210 20% 50%); }
+:global(html.dark) .dayNumber { color: hsl(210 20% 90%); }
+:global(html.dark) .row       { border-bottom-color: hsl(215 27.9% 15%); }
+:global(html.dark) .row:hover { background: hsl(215 27.9% 13%); }
+:global(html.dark) .hourCell  { color: hsl(210 20% 50%); border-right-color: hsl(215 27.9% 18%); }
+:global(html.dark) .dayCell   { border-right-color: hsl(215 27.9% 18%); }
+:global(html.dark) .dayCell:hover { background: hsl(215 27.9% 14%); }

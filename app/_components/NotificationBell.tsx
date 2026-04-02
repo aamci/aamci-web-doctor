@@ -278,20 +278,20 @@ export default function NotificationBell() {
 
   const getCategoryBadge = (type: string) => {
     if (type.startsWith('APPOINTMENT_') || type === 'APPOINTMENT_PENDING')
-      return { label: 'RDV', cls: 'bg-blue-50 text-blue-600 border-blue-100' };
+      return { label: 'RDV', cls: 'bg-blue-500/15 text-blue-400 border-blue-400/30' };
     if (type === 'NEW_REFERRAL')
-      return { label: 'Transfert reçu', cls: 'bg-purple-50 text-purple-600 border-purple-100' };
+      return { label: 'Transfert reçu', cls: 'bg-purple-500/15 text-purple-400 border-purple-400/30' };
     if (type === 'REFERRAL_RESPONSE')
-      return { label: 'Transfert', cls: 'bg-purple-50 text-purple-600 border-purple-100' };
+      return { label: 'Transfert', cls: 'bg-purple-500/15 text-purple-400 border-purple-400/30' };
     if (type === 'NEW_MESSAGE')
-      return { label: 'Message', cls: 'bg-teal-50 text-teal-600 border-teal-100' };
+      return { label: 'Message', cls: 'bg-teal-500/15 text-teal-400 border-teal-400/30' };
     if (type === 'ALERT')
-      return { label: 'Alerte', cls: 'bg-red-50 text-red-600 border-red-100' };
+      return { label: 'Alerte', cls: 'bg-red-500/15 text-red-400 border-red-400/30' };
     if (type === 'PRESCRIPTION_EXPIRED')
-      return { label: 'Ordonnance', cls: 'bg-orange-50 text-orange-600 border-orange-100' };
+      return { label: 'Ordonnance', cls: 'bg-orange-500/15 text-orange-400 border-orange-400/30' };
     if (type.startsWith('TEAM_'))
-      return { label: 'Équipe', cls: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
-    return { label: 'Info', cls: 'bg-gray-100 text-gray-500 border-gray-200' };
+      return { label: 'Équipe', cls: 'bg-indigo-500/15 text-indigo-400 border-indigo-400/30' };
+    return { label: 'Info', cls: 'bg-gray-500/15 text-gray-400 border-gray-400/30' };
   };
 
   const formatDate = (dateString: string) => {

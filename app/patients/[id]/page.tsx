@@ -774,7 +774,7 @@ export default function PatientRecordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent"></div>
           <p className="mt-4 text-gray-600">Chargement du dossier patient...</p>
@@ -785,7 +785,7 @@ export default function PatientRecordPage() {
 
   if (!record) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Patient non trouvé</p>
@@ -889,7 +889,7 @@ export default function PatientRecordPage() {
   const allergies = medicalHistory.filter(h => h.category === 'ALLERGY' && h.isActive);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
         {/* Patient Header */}

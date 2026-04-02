@@ -300,3 +300,8 @@
     border-radius: 3px;
   }
 }
+
+/* ── Dark mode overrides ────────────────────────────────────── */
+:global(html.dark) .monthView   { background: hsl(215 27.9% 10%); }
+:global(html.dark) .header      { border-bottom-color: hsl(215 27.9% 18%); }
+:global(html.dark) .monthTitle  { color: hsl(210 20% 90%); }

@@ -175,3 +175,38 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ── Dark mode overrides ────────────────────────────────────── */
+:global(html.dark) .dropdownButton {
+  background: hsl(215 27.9% 13%);
+  border-color: hsl(215 27.9% 22%);
+  color: hsl(210 20% 88%);
+}
+:global(html.dark) .dropdownButton:hover {
+  background: hsl(215 27.9% 16%);
+  border-color: #0d9488;
+}
+:global(html.dark) .dropdownMenu {
+  background: hsl(215 27.9% 12%);
+  border-color: hsl(215 27.9% 20%);
+  box-shadow: 0 4px 12px hsl(224 71.4% 2% / 0.6);
+}
+:global(html.dark) .searchContainer {
+  background: hsl(215 27.9% 15%);
+  border-bottom-color: hsl(215 27.9% 20%);
+}
+:global(html.dark) .searchInput {
+  color: hsl(210 20% 88%);
+}
+:global(html.dark) .dropdownItem {
+  color: hsl(210 20% 82%);
+}
+:global(html.dark) .dropdownItem:hover {
+  background: hsl(215 27.9% 18%);
+}
+:global(html.dark) .dropdownItem:active {
+  background: hsl(215 27.9% 22%);
+}
+:global(html.dark) .filterLabel {
+  color: hsl(210 20% 50%);
+}
