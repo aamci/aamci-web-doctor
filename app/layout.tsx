@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className="bg-slate-50 antialiased" suppressHydrationWarning>
+      <body className="bg-gray-50 antialiased" suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
             {/* Navbar toujours visible en haut */}

@@ -15,7 +15,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   /* ── Auth loading: show centered spinner while we verify the JWT ── */
   if (loading) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-50 gap-4 z-20">
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-50 gap-4 z-20">
         <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg">
           <span className="text-2xl font-bold text-white">M</span>
         </div>
@@ -25,7 +25,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }
 
   return (
-    <main className={`min-h-screen pt-16 transition-all ${user ? 'ml-20' : ''}`}>
+    <main className={`min-h-screen pt-16 bg-gray-50 transition-all ${user ? 'ml-20' : ''}`}>
       {isFullScreen ? (
         children
       ) : (

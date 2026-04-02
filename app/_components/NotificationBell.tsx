@@ -276,6 +276,24 @@ export default function NotificationBell() {
     }
   };
 
+  const getCategoryBadge = (type: string) => {
+    if (type.startsWith('APPOINTMENT_') || type === 'APPOINTMENT_PENDING')
+      return { label: 'RDV', cls: 'bg-blue-50 text-blue-600 border-blue-100' };
+    if (type === 'NEW_REFERRAL')
+      return { label: 'Transfert reçu', cls: 'bg-purple-50 text-purple-600 border-purple-100' };
+    if (type === 'REFERRAL_RESPONSE')
+      return { label: 'Transfert', cls: 'bg-purple-50 text-purple-600 border-purple-100' };
+    if (type === 'NEW_MESSAGE')
+      return { label: 'Message', cls: 'bg-teal-50 text-teal-600 border-teal-100' };
+    if (type === 'ALERT')
+      return { label: 'Alerte', cls: 'bg-red-50 text-red-600 border-red-100' };
+    if (type === 'PRESCRIPTION_EXPIRED')
+      return { label: 'Ordonnance', cls: 'bg-orange-50 text-orange-600 border-orange-100' };
+    if (type.startsWith('TEAM_'))
+      return { label: 'Équipe', cls: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
+    return { label: 'Info', cls: 'bg-gray-100 text-gray-500 border-gray-200' };
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -462,9 +480,19 @@ export default function NotificationBell() {
                         </div>
 
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-400">
-                            {formatDate(notification.createdAt)}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {(() => {
+                              const { label, cls } = getCategoryBadge(notification.type);
+                              return (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-semibold tracking-wide ${cls}`}>
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                            <span className="text-xs text-gray-400">
+                              {formatDate(notification.createdAt)}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-1">
                             {!notification.read && (
                               <button
