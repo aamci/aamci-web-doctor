@@ -623,6 +623,14 @@ export default function AvailabilityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-white items-center justify-center">
+        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar Gauche - Calendrier Mensuel */}
