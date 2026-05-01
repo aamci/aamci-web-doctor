@@ -136,7 +136,7 @@ export default function ProLandingPage() {
             <Link href="/auth/login" className="text-sm text-gray-700 hover:text-blue-600 font-medium transition-colors">
               Connexion
             </Link>
-            <Link href="/auth/register" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+            <Link href="/auth/login" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
               Inscription gratuite
             </Link>
           </div>
@@ -168,7 +168,7 @@ export default function ProLandingPage() {
                 et pilotez votre activité — tout depuis Ibogha Pro.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-10">
-                <Link href="/auth/register" className="px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50">
+                <Link href="/auth/login" className="px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50">
                   Commencer gratuitement
                   <ArrowRight className="w-5 h-5" />
                 </Link>
@@ -353,7 +353,7 @@ export default function ProLandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/auth/register" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+              <Link href="/auth/login" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors">
                 Essayer la téléconsultation
                 <ArrowRight className="w-4 h-4" />
               </Link>
@@ -423,7 +423,7 @@ export default function ProLandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/auth/register" className={`block w-full py-3 rounded-xl font-semibold text-center text-sm transition-colors ${plan.highlight ? 'bg-white text-blue-600 hover:bg-blue-50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                <Link href="/auth/login" className={`block w-full py-3 rounded-xl font-semibold text-center text-sm transition-colors ${plan.highlight ? 'bg-white text-blue-600 hover:bg-blue-50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
                   {plan.cta}
                 </Link>
               </div>
@@ -458,7 +458,7 @@ export default function ProLandingPage() {
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Prêt à moderniser votre cabinet ?</h2>
           <p className="text-blue-100 text-lg mb-8">Rejoignez Ibogha Pro — gratuit pendant 30 jours, sans engagement.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/register" className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+            <Link href="/auth/login" className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
               Commencer gratuitement
               <ArrowRight className="w-5 h-5" />
             </Link>
