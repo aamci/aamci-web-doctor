@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from './_providers/AuthProvider';
 import {
   Calendar, Video, Wallet, BarChart2, Users,
-  Bell, FileText, Clock, ArrowRight,
+  Bell, FileText, ArrowRight,
   CheckCircle, Stethoscope, MessageSquare,
-  Shield, Smartphone, Building2,
+  Shield, Smartphone,
 } from 'lucide-react';
 
 const FEATURES = [
@@ -67,14 +67,14 @@ const PLANS = [
 ];
 
 export default function LandingPage() {
-  const { user, authLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && user) router.push('/dashboard');
-  }, [user, authLoading, router]);
+    if (!loading && user) router.push('/dashboard');
+  }, [user, loading, router]);
 
-  if (authLoading) return null;
+  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
