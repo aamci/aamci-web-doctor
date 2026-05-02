@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../_providers/AuthProvider';
 import {
   LogOut,
@@ -43,6 +43,9 @@ function getInitials(name?: string | null) {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  if (pathname === '/') return null;
   const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);

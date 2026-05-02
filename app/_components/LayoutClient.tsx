@@ -7,10 +7,15 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  const fullScreenPages   = ['/planning'];
+  const fullScreenPages    = ['/planning'];
   const fullScreenPrefixes = ['/patients/'];
   const isFullScreen = fullScreenPages.includes(pathname)
     || fullScreenPrefixes.some((p) => pathname.startsWith(p));
+
+  const isLanding = pathname === '/';
+
+  /* ── Landing page : rendu sans aucun wrapper ── */
+  if (isLanding) return <>{children}</>;
 
   /* ── Auth loading: show centered spinner while we verify the JWT ── */
   if (loading) {
