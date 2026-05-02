@@ -45,7 +45,7 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (pathname === '/') return null;
+  if (pathname === '/' || pathname.startsWith('/auth')) return null;
   const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);

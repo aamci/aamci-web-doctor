@@ -12,10 +12,10 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const isFullScreen = fullScreenPages.includes(pathname)
     || fullScreenPrefixes.some((p) => pathname.startsWith(p));
 
-  const isLanding = pathname === '/';
+  const isNoLayout = pathname === '/' || pathname.startsWith('/auth');
 
-  /* ── Landing page : rendu sans aucun wrapper ── */
-  if (isLanding) return <>{children}</>;
+  /* ── Landing & auth pages : rendu sans aucun wrapper ── */
+  if (isNoLayout) return <>{children}</>;
 
   /* ── Auth loading: show centered spinner while we verify the JWT ── */
   if (loading) {
