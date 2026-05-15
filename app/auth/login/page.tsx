@@ -452,8 +452,10 @@ export default function Login() {
                     </button>
 
                     <p className="text-slate-600 text-[11px] text-center">
-                      En créant un compte, vous acceptez les{' '}
-                      <span className="text-slate-500 underline cursor-pointer">conditions d'utilisation</span>.
+                      En créant un compte, vous acceptez nos{' '}
+                      <a href="/conditions-utilisation" target="_blank" className="text-teal-600 hover:underline">conditions d&apos;utilisation</a>
+                      {' '}et notre{' '}
+                      <a href="/politique-confidentialite" target="_blank" className="text-teal-600 hover:underline">politique de confidentialité</a>.
                     </p>
                   </form>
                 </>
@@ -485,6 +487,11 @@ export default function Login() {
               </>
             )}
           </p>
+          <div className="mt-6 flex items-center justify-center gap-3 text-[11px] text-slate-500">
+            <a href="/conditions-utilisation" className="hover:text-teal-600 transition-colors">CGU</a>
+            <span>·</span>
+            <a href="/politique-confidentialite" className="hover:text-teal-600 transition-colors">Confidentialité</a>
+          </div>
         </div>
       </div>
     </div>

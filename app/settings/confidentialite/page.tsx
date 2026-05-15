@@ -48,6 +48,9 @@ function Tooltip({ text }: { text: string }) {
 
 export default function ConfidentialitePage() {
   const [activeTab, setActiveTab] = useState<Tab>('Données & RGPD');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Données tab
   const [retentionPeriod, setRetentionPeriod] = useState('10 ans');
@@ -121,6 +124,42 @@ export default function ConfidentialitePage() {
   }
 
   const handleSave = () => toast.success('Paramètres enregistrés');
+
+  async function handleExportData() {
+    setExportLoading(true);
+    try {
+      const base = getApiBase();
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const r = await fetch(`${base ?? '/api'}/me/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error('Export échoué');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mes-donnees-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Export impossible');
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== 'SUPPRIMER') return;
+    setDeleteLoading(true);
+    try {
+      await authedFetch('/me', { method: 'DELETE' });
+      localStorage.removeItem('token');
+      window.location.href = '/auth/login';
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Suppression impossible');
+      setDeleteLoading(false);
+    }
+  }
 
   const SELECT = `px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`;
 
@@ -225,22 +264,36 @@ export default function ConfidentialitePage() {
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div>
                   <p className="text-sm font-medium text-slate-800">Export de mes données</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Recevoir toutes vos données sous 72h</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Télécharger toutes vos données (JSON)</p>
                 </div>
-                <button onClick={() => toast.info('Demande enregistrée. Vous recevrez un email sous 72h.')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <Download className="w-3.5 h-3.5" /> Demander
+                <button onClick={handleExportData} disabled={exportLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                  {exportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  {exportLoading ? 'Préparation...' : 'Télécharger'}
                 </button>
               </div>
-              <div className="flex items-center justify-between px-5 py-3.5">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Droit à l'oubli</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Demander la suppression de votre compte</p>
+              <div className="px-5 py-3.5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">Droit à l&apos;oubli</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Anonymiser et supprimer votre compte</p>
+                  </div>
                 </div>
-                <button onClick={() => toast.warning('Cette action est irréversible. Contactez le support.')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" /> Demander
-                </button>
+                <p className="text-xs text-slate-500 mb-2">
+                  Tapez <span className="font-mono text-red-600 font-bold">SUPPRIMER</span> pour confirmer :
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
+                    placeholder="SUPPRIMER"
+                    className="flex-1 max-w-[180px] px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400"
+                  />
+                  <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'SUPPRIMER' || deleteLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    {deleteLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Supprimer
+                  </button>
+                </div>
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div>
