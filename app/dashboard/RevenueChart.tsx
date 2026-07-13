@@ -39,7 +39,7 @@ export default function RevenueChart() {
       <ul style={{ fontSize: 12, marginTop: 8 }}>
         {data.map(p => (
           <li key={p.date}>
-            {p.date} : {p.amount.toFixed(2)} €
+            {p.date} : {p.amount.toFixed(2)} FCFA
           </li>
         ))}
       </ul>

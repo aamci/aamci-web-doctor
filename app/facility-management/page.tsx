@@ -927,14 +927,14 @@ export default function FacilityManagementPage() {
                             <Wallet className="w-4 h-4 text-teal-600" />
                             <span className="text-xs text-teal-600 font-medium">Solde total</span>
                           </div>
-                          <p className="text-2xl font-bold text-teal-800">{(finances.totals.totalBalance / 100).toFixed(0)} €</p>
+                          <p className="text-2xl font-bold text-teal-800">{(finances.totals.totalBalance / 100).toFixed(0)} FCFA</p>
                         </div>
                         <div className="bg-green-50 rounded-xl p-4 border border-green-100">
                           <div className="flex items-center gap-2 mb-1">
                             <ArrowUpRight className="w-4 h-4 text-green-600" />
                             <span className="text-xs text-green-600 font-medium">CA total</span>
                           </div>
-                          <p className="text-2xl font-bold text-green-800">{(finances.totals.totalEarned / 100).toFixed(0)} €</p>
+                          <p className="text-2xl font-bold text-green-800">{(finances.totals.totalEarned / 100).toFixed(0)} FCFA</p>
                         </div>
                         <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                           <div className="flex items-center gap-2 mb-1">
@@ -956,7 +956,7 @@ export default function FacilityManagementPage() {
                             <ArrowDownRight className="w-4 h-4 text-purple-600" />
                             <span className="text-xs text-purple-600 font-medium">Retraits total</span>
                           </div>
-                          <p className="text-2xl font-bold text-purple-800">{(finances.totals.totalWithdrawn / 100).toFixed(0)} €</p>
+                          <p className="text-2xl font-bold text-purple-800">{(finances.totals.totalWithdrawn / 100).toFixed(0)} FCFA</p>
                         </div>
                       </div>
 
@@ -987,8 +987,8 @@ export default function FacilityManagementPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-right font-semibold text-teal-700">{(d.balance / 100).toFixed(2)} €</td>
-                                <td className="px-4 py-3 text-right text-gray-700">{(d.totalEarned / 100).toFixed(2)} €</td>
+                                <td className="px-4 py-3 text-right font-semibold text-teal-700">{(d.balance / 100).toFixed(2)} FCFA</td>
+                                <td className="px-4 py-3 text-right text-gray-700">{(d.totalEarned / 100).toFixed(2)} FCFA</td>
                                 <td className="px-4 py-3 text-right">
                                   <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{d.appointmentsThisMonth}</span>
                                 </td>

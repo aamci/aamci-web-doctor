@@ -132,11 +132,7 @@ export default function AnalyticsPage() {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-    }).format(value);
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value) + ' FCFA';
   };
 
   const maxWeeklyAppointments = Math.max(...analytics.weeklyAppointments, 1);

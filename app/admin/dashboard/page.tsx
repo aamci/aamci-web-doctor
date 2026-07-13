@@ -192,7 +192,7 @@ export default function AdminDashboardPage() {
           </p>
           <div className="mt-4">
             <div className="text-2xl font-semibold text-emerald-700">
-              {overview.revenue.monthlyRevenue.toFixed(2)} €
+              {overview.revenue.monthlyRevenue.toFixed(2)} FCFA
             </div>
             <div className="text-xs text-slate-500">
               Revenus du mois en cours
@@ -278,7 +278,7 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-medium text-slate-900">
-                        {d.revenueMonth.toFixed(2)} €
+                        {d.revenueMonth.toFixed(2)} FCFA
                       </span>
                     </td>
                   </tr>

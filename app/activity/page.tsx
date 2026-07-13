@@ -428,7 +428,7 @@ export default function ActivityPage() {
       <div class="stat-label">Nouveaux patients</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${stats.revenue.toLocaleString('fr-FR')} €</div>
+      <div class="stat-value">${stats.revenue.toLocaleString('fr-FR')} FCFA</div>
       <div class="stat-label">Revenus</div>
     </div>
     <div class="stat-card">
@@ -630,7 +630,7 @@ export default function ActivityPage() {
                 {Math.abs(stats.revenueTrend)}%
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900 mb-1">{stats.revenue.toLocaleString('fr-FR')} €</p>
+            <p className="text-3xl font-bold text-gray-900 mb-1">{stats.revenue.toLocaleString('fr-FR')} FCFA</p>
             <p className="text-sm text-gray-500">Revenus ce mois</p>
           </div>
 
@@ -744,9 +744,9 @@ export default function ActivityPage() {
                 <>
                   {/* Y-axis labels */}
                   <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-xs text-gray-400">
-                    <span>{maxRevenueValue}€</span>
-                    <span>{Math.round(maxRevenueValue * 0.5)}€</span>
-                    <span>0€</span>
+                    <span>{maxRevenueValue} FCFA</span>
+                    <span>{Math.round(maxRevenueValue * 0.5)} FCFA</span>
+                    <span>0 FCFA</span>
                   </div>
 
                   {/* SVG Line Chart */}

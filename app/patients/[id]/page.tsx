@@ -1246,7 +1246,7 @@ export default function PatientRecordPage() {
                       type="number" step="0.01" value={item.unitPrice}
                       onChange={e => { const n = [...quickInvoiceItems]; n[idx] = { ...n[idx], unitPrice: e.target.value }; setQuickInvoiceItems(n); }}
                       className="w-24 px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Prix €"
+                      placeholder="Prix FCFA"
                     />
                     {quickInvoiceItems.length > 1 && (
                       <button onClick={() => setQuickInvoiceItems(quickInvoiceItems.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded mt-0.5">
@@ -1269,7 +1269,7 @@ export default function PatientRecordPage() {
               <div className="bg-gray-50 rounded-lg p-3 text-right">
                 <span className="text-sm text-gray-600">Total : </span>
                 <span className="text-lg font-bold text-gray-900">
-                  {quickInvoiceItems.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} €
+                  {quickInvoiceItems.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} FCFA
                 </span>
               </div>
             </div>
@@ -4422,14 +4422,14 @@ function FacturesSection({ invoices, patientId, patient, onRefresh }: { invoices
             <CheckCircle className="w-5 h-5 text-green-500" />
             <span className="text-green-700">Payé</span>
           </div>
-          <p className="text-2xl font-bold text-green-700">{totalPaid.toFixed(2)} €</p>
+          <p className="text-2xl font-bold text-green-700">{totalPaid.toFixed(2)} FCFA</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="w-5 h-5 text-yellow-500" />
             <span className="text-yellow-700">En attente</span>
           </div>
-          <p className="text-2xl font-bold text-yellow-700">{totalPending.toFixed(2)} €</p>
+          <p className="text-2xl font-bold text-yellow-700">{totalPending.toFixed(2)} FCFA</p>
         </div>
       </div>
 
@@ -4480,7 +4480,7 @@ function FacturesSection({ invoices, patientId, patient, onRefresh }: { invoices
                   <span className={`px-2 py-1 rounded text-xs ${statusColors[inv.status]}`}>
                     {statusLabels[inv.status]}
                   </span>
-                  <span className="font-semibold text-gray-900">{Number(inv.total).toFixed(2)} €</span>
+                  <span className="font-semibold text-gray-900">{Number(inv.total).toFixed(2)} FCFA</span>
                   {(inv.status === 'DRAFT' || inv.status === 'SENT') && (
                     <button
                       onClick={() => handleSendInvoice(inv.id)}
@@ -4607,7 +4607,7 @@ function FacturesSection({ invoices, patientId, patient, onRefresh }: { invoices
                   <div key={idx} className="flex gap-2 mb-2">
                     <input value={item.description} onChange={e => { const n = [...items]; n[idx].description = e.target.value; setItems(n); }} className="flex-1 px-3 py-2 border rounded-lg text-sm" placeholder="Description" />
                     <input type="number" min="1" value={item.quantity} onChange={e => { const n = [...items]; n[idx].quantity = parseInt(e.target.value) || 1; setItems(n); }} className="w-16 px-3 py-2 border rounded-lg text-sm" />
-                    <input type="number" step="0.01" value={item.unitPrice} onChange={e => { const n = [...items]; n[idx].unitPrice = e.target.value; setItems(n); }} className="w-24 px-3 py-2 border rounded-lg text-sm" placeholder="Prix €" />
+                    <input type="number" step="0.01" value={item.unitPrice} onChange={e => { const n = [...items]; n[idx].unitPrice = e.target.value; setItems(n); }} className="w-24 px-3 py-2 border rounded-lg text-sm" placeholder="Prix FCFA" />
                     {items.length > 1 && (
                       <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded"><X className="w-4 h-4" /></button>
                     )}
@@ -4623,7 +4623,7 @@ function FacturesSection({ invoices, patientId, patient, onRefresh }: { invoices
               </div>
               <div className="bg-gray-50 rounded-lg p-3 text-right">
                 <span className="text-sm text-gray-600">Total: </span>
-                <span className="text-lg font-bold text-gray-900">{items.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} €</span>
+                <span className="text-lg font-bold text-gray-900">{items.reduce((s, i) => s + (i.quantity * (parseFloat(i.unitPrice as string) || 0)), 0).toFixed(2)} FCFA</span>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">

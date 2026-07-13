@@ -52,7 +52,7 @@ const PLANS = [
   },
   {
     name: 'Pro',
-    price: '49€',
+    price: '49 FCFA',
     period: '/mois',
     features: ['RDV illimités', 'Téléconsultation HD', 'Dossier patient complet', 'Ordonnances', 'Statistiques avancées', 'Support prioritaire'],
     highlight: true,
@@ -156,7 +156,7 @@ export default function LandingPage() {
               {[
                 { label: 'RDV aujourd\'hui', value: '12', color: 'teal' },
                 { label: 'En attente', value: '3', color: 'amber' },
-                { label: 'Revenus mois', value: '3 420€', color: 'emerald' },
+                { label: 'Revenus mois', value: '3 420 FCFA', color: 'emerald' },
                 { label: 'Patients actifs', value: '284', color: 'sky' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-slate-800 rounded-xl p-3 border border-slate-700/50">

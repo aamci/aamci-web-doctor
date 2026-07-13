@@ -152,20 +152,20 @@ export default function WalletPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <SummaryCard
           label="Solde disponible"
-          value={`${summary.balance.toFixed(2)} €`}
+          value={`${summary.balance.toFixed(2)} FCFA`}
           accent="primary"
         />
         <SummaryCard
           label="Revenus cumulés"
-          value={`${summary.totalPayments.toFixed(2)} €`}
+          value={`${summary.totalPayments.toFixed(2)} FCFA`}
         />
         <SummaryCard
           label="Total retiré"
-          value={`${summary.totalPayouts.toFixed(2)} €`}
+          value={`${summary.totalPayouts.toFixed(2)} FCFA`}
         />
         <SummaryCard
           label="En cours de virement"
-          value={`${summary.pendingPayouts.toFixed(2)} €`}
+          value={`${summary.pendingPayouts.toFixed(2)} FCFA`}
         />
       </section>
 
@@ -235,7 +235,7 @@ export default function WalletPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className={`text-sm font-medium ${color}`}>
-                          {sign} {amountNum.toFixed(2)} €
+                          {sign} {amountNum.toFixed(2)} FCFA
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -261,7 +261,7 @@ export default function WalletPage() {
                     <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">Demande envoyée</h3>
-                  <p className="text-sm text-slate-500 mb-4">Votre demande de retrait de {payoutAmount} € a été enregistrée. Le virement sera effectué sous 2-3 jours ouvrés.</p>
+                  <p className="text-sm text-slate-500 mb-4">Votre demande de retrait de {payoutAmount} FCFA a été enregistrée. Le virement sera effectué sous 2-3 jours ouvrés.</p>
                   <button onClick={() => setShowPayoutModal(false)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
                     Fermer
                   </button>
@@ -269,9 +269,9 @@ export default function WalletPage() {
               ) : (
                 <>
                   <h3 className="text-lg font-semibold text-slate-900 mb-1">Demander un retrait</h3>
-                  <p className="text-sm text-slate-500 mb-4">Solde disponible : {summary.balance.toFixed(2)} €</p>
+                  <p className="text-sm text-slate-500 mb-4">Solde disponible : {summary.balance.toFixed(2)} FCFA</p>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Montant (€)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Montant (FCFA)</label>
                     <input
                       type="number"
                       step="0.01"

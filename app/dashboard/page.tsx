@@ -400,7 +400,7 @@ export default function DashboardPage() {
                 +{stats.revenueChange}%
               </span>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{stats.revenue}€</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.revenue} FCFA</p>
             <p className="text-sm text-gray-500 mt-1">Revenus ce mois</p>
           </div>
         </div>
