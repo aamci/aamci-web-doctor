@@ -93,7 +93,7 @@ export default function Navbar() {
               <span className="text-lg font-bold text-white">M</span>
             </div>
             <div className="hidden sm:block leading-tight">
-              <p className="text-sm font-bold text-white">Health Platform</p>
+              <p className="text-sm font-bold text-white">Ibogha 241</p>
               <p className="text-[10px] text-teal-400 font-medium">Pro</p>
             </div>
           </Link>

@@ -87,7 +87,7 @@ export default function LandingPage() {
               <Stethoscope className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white leading-none">Health Platform</p>
+              <p className="text-sm font-bold text-white leading-none">Ibogha 241</p>
               <p className="text-[10px] text-teal-400 font-medium">Pro</p>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function LandingPage() {
               <Stethoscope className="w-6 h-6 text-teal-400" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-3">Prêt à moderniser votre cabinet ?</h2>
-            <p className="text-slate-400 mb-7">Rejoignez des milliers de professionnels de santé qui font confiance à Health Platform.</p>
+            <p className="text-slate-400 mb-7">Rejoignez des milliers de professionnels de santé qui font confiance à Ibogha 241 Pro.</p>
             <Link
               href="/auth/login"
               className="inline-flex items-center gap-2 px-7 py-3.5 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-500 transition-colors shadow-lg shadow-teal-900/40"
@@ -345,9 +345,9 @@ export default function LandingPage() {
             <div className="w-7 h-7 rounded-lg bg-teal-600 flex items-center justify-center">
               <Stethoscope className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-sm font-semibold text-white">Health Platform Pro</span>
+            <span className="text-sm font-semibold text-white">Ibogha 241 Pro</span>
           </div>
-          <p className="text-xs text-slate-600">© 2026 Health Platform. Tous droits réservés.</p>
+          <p className="text-xs text-slate-600">© 2026 Ibogha 241. Tous droits réservés.</p>
           <div className="flex gap-5 text-xs text-slate-500">
             <a href="#" className="hover:text-slate-300 transition-colors">Confidentialité</a>
             <a href="#" className="hover:text-slate-300 transition-colors">CGU</a>

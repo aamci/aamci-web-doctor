@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../_providers/AuthProvider';
-import { Users, Calendar, Settings, ChevronDown, UserPlus, Mail, Shield, Trash2, Loader2, Crown, TrendingUp, Wallet, CalendarCheck, ArrowUpRight, ArrowDownRight, Building2, Pencil, Check, X, Phone, MapPin, Globe, GraduationCap, Briefcase, Star, Bell } from 'lucide-react';
+import { Users, Calendar, Settings, ChevronDown, UserPlus, Mail, Shield, Trash2, Loader2, Crown, TrendingUp, Wallet, CalendarCheck, ArrowUpRight, ArrowDownRight, Building2, Pencil, Check, X, Phone, MapPin, Globe, GraduationCap, Briefcase, Star, Bell, Plus, Search } from 'lucide-react';
 import DoctorAvailability from './_components/DoctorAvailability';
 import DoctorPreferences from './_components/DoctorPreferences';
 
@@ -83,6 +83,13 @@ export default function FacilityManagementPage() {
   // Cabinet state
   const [cabinetData, setCabinetData] = useState<any>(null);
   const [cabinetEditing, setCabinetEditing] = useState(false);
+
+  // Gestion des établissements
+  const [showFacilitySearch, setShowFacilitySearch] = useState(false);
+  const [facilitySearchQ, setFacilitySearchQ] = useState('');
+  const [facilitySearchResults, setFacilitySearchResults] = useState<any[]>([]);
+  const [searchingFacility, setSearchingFacility] = useState(false);
+  const [facilityActionLoading, setFacilityActionLoading] = useState<string | null>(null);
   const [cabinetForm, setCabinetForm] = useState<any>({});
   const [savingCabinet, setSavingCabinet] = useState(false);
 
@@ -345,6 +352,51 @@ export default function FacilityManagementPage() {
     );
   }
 
+  async function searchFacilities(q: string) {
+    setFacilitySearchQ(q);
+    if (!q.trim()) { setFacilitySearchResults([]); return; }
+    setSearchingFacility(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/facilities?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data?.data ?? [];
+      const currentIds = new Set((cabinetData?.facilities ?? []).map((f: any) => f.id));
+      setFacilitySearchResults(list.filter((f: any) => !currentIds.has(f.id)).slice(0, 6));
+    } catch { setFacilitySearchResults([]); }
+    finally { setSearchingFacility(false); }
+  }
+
+  async function joinFacility(facility: any) {
+    const token = localStorage.getItem('token');
+    setFacilityActionLoading(facility.id);
+    try {
+      await fetch(`${API_BASE_URL}/doctor-profiles/me/facilities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ facilityId: facility.id }),
+      });
+      setCabinetData((d: any) => ({ ...d, facilities: [...(d.facilities ?? []), facility] }));
+      setFacilitySearchResults(r => r.filter(f => f.id !== facility.id));
+      setShowFacilitySearch(false);
+      setFacilitySearchQ('');
+    } catch (e) { alert('Erreur : ' + (e as Error).message); }
+    finally { setFacilityActionLoading(null); }
+  }
+
+  async function leaveFacility(facilityId: string) {
+    if (!confirm('Quitter cet établissement ?')) return;
+    const token = localStorage.getItem('token');
+    setFacilityActionLoading(facilityId);
+    try {
+      await fetch(`${API_BASE_URL}/doctor-profiles/me/facilities/${facilityId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCabinetData((d: any) => ({ ...d, facilities: (d.facilities ?? []).filter((f: any) => f.id !== facilityId) }));
+    } catch (e) { alert('Erreur : ' + (e as Error).message); }
+    finally { setFacilityActionLoading(null); }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
@@ -595,18 +647,81 @@ export default function FacilityManagementPage() {
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">{cabinetData.experiences || '—'}</p>
                           )}
                         </div>
-                        {cabinetData.facilities?.length > 0 && (
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-gray-500 mb-2">Établissements associés</label>
+                        <div className="md:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-medium text-gray-500">Mes établissements</label>
+                            <button
+                              type="button"
+                              onClick={() => { setShowFacilitySearch(!showFacilitySearch); setFacilitySearchQ(''); setFacilitySearchResults([]); }}
+                              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Rejoindre un établissement
+                            </button>
+                          </div>
+
+                          {/* Recherche établissement */}
+                          {showFacilitySearch && (
+                            <div className="mb-3 relative">
+                              <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white">
+                                <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <input
+                                  autoFocus
+                                  value={facilitySearchQ}
+                                  onChange={e => searchFacilities(e.target.value)}
+                                  placeholder="Rechercher un établissement…"
+                                  className="flex-1 text-sm outline-none"
+                                />
+                                {searchingFacility && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
+                              </div>
+                              {facilitySearchResults.length > 0 && (
+                                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                                  {facilitySearchResults.map(f => (
+                                    <button
+                                      key={f.id}
+                                      type="button"
+                                      disabled={facilityActionLoading === f.id}
+                                      onClick={() => joinFacility(f)}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-teal-50 text-left transition-colors"
+                                    >
+                                      <Building2 className="w-4 h-4 text-teal-500 shrink-0" />
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-800">{f.name}</p>
+                                        <p className="text-xs text-gray-500">{f.type}{f.city ? ` · ${f.city}` : ''}</p>
+                                      </div>
+                                      {facilityActionLoading === f.id && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {facilitySearchQ && !searchingFacility && facilitySearchResults.length === 0 && (
+                                <p className="mt-1 text-xs text-gray-400 px-1">Aucun établissement trouvé</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Liste des établissements actuels */}
+                          {(cabinetData.facilities ?? []).length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Aucun établissement associé</p>
+                          ) : (
                             <div className="flex flex-wrap gap-2">
-                              {cabinetData.facilities.map((f: any) => (
-                                <span key={f.id} className="px-3 py-1 bg-teal-50 text-teal-700 text-xs rounded-full border border-teal-100 font-medium">
-                                  {f.name} · {f.city}
-                                </span>
+                              {(cabinetData.facilities ?? []).map((f: any) => (
+                                <div key={f.id} className="flex items-center gap-1.5 px-3 py-1 bg-teal-50 border border-teal-100 rounded-full text-xs font-medium text-teal-700">
+                                  <Building2 className="w-3 h-3" />
+                                  <span>{f.name}{f.city ? ` · ${f.city}` : ''}</span>
+                                  <button
+                                    type="button"
+                                    disabled={facilityActionLoading === f.id}
+                                    onClick={() => leaveFacility(f.id)}
+                                    className="ml-1 text-teal-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                    title="Quitter cet établissement"
+                                  >
+                                    {facilityActionLoading === f.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                  </button>
+                                </div>
                               ))}
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     ) : (
                       /* ── FACILITY_MANAGER: Facility fields ── */

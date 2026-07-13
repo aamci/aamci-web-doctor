@@ -8,7 +8,7 @@ import { Toaster } from './_components/Toaster';
 import { ThemeProvider } from './_components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: 'Health Platform - Médecin',
+  title: 'Ibogha 241 Pro - Médecin',
   description: 'Plateforme de santé pour professionnels',
 };
 
