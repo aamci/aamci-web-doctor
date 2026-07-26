@@ -18,6 +18,8 @@ import {
   Mail,
   Building2,
   Video,
+  LayoutDashboard,
+  History,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 
@@ -37,6 +39,17 @@ const NAV_ITEMS_DOCTOR = [
   { label: 'Visio',        href: '/teleconsultation',    icon: Video,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Adressages',   href: '/referrals',           icon: ArrowRightLeft, roles: ['DOCTOR'] },
   { label: 'Cabinet',      href: '/facility-management', icon: Building2,      roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Historique',   href: '/historique',          icon: History,        roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+];
+
+const NAV_ITEMS_FACILITY_MANAGER = [
+  { label: 'Tableau de bord', href: '/manager',                 icon: LayoutDashboard, roles: undefined },
+  { label: 'Multi-agenda',    href: '/manager/multi-agenda',    icon: Calendar,        roles: undefined },
+  { label: 'Patients',        href: '/patients',                icon: Users,           roles: undefined },
+  { label: 'Réservations',    href: '/reservations',            icon: CalendarCheck,   roles: undefined },
+  { label: 'Cabinet',         href: '/facility-management',     icon: Building2,       roles: undefined },
+  { label: 'Historique',      href: '/historique',              icon: History,         roles: undefined },
+  { label: 'Messages',        href: '/messages',                icon: MessageSquare,   roles: undefined },
 ];
 
 const NAV_ITEMS_SECRETARY = [
@@ -158,7 +171,7 @@ export default function DoctorSidebar() {
 
       {/* Main navigation */}
       <nav className="flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {(user?.role === 'SECRETARY' ? NAV_ITEMS_SECRETARY : NAV_ITEMS_DOCTOR)
+        {(user?.role === 'SECRETARY' ? NAV_ITEMS_SECRETARY : user?.role === 'FACILITY_MANAGER' ? NAV_ITEMS_FACILITY_MANAGER : NAV_ITEMS_DOCTOR)
           .filter(item => !item.roles || item.roles.includes(user?.role ?? ''))
           .map(({ label, href, icon }) => (
             <NavLink
