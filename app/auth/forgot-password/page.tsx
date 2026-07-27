@@ -46,11 +46,8 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
       <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
-            <span className="text-xl font-bold text-white">M</span>
-          </div>
-          <span className="text-white text-lg font-bold">MedPro</span>
+        <div className="flex items-center justify-center mb-10">
+          <img src="/logo.jpeg" alt="Ibogha 241" className="h-14 w-auto rounded-xl object-contain bg-white p-1 shadow-lg" />
         </div>
 
         {sent ? (

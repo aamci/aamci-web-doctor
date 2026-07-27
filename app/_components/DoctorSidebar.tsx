@@ -161,11 +161,13 @@ export default function DoctorSidebar() {
   return (
     <aside className="fixed top-0 left-0 h-screen w-20 bg-slate-900 border-r border-slate-800/70 flex flex-col z-40 select-none">
       {/* Logo — same height as navbar (64px / h-16) */}
-      <div className="h-16 flex items-center justify-center border-b border-slate-800/70 flex-shrink-0">
+      <div className="h-16 flex items-center justify-center border-b border-slate-800/70 flex-shrink-0 px-2">
         <Link href={(user?.role === 'SECRETARY' ? '/agenda' : '/planning') as any} className="group">
-          <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center shadow-md group-hover:bg-teal-500 transition-colors">
-            <span className="text-xl font-bold text-white">M</span>
-          </div>
+          <img
+            src="/logo.jpeg"
+            alt="Ibogha 241"
+            className="h-10 w-auto rounded-lg object-contain bg-white p-0.5 shadow-md group-hover:opacity-90 transition-opacity"
+          />
         </Link>
       </div>
 

@@ -89,13 +89,11 @@ export default function Navbar() {
         {/* Logo — only when NOT logged in */}
         {!user && (
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 mr-2 group">
-            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-md group-hover:bg-teal-500 transition-colors">
-              <span className="text-lg font-bold text-white">M</span>
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-sm font-bold text-white">Ibogha 241</p>
-              <p className="text-[10px] text-teal-400 font-medium">Pro</p>
-            </div>
+            <img
+              src="/logo.jpeg"
+              alt="Ibogha 241"
+              className="h-9 w-auto rounded-xl object-contain bg-white p-0.5 shadow-md group-hover:opacity-90 transition-opacity"
+            />
           </Link>
         )}
 
