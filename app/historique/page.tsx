@@ -45,7 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
   FACILITY_MANAGER: 'Gestionnaire', SECRETARY: 'Secrétaire',
 };
 
-function authHeaders(token: string | null) {
+function authHeaders(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

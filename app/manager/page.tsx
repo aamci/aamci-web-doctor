@@ -35,7 +35,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   NO_SHOW:   { label: 'Absent',     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
 };
 
-function authHeaders(token: string | null) {
+function authHeaders(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

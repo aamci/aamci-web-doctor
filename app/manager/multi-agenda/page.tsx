@@ -42,7 +42,7 @@ const STATUS_COLORS: Record<string, string> = {
   FREE:      'bg-white border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500',
 };
 
-function authHeaders(token: string | null) {
+function authHeaders(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
