@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
+import { Logo } from '@/components/Logo';
 
 const QUICK_ACTIONS = [
   { label: 'Nouveau rendez-vous', href: '/planning',      Icon: Calendar,  color: 'text-teal-600',  bg: 'bg-teal-50'  },
@@ -89,11 +90,7 @@ export default function Navbar() {
         {/* Logo — only when NOT logged in */}
         {!user && (
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 mr-2 group">
-            <img
-              src="/logo.jpeg"
-              alt="Ibogha 241"
-              className="h-9 w-auto rounded-xl object-contain bg-white p-0.5 shadow-md group-hover:opacity-90 transition-opacity"
-            />
+            <Logo className="h-9 w-auto" />
           </Link>
         )}
 

@@ -22,6 +22,7 @@ import {
   History,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
+import { Logo } from '@/components/Logo';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -163,11 +164,7 @@ export default function DoctorSidebar() {
       {/* Logo — same height as navbar (64px / h-16) */}
       <div className="h-16 flex items-center justify-center border-b border-slate-800/70 flex-shrink-0 px-2">
         <Link href={(user?.role === 'SECRETARY' ? '/agenda' : '/planning') as any} className="group">
-          <img
-            src="/logo.jpeg"
-            alt="Ibogha 241"
-            className="h-10 w-auto rounded-lg object-contain bg-white p-0.5 shadow-md group-hover:opacity-90 transition-opacity"
-          />
+          <Logo className="h-10 w-auto" />
         </Link>
       </div>
 

@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 function getApiBase(): string | null {
   let b = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
@@ -60,7 +61,7 @@ function ResetPasswordForm() {
       <div className="w-full max-w-[420px]">
         {/* Logo */}
         <div className="flex items-center justify-center mb-10">
-          <img src="/logo.jpeg" alt="Ibogha 241" className="h-14 w-auto rounded-xl object-contain bg-white p-1 shadow-lg" />
+          <Logo className="h-14 w-auto" />
         </div>
 
         {success ? (
