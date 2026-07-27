@@ -20,7 +20,7 @@ type HistoryEntry = {
   appointment: {
     id: string;
     patient: { fullName: string | null; email: string };
-    slot: { startTime: string; ownerId: string };
+    slot: { start: string; ownerId: string };
   };
 };
 
@@ -178,7 +178,7 @@ export default function HistoriquePage() {
                     <td className="px-4 py-3 text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3 shrink-0" />
-                        <span className="text-xs">{fmtShort(entry.appointment.slot.startTime)}</span>
+                        <span className="text-xs">{fmtShort(entry.appointment.slot.start)}</span>
                       </div>
                     </td>
 

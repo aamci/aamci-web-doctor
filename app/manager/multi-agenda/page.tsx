@@ -12,7 +12,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
 type Slot = {
   id?: string;
   doctorId: string;
-  startTime: string;
+  startTime: string;  // normalised to `start` from API
   endTime: string;
   appointment?: {
     id: string;
@@ -121,8 +121,8 @@ export default function MultiAgendaPage() {
           const appts: any[] = Array.isArray(data) ? data : data.appointments ?? [];
           results[doc.id] = appts.map((a: any) => ({
             doctorId: doc.id,
-            startTime: a.slot?.startTime ?? a.slot?.start ?? '',
-            endTime:   a.slot?.endTime   ?? a.slot?.end   ?? '',
+            startTime: a.slot?.start ?? '',
+            endTime:   a.slot?.end   ?? '',
             appointment: {
               id: a.id,
               status: a.status,

@@ -15,7 +15,7 @@ type Appointment = {
   status: string;
   notes: string | null;
   patient: { id: string; fullName: string | null; email: string; phone: string | null; avatarUrl: string | null };
-  slot: { startTime: string; endTime: string; ownerId: string };
+  slot: { start: string; end: string; ownerId: string };
   kind: { name: string; durationMins: number; isTelemedicine: boolean } | null;
 };
 
@@ -242,8 +242,8 @@ export default function ManagerPage() {
         ) : (
           <div className="divide-y divide-border">
             {appointments.map(appt => {
-              const start = new Date(appt.slot.startTime);
-              const end   = new Date(appt.slot.endTime);
+              const start = new Date(appt.slot.start);
+              const end   = new Date(appt.slot.end);
               const st    = STATUS_LABELS[appt.status] ?? { label: appt.status, color: 'bg-slate-100 text-slate-600' };
               const isLoading = (s: string) => actionLoading === appt.id + s;
 
