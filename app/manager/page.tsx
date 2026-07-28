@@ -5,8 +5,9 @@ import { useAuth } from '../_providers/AuthProvider';
 import {
   Calendar, Users, Clock, CheckCircle, XCircle, AlertCircle,
   Bell, Filter, Search, ChevronLeft, ChevronRight, Stethoscope,
-  RefreshCw, Mail,
+  RefreshCw, Mail, Plus,
 } from 'lucide-react';
+import CreateAvailabilityWizard from '../planning/_components/CreateAvailabilityWizard';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -56,6 +57,11 @@ export default function ManagerPage() {
   // Actions
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [reminderSent, setReminderSent]   = useState<Set<string>>(new Set());
+
+  // Wizard
+  const [wizardOpen, setWizardOpen]         = useState(false);
+  const [wizardDoctorId, setWizardDoctorId] = useState('');
+  const [wizardDoctorName, setWizardDoctorName] = useState('');
 
   const fetchDoctors = useCallback(async () => {
     try {
@@ -334,6 +340,14 @@ export default function ManagerPage() {
         )}
       </div>
 
+      <CreateAvailabilityWizard
+        isOpen={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSuccess={fetchAppointments}
+        doctorId={wizardDoctorId}
+        doctorName={wizardDoctorName}
+      />
+
       {/* Doctors summary */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-border">
@@ -355,8 +369,17 @@ export default function ManagerPage() {
                   <p className="text-xs text-muted-foreground">{d.doctorProfile.specialty}</p>
                 )}
               </div>
-              <div className="ml-auto text-xs text-muted-foreground">
-                {appointments.filter(a => a.slot.ownerId === d.id).length} RDV aujourd'hui
+              <div className="ml-auto flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {appointments.filter(a => a.slot.ownerId === d.id).length} RDV aujourd'hui
+                </span>
+                <button
+                  onClick={() => { setWizardDoctorId(d.id); setWizardDoctorName(d.fullName ?? d.email); setWizardOpen(true); }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Créer des créneaux
+                </button>
               </div>
             </div>
           ))}

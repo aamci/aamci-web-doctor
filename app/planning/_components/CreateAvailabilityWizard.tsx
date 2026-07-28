@@ -20,6 +20,9 @@ interface CreateAvailabilityWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** Quand fourni (FACILITY_MANAGER), crée les règles pour ce médecin */
+  doctorId?: string;
+  doctorName?: string;
 }
 
 const DEFAULT_FORM_DATA: WizardFormData = {
@@ -45,6 +48,8 @@ export default function CreateAvailabilityWizard({
   isOpen,
   onClose,
   onSuccess,
+  doctorId,
+  doctorName,
 }: CreateAvailabilityWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<WizardFormData>(DEFAULT_FORM_DATA);
@@ -339,6 +344,7 @@ export default function CreateAvailabilityWizard({
 
       // Step 1: Create availability rule
       const rulePayload: CreateAvailabilityRulePayload = {
+        ...(doctorId ? { doctorId } : {}),
         startDate: formData.startDate,
         endDate: formData.endDate,
         daysOfWeek: formData.daysOfWeek,
@@ -442,7 +448,7 @@ export default function CreateAvailabilityWizard({
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">
-                Nouvelle disponibilité
+                Nouvelle disponibilité{doctorName ? ` — Dr ${doctorName}` : ''}
               </h2>
               <button
                 onClick={onClose}
