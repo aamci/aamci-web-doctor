@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { toast } from '../../_components/Toaster';
+import { useAuth } from '../../_providers/AuthProvider';
 import Step1Hours from './wizard/Step1Hours';
 import Step2Recurrence from './wizard/Step2Recurrence';
 import Step3Options from './wizard/Step3Options';
@@ -51,12 +52,19 @@ export default function CreateAvailabilityWizard({
   doctorId,
   doctorName,
 }: CreateAvailabilityWizardProps) {
+  const { user } = useAuth();
+  const needsDoctorSelect = !doctorId && ['FACILITY_MANAGER', 'SECRETARY'].includes(user?.role ?? '');
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<WizardFormData>(DEFAULT_FORM_DATA);
   const [templates, setTemplates] = useState<AvailabilityPreference[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Doctor selector for FACILITY_MANAGER / SECRETARY without pre-selected doctor
+  const [managedDoctors, setManagedDoctors] = useState<{ id: string; fullName: string | null; email: string }[]>([]);
+  const [selectedManagedDoctorId, setSelectedManagedDoctorId] = useState('');
 
   // Step 3 states
   const [appointmentKinds, setAppointmentKinds] = useState<AppointmentKind[]>([]);
@@ -83,8 +91,9 @@ export default function CreateAvailabilityWizard({
       fetchTemplates();
       fetchAppointmentKinds();
       resetForm();
+      if (needsDoctorSelect) fetchManagedDoctors();
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-sélection du template par défaut
   useEffect(() => {
@@ -104,6 +113,22 @@ export default function CreateAvailabilityWizard({
     setSaveAsTemplate(false);
     setTemplateName('');
     setTemplateDescription('');
+    setSelectedManagedDoctorId('');
+  };
+
+  const fetchManagedDoctors = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiBase}/facility-managers/me/doctors`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setManagedDoctors(data);
+        if (data.length === 1) setSelectedManagedDoctorId(data[0].id);
+      }
+    } catch { /* silent */ }
   };
 
   const fetchTemplates = async () => {
@@ -336,6 +361,12 @@ export default function CreateAvailabilityWizard({
     // Validate all steps
     if (!validateStep1() || !validateStep2() || !validateStep3()) return;
 
+    const effectiveDoctorId = doctorId || selectedManagedDoctorId;
+    if (needsDoctorSelect && !effectiveDoctorId) {
+      toast.error('Veuillez sélectionner un médecin');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -344,7 +375,7 @@ export default function CreateAvailabilityWizard({
 
       // Step 1: Create availability rule
       const rulePayload: CreateAvailabilityRulePayload = {
-        ...(doctorId ? { doctorId } : {}),
+        ...(effectiveDoctorId ? { doctorId: effectiveDoctorId } : {}),
         startDate: formData.startDate,
         endDate: formData.endDate,
         daysOfWeek: formData.daysOfWeek,
@@ -458,6 +489,24 @@ export default function CreateAvailabilityWizard({
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
+
+            {needsDoctorSelect && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Médecin concerné <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedManagedDoctorId}
+                  onChange={e => setSelectedManagedDoctorId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                >
+                  <option value="">Sélectionner un médecin…</option>
+                  {managedDoctors.map(d => (
+                    <option key={d.id} value={d.id}>{d.fullName ?? d.email}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <WizardProgress currentStep={currentStep} totalSteps={3} />
           </div>
