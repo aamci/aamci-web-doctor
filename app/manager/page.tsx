@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../_providers/AuthProvider';
 import {
-  Calendar, Users, Clock, CheckCircle, XCircle, AlertCircle,
-  Bell, Filter, Search, ChevronLeft, ChevronRight, Stethoscope,
-  RefreshCw, Mail, Plus, Trash2, ChevronDown, ChevronUp,
+  Calendar, Clock, CheckCircle, XCircle, AlertCircle,
+  ChevronLeft, ChevronRight, Stethoscope,
+  RefreshCw, Mail, Plus, Trash2,
 } from 'lucide-react';
 import CreateAvailabilityWizard from '../planning/_components/CreateAvailabilityWizard';
 
@@ -78,9 +78,8 @@ export default function ManagerPage() {
   const [wizardDoctorName, setWizardDoctorName] = useState('');
 
   // Rules per doctor
-  const [expandedRulesDoctor, setExpandedRulesDoctor] = useState<string | null>(null);
   const [rulesMap, setRulesMap] = useState<Record<string, AvailabilityRule[]>>({});
-  const [rulesLoading, setRulesLoading] = useState(false);
+  const [rulesLoadingSet, setRulesLoadingSet] = useState<Set<string>>(new Set());
   const [deletingRule, setDeletingRule] = useState<string | null>(null);
 
   const fetchDoctors = useCallback(async () => {
@@ -102,6 +101,19 @@ export default function ManagerPage() {
     } catch { /* ignore */ } finally { setLoadingAppts(false); }
   }, [token, selectedDoctor, selectedDate, selectedStatus]);
 
+  const fetchRulesForDoctor = useCallback(async (doctorId: string) => {
+    setRulesLoadingSet(prev => new Set([...prev, doctorId]));
+    try {
+      const res = await fetch(`${API_BASE}/availability-rules/by-doctor/${doctorId}`, { headers: authHeaders(token) });
+      const data = res.ok ? await res.json() : [];
+      setRulesMap(prev => ({ ...prev, [doctorId]: data }));
+    } catch {
+      setRulesMap(prev => ({ ...prev, [doctorId]: [] }));
+    } finally {
+      setRulesLoadingSet(prev => { const s = new Set(prev); s.delete(doctorId); return s; });
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchDoctors().then(() => setLoading(false));
   }, [fetchDoctors]);
@@ -109,6 +121,13 @@ export default function ManagerPage() {
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  // Auto-charge les règles dès que la liste des médecins est disponible
+  useEffect(() => {
+    doctors.forEach(d => {
+      if (rulesMap[d.id] === undefined) fetchRulesForDoctor(d.id);
+    });
+  }, [doctors, fetchRulesForDoctor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeStatus = async (apptId: string, status: string) => {
     setActionLoading(apptId + status);
@@ -130,26 +149,6 @@ export default function ManagerPage() {
       });
       setReminderSent(prev => new Set([...prev, apptId]));
     } finally { setActionLoading(null); }
-  };
-
-  const loadRules = async (doctorId: string) => {
-    if (rulesMap[doctorId] !== undefined) return;
-    setRulesLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/availability-rules/by-doctor/${doctorId}`, { headers: authHeaders(token) });
-      const data = res.ok ? await res.json() : [];
-      setRulesMap(prev => ({ ...prev, [doctorId]: data }));
-    } catch { setRulesMap(prev => ({ ...prev, [doctorId]: [] })); }
-    finally { setRulesLoading(false); }
-  };
-
-  const toggleRules = (doctorId: string) => {
-    if (expandedRulesDoctor === doctorId) {
-      setExpandedRulesDoctor(null);
-    } else {
-      setExpandedRulesDoctor(doctorId);
-      loadRules(doctorId);
-    }
   };
 
   const deleteRule = async (doctorId: string, ruleId: string) => {
@@ -396,123 +395,104 @@ export default function ManagerPage() {
         onClose={() => setWizardOpen(false)}
         onSuccess={() => {
           fetchAppointments();
-          // Invalidate cached rules for this doctor so next expand re-fetches
-          if (wizardDoctorId) {
-            setRulesMap(prev => { const next = { ...prev }; delete next[wizardDoctorId]; return next; });
-            if (expandedRulesDoctor === wizardDoctorId) loadRules(wizardDoctorId);
-          }
+          if (wizardDoctorId) fetchRulesForDoctor(wizardDoctorId);
         }}
         doctorId={wizardDoctorId}
         doctorName={wizardDoctorName}
       />
 
-      {/* Doctors summary + rules */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border">
-          <h2 className="font-semibold text-sm text-foreground">Médecins de l'établissement</h2>
-        </div>
-        <div className="divide-y divide-border">
-          {doctors.map(d => (
-            <div key={d.id}>
-              {/* Doctor row */}
-              <div className="px-5 py-3.5 flex items-center gap-3">
+      {/* Disponibilités par médecin */}
+      <div className="space-y-3">
+        <h2 className="font-semibold text-foreground">Règles de disponibilité par médecin</h2>
+        {doctors.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl px-5 py-8 text-center text-sm text-muted-foreground">
+            Aucun médecin associé à votre établissement.
+          </div>
+        ) : doctors.map(d => {
+          const rules = rulesMap[d.id];
+          const isLoading = rulesLoadingSet.has(d.id);
+          return (
+            <div key={d.id} className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Doctor header */}
+              <div className="px-5 py-3.5 flex items-center gap-3 border-b border-border bg-muted/20">
                 {d.avatarUrl ? (
-                  <img src={d.avatarUrl} className="w-9 h-9 rounded-full object-cover" alt="" />
+                  <img src={d.avatarUrl} className="w-9 h-9 rounded-full object-cover shrink-0" alt="" />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{(d.fullName ?? 'D')[0]}</span>
                   </div>
                 )}
-                <div>
-                  <p className="text-sm font-medium text-foreground">{d.fullName ?? d.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{d.fullName ?? d.email}</p>
                   {d.doctorProfile?.specialty && (
                     <p className="text-xs text-muted-foreground">{d.doctorProfile.specialty}</p>
                   )}
                 </div>
-                <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-muted-foreground">
-                    {appointments.filter(a => a.slot.ownerId === d.id).length} RDV aujourd'hui
+                    {rules ? `${rules.length} règle${rules.length !== 1 ? 's' : ''}` : ''}
                   </span>
                   <button
-                    onClick={() => toggleRules(d.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-                  >
-                    {expandedRulesDoctor === d.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    Règles
-                  </button>
-                  <button
                     onClick={() => { setWizardDoctorId(d.id); setWizardDoctorName(d.fullName ?? d.email); setWizardOpen(true); }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Créer des créneaux
+                    Ajouter une règle
                   </button>
                 </div>
               </div>
 
-              {/* Expandable rules panel */}
-              {expandedRulesDoctor === d.id && (
-                <div className="bg-muted/30 border-t border-border px-5 py-4 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Règles de disponibilité</p>
-                  {rulesLoading && !rulesMap[d.id] ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Chargement…
-                    </div>
-                  ) : (rulesMap[d.id] ?? []).length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Aucune règle configurée.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {(rulesMap[d.id] ?? []).map(rule => (
-                        <div key={rule.id} className="flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
-                          <div className="flex-1 min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-medium text-foreground">
-                                {new Date(rule.startDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                {' → '}
-                                {new Date(rule.endDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${rule.status === 'ACTIVE' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>
-                                {rule.status === 'ACTIVE' ? 'Active' : rule.status}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {String(rule.startHour).padStart(2,'0')}h → {String(rule.endHour).padStart(2,'0')}h · {rule.slotDurationMins} min · {rule.capacity} place{rule.capacity > 1 ? 's' : ''}
+              {/* Rules list */}
+              <div className="px-5 py-3">
+                {isLoading ? (
+                  <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Chargement des règles…
+                  </div>
+                ) : !rules || rules.length === 0 ? (
+                  <p className="py-3 text-xs text-muted-foreground">Aucune règle de disponibilité configurée.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {rules.map(rule => (
+                      <div key={rule.id} className="py-3 flex items-start gap-3">
+                        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-1">
+                          <div>
+                            <p className="text-xs font-medium text-foreground">
+                              {new Date(rule.startDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {' → '}
+                              {new Date(rule.endDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {rule.daysOfWeek.sort().map(d => DAY_LABELS[d]).join(', ')}
-                            </p>
+                            <span className={`inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${rule.status === 'ACTIVE' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500'}`}>
+                              {rule.status === 'ACTIVE' ? 'Active' : rule.status}
+                            </span>
                           </div>
-                          <button
-                            onClick={() => deleteRule(d.id, rule.id)}
-                            disabled={deletingRule === rule.id}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
-                            title="Supprimer"
-                          >
-                            {deletingRule === rule.id
-                              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              : <Trash2 className="w-3.5 h-3.5" />
-                            }
-                          </button>
+                          <p className="text-xs text-muted-foreground">
+                            {String(rule.startHour).padStart(2,'0')}h00 → {String(rule.endHour).padStart(2,'0')}h00
+                            <br />
+                            Créneaux de {rule.slotDurationMins} min · {rule.capacity} place{rule.capacity > 1 ? 's' : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {rule.daysOfWeek.slice().sort().map(n => DAY_LABELS[n]).join(', ')}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setWizardDoctorId(d.id); setWizardDoctorName(d.fullName ?? d.email); setWizardOpen(true); }}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                  >
-                    <Plus className="w-3 h-3" /> Ajouter une règle
-                  </button>
-                </div>
-              )}
+                        <button
+                          onClick={() => deleteRule(d.id, rule.id)}
+                          disabled={deletingRule === rule.id}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40 shrink-0"
+                          title="Supprimer cette règle"
+                        >
+                          {deletingRule === rule.id
+                            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            : <Trash2 className="w-3.5 h-3.5" />
+                          }
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-          {doctors.length === 0 && (
-            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
-              Aucun médecin associé à votre établissement.
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
