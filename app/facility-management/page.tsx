@@ -53,7 +53,7 @@ function getVisibleTabs(role?: string): TabKey[] {
   switch (role) {
     case 'FACILITY_MANAGER': return ['cabinet', 'availability', 'preferences', 'finances', 'staff'];
     case 'DOCTOR':           return ['cabinet', 'availability', 'preferences', 'staff'];
-    case 'SECRETARY':        return ['availability', 'preferences'];
+    case 'SECRETARY':        return ['cabinet', 'availability', 'preferences', 'finances', 'staff'];
     default:                 return ['availability', 'preferences'];
   }
 }
@@ -147,21 +147,34 @@ export default function FacilityManagementPage() {
           setSelectedDoctor(self);
         }
       } else if (user?.role === 'SECRETARY') {
-        const res = await fetch(`${API_BASE_URL}/team/my-membership`, {
+        // Essayer d'abord via FacilityManager (assignment admin)
+        const fmRes = await fetch(`${API_BASE_URL}/facility-managers/me/doctors`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const memberships = await res.json();
-          const doctorList: Doctor[] = memberships
-            .filter((m: any) => m.owner)
-            .map((m: any) => ({
-              id: m.owner.id,
-              fullName: m.owner.fullName,
-              email: m.owner.email,
-              doctorProfile: m.owner.doctorProfile ?? { specialty: '', city: '' },
-            }));
-          setDoctors(doctorList);
-          if (doctorList.length > 0) setSelectedDoctor(doctorList[0]);
+        if (fmRes.ok) {
+          const fmData = await fmRes.json();
+          if (fmData.length > 0) {
+            setDoctors(fmData);
+            setSelectedDoctor(fmData[0]);
+          } else {
+            // Fallback: via TeamMember (invitation directe par un médecin)
+            const tmRes = await fetch(`${API_BASE_URL}/team/my-membership`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (tmRes.ok) {
+              const memberships = await tmRes.json();
+              const doctorList: Doctor[] = memberships
+                .filter((m: any) => m.owner)
+                .map((m: any) => ({
+                  id: m.owner.id,
+                  fullName: m.owner.fullName,
+                  email: m.owner.email,
+                  doctorProfile: m.owner.doctorProfile ?? { specialty: '', city: '' },
+                }));
+              setDoctors(doctorList);
+              if (doctorList.length > 0) setSelectedDoctor(doctorList[0]);
+            }
+          }
         }
       } else {
         // FACILITY_MANAGER
@@ -184,7 +197,7 @@ export default function FacilityManagementPage() {
   const fetchCabinet = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (user?.role === 'FACILITY_MANAGER') {
+      if (user?.role === 'FACILITY_MANAGER' || user?.role === 'SECRETARY') {
         const res = await fetch(`${API_BASE_URL}/facility-managers/my-facility`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -220,7 +233,7 @@ export default function FacilityManagementPage() {
       let method = 'PUT';
       let body: any = cabinetForm;
 
-      if (user?.role === 'FACILITY_MANAGER') {
+      if (user?.role === 'FACILITY_MANAGER' || user?.role === 'SECRETARY') {
         url = `${API_BASE_URL}/facility-managers/my-facility`;
         method = 'PATCH';
       } else if (user?.role === 'DOCTOR') {

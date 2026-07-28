@@ -44,19 +44,14 @@ export default function DoctorAvailability({ doctorId }: Props) {
   }, [doctorId]);
 
   const fetchRules = async () => {
+    if (!doctorId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/availability-rules/mine`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(`${API_BASE_URL}/availability-rules/by-doctor/${doctorId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
-        const data = await response.json();
-        // Filter rules for this doctor
-        const doctorRules = data.filter((r: any) => r.ownerId === doctorId);
-        setRules(doctorRules);
+        setRules(await response.json());
       }
     } catch (error) {
       console.error('Error fetching rules:', error);
@@ -116,11 +111,9 @@ export default function DoctorAvailability({ doctorId }: Props) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/availability-rules/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/availability-rules/by-doctor/${doctorId}/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
