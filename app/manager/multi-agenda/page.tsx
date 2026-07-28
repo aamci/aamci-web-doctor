@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../_providers/AuthProvider';
 import {
   ChevronLeft, ChevronRight, RefreshCw, LayoutGrid,
   Clock, User, CheckCircle, XCircle, AlertCircle, Calendar,
+  Plus, X, Search, Loader2,
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
@@ -12,7 +13,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
 type Slot = {
   id?: string;
   doctorId: string;
-  startTime: string;  // normalised to `start` from API
+  startTime: string;
   endTime: string;
   appointment?: {
     id: string;
@@ -31,7 +32,11 @@ type Doctor = {
   doctorProfile: { specialty: string | null } | null;
 };
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 7h → 19h
+type AvailableSlot = { start: string; end: string };
+type Kind = { id: string; name: string; durationMins: number };
+type PatientResult = { id: string; fullName: string | null; email: string; phone: string | null };
+
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:   'bg-amber-100 border-amber-400 text-amber-900 dark:bg-amber-900/30 dark:border-amber-500 dark:text-amber-200',
@@ -65,7 +70,7 @@ function SlotBlock({ slot }: { slot: Slot }) {
   const colorClass = STATUS_COLORS[status] ?? STATUS_COLORS.FREE;
   const startH = new Date(slot.startTime).getHours() + new Date(slot.startTime).getMinutes() / 60;
   const endH   = new Date(slot.endTime).getHours()   + new Date(slot.endTime).getMinutes() / 60;
-  const top    = (startH - 7) * 60; // px (1h = 60px)
+  const top    = (startH - 7) * 60;
   const height = Math.max((endH - startH) * 60, 24);
 
   return (
@@ -89,14 +94,363 @@ function SlotBlock({ slot }: { slot: Slot }) {
   );
 }
 
+// ─── Booking Modal ────────────────────────────────────────────────────────────
+
+interface BookingModalProps {
+  doctors: Doctor[];
+  initialDoctorId: string;
+  initialDate: string;
+  token: string | null;
+  managerId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function BookingModal({ doctors, initialDoctorId, initialDate, token, managerId, onClose, onSuccess }: BookingModalProps) {
+  const [doctorId, setDoctorId]     = useState(initialDoctorId || doctors[0]?.id || '');
+  const [date, setDate]             = useState(initialDate);
+  const [slots, setSlots]           = useState<AvailableSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [kinds, setKinds]           = useState<Kind[]>([]);
+  const [kindId, setKindId]         = useState('');
+  const [notes, setNotes]           = useState('');
+
+  // Patient
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientResults, setPatientResults] = useState<PatientResult[]>([]);
+  const [patientSearching, setPatientSearching] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<PatientResult | null>(null);
+  // OR walk-in beneficiary
+  const [beneficiaryMode, setBeneficiaryMode] = useState(false);
+  const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [beneficiaryPhone, setBeneficiaryPhone] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load slots when doctor or date changes
+  useEffect(() => {
+    if (!doctorId || !date) return;
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    const from = `${date}T00:00:00`;
+    const to   = `${date}T23:59:59`;
+    fetch(`${API_BASE}/slots/available/${doctorId}?from=${from}&to=${to}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        const mapped = data.map((s: any) => ({ start: s.start ?? s.startTime, end: s.end ?? s.endTime }));
+        setSlots(mapped);
+      })
+      .catch(() => setSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [doctorId, date]);
+
+  // Load appointment kinds when doctor changes
+  useEffect(() => {
+    if (!doctorId) return;
+    fetch(`${API_BASE}/appointment-kinds/doctor/${doctorId}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setKinds)
+      .catch(() => setKinds([]));
+    setKindId('');
+  }, [doctorId]);
+
+  // Patient search with debounce
+  useEffect(() => {
+    if (beneficiaryMode || patientQuery.length < 2) { setPatientResults([]); return; }
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(async () => {
+      setPatientSearching(true);
+      try {
+        const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(patientQuery)}&role=PATIENT`, {
+          headers: authHeaders(token),
+        });
+        if (res.ok) setPatientResults(await res.json());
+      } catch { /* ignore */ }
+      finally { setPatientSearching(false); }
+    }, 350);
+  }, [patientQuery, beneficiaryMode, token]);
+
+  const handleSubmit = async () => {
+    if (!doctorId || !selectedSlot) { setError('Choisissez un médecin et un créneau.'); return; }
+    if (!beneficiaryMode && !selectedPatient) { setError('Choisissez un patient ou activez le mode bénéficiaire.'); return; }
+    if (beneficiaryMode && !beneficiaryName.trim()) { setError('Entrez le nom du bénéficiaire.'); return; }
+
+    setSubmitting(true); setError('');
+    try {
+      const body: any = {
+        doctorId,
+        slotStart: selectedSlot.start,
+        slotEnd: selectedSlot.end,
+        kindId: kindId || undefined,
+        notes: notes || undefined,
+      };
+      if (beneficiaryMode) {
+        body.beneficiaryName = beneficiaryName.trim();
+        if (beneficiaryPhone.trim()) body.beneficiaryPhone = beneficiaryPhone.trim();
+        body.patientId = managerId;
+      } else {
+        body.patientId = selectedPatient!.id;
+      }
+
+      const res = await fetch(`${API_BASE}/appointments`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || 'Erreur lors de la création du RDV.');
+        return;
+      }
+
+      onSuccess();
+      onClose();
+    } catch {
+      setError('Erreur réseau.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const selectedDoctor = doctors.find(d => d.id === doctorId);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            Nouveau rendez-vous
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+
+          {/* Doctor + Date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Médecin</label>
+              <select
+                value={doctorId}
+                onChange={e => setDoctorId(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {doctors.map(d => (
+                  <option key={d.id} value={d.id}>{d.fullName ?? d.email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
+
+          {/* Available slots */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Créneau disponible
+              {selectedDoctor && <span className="ml-1 text-primary">— Dr {selectedDoctor.fullName ?? selectedDoctor.email}</span>}
+            </label>
+            {slotsLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Chargement des créneaux…
+              </div>
+            ) : slots.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">Aucun créneau disponible pour cette date.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                {slots.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedSlot(s)}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                      selectedSlot?.start === s.start
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border hover:border-primary hover:text-primary'
+                    }`}
+                  >
+                    {fmtTime(s.start)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedSlot && (
+              <p className="text-xs text-primary font-medium">
+                Sélectionné : {fmtTime(selectedSlot.start)} → {fmtTime(selectedSlot.end)}
+              </p>
+            )}
+          </div>
+
+          {/* Appointment kind */}
+          {kinds.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Type de consultation</label>
+              <select
+                value={kindId}
+                onChange={e => setKindId(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">— Choisir un type (optionnel) —</option>
+                {kinds.map(k => (
+                  <option key={k.id} value={k.id}>{k.name} ({k.durationMins} min)</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Patient */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Patient</label>
+              <button
+                onClick={() => { setBeneficiaryMode(!beneficiaryMode); setSelectedPatient(null); setPatientQuery(''); }}
+                className="text-xs text-primary hover:underline"
+              >
+                {beneficiaryMode ? '← Rechercher un patient' : 'Bénéficiaire sans compte →'}
+              </button>
+            </div>
+
+            {beneficiaryMode ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Nom complet du bénéficiaire *"
+                  value={beneficiaryName}
+                  onChange={e => setBeneficiaryName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <input
+                  type="tel"
+                  placeholder="Téléphone (optionnel)"
+                  value={beneficiaryPhone}
+                  onChange={e => setBeneficiaryPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {selectedPatient ? (
+                  <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                    <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                      {(selectedPatient.fullName ?? 'P')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedPatient.fullName ?? 'Patient'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{selectedPatient.email}</p>
+                    </div>
+                    <button onClick={() => setSelectedPatient(null)} className="p-1 rounded hover:bg-muted transition-colors">
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher un patient (nom, email…)"
+                      value={patientQuery}
+                      onChange={e => setPatientQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    {patientSearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                )}
+                {patientResults.length > 0 && !selectedPatient && (
+                  <div className="rounded-lg border border-border bg-background shadow-md max-h-40 overflow-y-auto">
+                    {patientResults.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setSelectedPatient(p); setPatientQuery(''); setPatientResults([]); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted transition-colors text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
+                          {(p.fullName ?? 'P')[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{p.fullName ?? 'Patient'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.email}{p.phone ? ` · ${p.phone}` : ''}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Notes (optionnel)</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Motif, instructions…"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !selectedSlot || (!beneficiaryMode && !selectedPatient) || (beneficiaryMode && !beneficiaryName.trim())}
+              className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+            >
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Création…</> : 'Créer le rendez-vous'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function MultiAgendaPage() {
   const { user } = useAuth();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const managerId: string = (user as any)?.id ?? '';
 
   const [date, setDate] = useState(new Date());
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [slots, setSlots] = useState<Record<string, Slot[]>>({}); // doctorId → slots
+  const [slots, setSlots] = useState<Record<string, Slot[]>>({});
   const [loading, setLoading] = useState(true);
+
+  // Booking modal
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingDoctorId, setBookingDoctorId] = useState('');
+
+  const openBooking = (doctorId = '') => { setBookingDoctorId(doctorId); setBookingOpen(true); };
 
   const loadDoctors = useCallback(async () => {
     const res = await fetch(`${API_BASE}/facility-managers/me/doctors`, {
@@ -184,6 +538,15 @@ export default function MultiAgendaPage() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          {doctors.length > 0 && (
+            <button
+              onClick={() => openBooking()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-4 h-4" />
+              Nouveau RDV
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,7 +572,7 @@ export default function MultiAgendaPage() {
 
             {/* Hour axis */}
             <div className="w-14 flex-shrink-0 border-r border-border">
-              <div className="h-16 border-b border-border" /> {/* header placeholder */}
+              <div className="h-16 border-b border-border" />
               <div className="relative" style={{ height: `${13 * 60}px` }}>
                 {HOURS.map(h => (
                   <div
@@ -234,15 +597,21 @@ export default function MultiAgendaPage() {
                       : initials(doc.fullName)
                     }
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-foreground truncate">{doc.fullName ?? doc.email}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{doc.doctorProfile?.specialty ?? 'Médecin'}</p>
                   </div>
+                  <button
+                    onClick={() => openBooking(doc.id)}
+                    title="Nouveau RDV pour ce médecin"
+                    className="p-1 rounded hover:bg-primary/10 text-primary transition-colors flex-shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Slot grid */}
                 <div className="relative bg-background" style={{ height: `${13 * 60}px` }}>
-                  {/* Hour grid lines */}
                   {HOURS.map(h => (
                     <div
                       key={h}
@@ -267,6 +636,19 @@ export default function MultiAgendaPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Booking modal */}
+      {bookingOpen && (
+        <BookingModal
+          doctors={doctors}
+          initialDoctorId={bookingDoctorId}
+          initialDate={localDateStr(date)}
+          token={token}
+          managerId={managerId}
+          onClose={() => setBookingOpen(false)}
+          onSuccess={() => loadSlots(doctors, date)}
+        />
       )}
     </div>
   );
