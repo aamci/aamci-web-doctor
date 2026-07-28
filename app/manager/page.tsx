@@ -137,8 +137,8 @@ export default function ManagerPage() {
     setRulesLoading(true);
     try {
       const res = await fetch(`${API_BASE}/availability-rules/by-doctor/${doctorId}`, { headers: authHeaders(token) });
-      if (res.ok) setRulesMap(prev => ({ ...prev, [doctorId]: await res.json() }));
-      else setRulesMap(prev => ({ ...prev, [doctorId]: [] }));
+      const data = res.ok ? await res.json() : [];
+      setRulesMap(prev => ({ ...prev, [doctorId]: data }));
     } catch { setRulesMap(prev => ({ ...prev, [doctorId]: [] })); }
     finally { setRulesLoading(false); }
   };
