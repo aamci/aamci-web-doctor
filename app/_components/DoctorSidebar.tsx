@@ -163,14 +163,14 @@ export default function DoctorSidebar() {
     <aside className="fixed top-0 left-0 h-screen w-20 bg-slate-900 border-r border-slate-800/70 flex flex-col z-40 select-none">
       {/* Logo — same height as navbar (64px / h-16) */}
       <div className="h-16 flex items-center justify-center border-b border-slate-800/70 flex-shrink-0 px-2">
-        <Link href={(user?.role === 'SECRETARY' ? '/agenda' : '/planning') as any} className="group">
+        <Link href={(user?.role === 'SECRETARY' || user?.role === 'FACILITY_MANAGER' ? '/manager' : '/planning') as any} className="group">
           <Logo className="h-10 w-auto" />
         </Link>
       </div>
 
       {/* Main navigation */}
       <nav className="flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {(user?.role === 'SECRETARY' ? NAV_ITEMS_SECRETARY : user?.role === 'FACILITY_MANAGER' ? NAV_ITEMS_FACILITY_MANAGER : NAV_ITEMS_DOCTOR)
+        {(['SECRETARY', 'FACILITY_MANAGER'].includes(user?.role ?? '') ? NAV_ITEMS_FACILITY_MANAGER : NAV_ITEMS_DOCTOR)
           .filter(item => !item.roles || item.roles.includes(user?.role ?? ''))
           .map(({ label, href, icon }) => (
             <NavLink
