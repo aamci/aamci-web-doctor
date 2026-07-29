@@ -45,7 +45,8 @@ const NAV_ITEMS_DOCTOR = [
 
 const NAV_ITEMS_FACILITY_MANAGER = [
   { label: 'Tableau de bord', href: '/manager',                 icon: LayoutDashboard, roles: undefined },
-  { label: 'Multi-agenda',    href: '/manager/multi-agenda',    icon: Calendar,        roles: undefined },
+  { label: 'Planning',        href: '/planning',                icon: Calendar,        roles: undefined },
+  { label: 'Multi-agenda',    href: '/manager/multi-agenda',    icon: Clock,           roles: undefined },
   { label: 'Patients',        href: '/patients',                icon: Users,           roles: undefined },
   { label: 'Réservations',    href: '/reservations',            icon: CalendarCheck,   roles: undefined },
   { label: 'Cabinet',         href: '/facility-management',     icon: Building2,       roles: undefined },

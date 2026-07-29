@@ -181,6 +181,11 @@ export default function AvailabilityPage() {
   const [isManageAbsencesPageOpen, setIsManageAbsencesPageOpen] = useState(false);
   const [isAgendaSettingsModalOpen, setIsAgendaSettingsModalOpen] = useState(false);
 
+  // Gestion multi-médecin (FACILITY_MANAGER / SECRETARY)
+  const isFM = ['FACILITY_MANAGER', 'SECRETARY'].includes(user?.role ?? '');
+  const [managedDoctors, setManagedDoctors] = useState<{ id: string; fullName: string | null; email: string }[]>([]);
+  const [selectedManagedDoctorId, setSelectedManagedDoctorId] = useState('');
+
   const handleAppointmentClick = (appointment: any) => {
     setSelectedAppointment(appointment);
     setIsAppointmentSheetOpen(true);
@@ -441,34 +446,102 @@ export default function AvailabilityPage() {
     setLoading(true);
     setErr(null);
     try {
-      // Charger les règles de disponibilité
-      const rulesResponse = await authedFetch('/availability-rules/mine', { method: 'GET' });
-      const rulesData = await rulesResponse.json().catch(() => []);
-      setRules(Array.isArray(rulesData) ? rulesData : rulesData?.data || []);
+      const currentIsFM = ['FACILITY_MANAGER', 'SECRETARY'].includes(user?.role ?? '');
 
-      // Charger UNIQUEMENT les slots avec appointments (booked slots)
-      const slotsResponse = await authedFetch('/slots/mine', { method: 'GET' });
-      const slotsData = await slotsResponse.json().catch(() => []);
-      setBookedSlots(Array.isArray(slotsData) ? slotsData : slotsData?.data || []);
+      if (currentIsFM) {
+        // ── Charger la liste des médecins gérés (une seule fois)
+        if (managedDoctors.length === 0) {
+          const fmRes = await authedFetch('/facility-managers/me/doctors', { method: 'GET' });
+          const fmData = await fmRes.json().catch(() => []);
+          const doctors: { id: string; fullName: string | null; email: string }[] = Array.isArray(fmData) ? fmData : [];
+          setManagedDoctors(doctors);
+          if (doctors.length > 0 && !selectedManagedDoctorId) {
+            setSelectedManagedDoctorId(doctors[0].id);
+            // Le prochain render relancera load() avec selectedManagedDoctorId défini
+            setLoading(false);
+            return;
+          }
+        }
 
-      // Charger les types de consultations (AppointmentKinds)
-      const kindsResponse = await authedFetch('/appointment-kinds', { method: 'GET' });
-      const kindsData = await kindsResponse.json().catch(() => []);
-      setAppointmentKinds(Array.isArray(kindsData) ? kindsData : kindsData?.data || []);
+        const doctorId = selectedManagedDoctorId;
+        if (!doctorId) { setLoading(false); return; }
 
-      // Charger les absences du médecin
-      const absencesResponse = await authedFetch('/doctor-absences/mine', { method: 'GET' });
-      const absencesData = await absencesResponse.json().catch(() => []);
-      setAbsences(Array.isArray(absencesData) ? absencesData : absencesData?.data || []);
+        // Règles du médecin sélectionné
+        const rulesRes = await authedFetch(`/availability-rules/by-doctor/${doctorId}`, { method: 'GET' });
+        const rulesData = await rulesRes.json().catch(() => []);
+        setRules(Array.isArray(rulesData) ? rulesData : []);
+
+        // Rendez-vous du médecin → convertis en Slot[]
+        const apptRes = await authedFetch(
+          `/facility-managers/me/appointments?doctorId=${doctorId}`,
+          { method: 'GET' }
+        );
+        const appts: any[] = await apptRes.json().catch(() => []);
+        const slotsMap = new Map<string, Slot>();
+        for (const a of (Array.isArray(appts) ? appts : [])) {
+          const start = a.slot?.start;
+          const end   = a.slot?.end;
+          if (!start || !end) continue;
+          const key = `${start}-${end}`;
+          if (!slotsMap.has(key)) {
+            slotsMap.set(key, {
+              id:        a.slotId || key,
+              ownerId:   a.slot?.ownerId || doctorId,
+              ownerType: 'DOCTOR',
+              start,
+              end,
+              capacity:  1,
+              status:    'ACTIVE',
+              appointments: [],
+            });
+          }
+          slotsMap.get(key)!.appointments!.push({
+            id:        a.id,
+            slotId:    a.slotId || key,
+            patientId: a.patient?.id || '',
+            status:    a.status,
+            notes:     a.notes,
+            kindId:    a.kindId,
+            kind:      a.kind,
+            patient:   a.patient,
+            createdAt: a.createdAt,
+          });
+        }
+        setBookedSlots([...slotsMap.values()]);
+
+        // Types de consultation du médecin
+        const kindsRes = await authedFetch(`/appointment-kinds/doctor/${doctorId}`, { method: 'GET' });
+        const kindsData = await kindsRes.json().catch(() => []);
+        setAppointmentKinds(Array.isArray(kindsData) ? kindsData : []);
+
+        // Absences : ignorées pour FM (pas d'endpoint dédié sans être le médecin)
+        setAbsences([]);
+
+      } else {
+        // ── Mode DOCTOR (comportement inchangé)
+        const rulesResponse = await authedFetch('/availability-rules/mine', { method: 'GET' });
+        const rulesData = await rulesResponse.json().catch(() => []);
+        setRules(Array.isArray(rulesData) ? rulesData : rulesData?.data || []);
+
+        const slotsResponse = await authedFetch('/slots/mine', { method: 'GET' });
+        const slotsData = await slotsResponse.json().catch(() => []);
+        setBookedSlots(Array.isArray(slotsData) ? slotsData : slotsData?.data || []);
+
+        const kindsResponse = await authedFetch('/appointment-kinds', { method: 'GET' });
+        const kindsData = await kindsResponse.json().catch(() => []);
+        setAppointmentKinds(Array.isArray(kindsData) ? kindsData : kindsData?.data || []);
+
+        const absencesResponse = await authedFetch('/doctor-absences/mine', { method: 'GET' });
+        const absencesData = await absencesResponse.json().catch(() => []);
+        setAbsences(Array.isArray(absencesData) ? absencesData : absencesData?.data || []);
+      }
     } catch (e: any) {
       if (e?.message?.includes('Non authentifié')) {
         router.replace('/auth/login');
       } else {
         const errorMessage = e?.message || 'Erreur de chargement';
         setErr(errorMessage);
-        toast.error('Erreur de chargement', {
-          description: errorMessage
-        });
+        toast.error('Erreur de chargement', { description: errorMessage });
       }
     } finally {
       setLoading(false);
@@ -568,9 +641,9 @@ export default function AvailabilityPage() {
     color: getColorForKind(kind.name),
   }));
 
-  const agendaOptions = [
-    { value: user?.id || '', label: user?.fullName || 'Mon agenda' },
-  ];
+  const agendaOptions = isFM
+    ? managedDoctors.map(d => ({ value: d.id, label: d.fullName ?? d.email }))
+    : [{ value: user?.id || '', label: user?.fullName || 'Mon agenda' }];
 
   const statusOptions = [
     { value: 'ACTIVE', label: 'Actif', color: '#10b981' },
@@ -609,19 +682,11 @@ export default function AvailabilityPage() {
   });
 
   useEffect(() => {
-    // Attendre que le contexte auth soit chargé
     if (authLoading) return;
-
-    // Si pas d'utilisateur connecté, rediriger vers login
-    if (!user) {
-      router.replace('/auth/login');
-      return;
-    }
-
-    // Charger les créneaux uniquement si l'utilisateur est connecté
+    if (!user) { router.replace('/auth/login'); return; }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
+  }, [user, authLoading, selectedManagedDoctorId]);
 
   if (authLoading) {
     return (
@@ -635,6 +700,22 @@ export default function AvailabilityPage() {
     <div className="flex h-screen bg-white">
       {/* Sidebar Gauche - Calendrier Mensuel */}
       <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 p-3 flex-col overflow-y-auto">
+        {/* Sélecteur de médecin pour FM / SECRETARY */}
+        {isFM && managedDoctors.length > 0 && (
+          <div className="mb-3">
+            <label className="block text-[0.625rem] font-semibold text-gray-500 uppercase tracking-wide mb-1">Médecin</label>
+            <select
+              value={selectedManagedDoctorId}
+              onChange={e => setSelectedManagedDoctorId(e.target.value)}
+              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              {managedDoctors.map(d => (
+                <option key={d.id} value={d.id}>{d.fullName ?? d.email}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Boutons d'actions */}
         <div className="space-y-2 mb-3">
           <button
