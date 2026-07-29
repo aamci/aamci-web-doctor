@@ -64,7 +64,7 @@ function fmtTime(d: string) {
   return new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function SlotBlock({ slot }: { slot: Slot }) {
+function SlotBlock({ slot, onClick }: { slot: Slot; onClick?: () => void }) {
   const appt = slot.appointment;
   const status = appt?.status ?? 'FREE';
   const colorClass = STATUS_COLORS[status] ?? STATUS_COLORS.FREE;
@@ -75,9 +75,10 @@ function SlotBlock({ slot }: { slot: Slot }) {
 
   return (
     <div
-      className={`absolute left-1 right-1 rounded-md border text-xs px-1.5 py-1 overflow-hidden ${colorClass}`}
+      className={`absolute left-1 right-1 rounded-md border text-xs px-1.5 py-1 overflow-hidden ${colorClass} ${appt ? 'cursor-pointer hover:brightness-95 transition-all' : ''}`}
       style={{ top: `${top}px`, height: `${height}px` }}
       title={appt ? `${appt.patient.fullName ?? appt.patient.email} — ${appt.kind?.name ?? 'Consultation'}` : 'Libre'}
+      onClick={appt && onClick ? onClick : undefined}
     >
       {appt ? (
         <>
@@ -434,6 +435,192 @@ function BookingModal({ doctors, initialDoctorId, initialDate, token, managerId,
   );
 }
 
+// ─── Appointment Detail Modal ─────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING:   'En attente',
+  CONFIRMED: 'Confirmé',
+  CANCELLED: 'Annulé',
+  COMPLETED: 'Terminé',
+  NO_SHOW:   'Absent',
+};
+
+interface AppointmentDetailModalProps {
+  slot: Slot;
+  token: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function AppointmentDetailModal({ slot, token, onClose, onSuccess }: AppointmentDetailModalProps) {
+  const appt = slot.appointment!;
+  const [status, setStatus] = useState(appt.status);
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const changeStatus = async (newStatus: string) => {
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE}/appointments/${appt.id}/status`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.message || 'Erreur lors du changement de statut.');
+        return;
+      }
+      setStatus(newStatus);
+      onSuccess();
+    } catch { setError('Erreur réseau.'); }
+    finally { setLoading(false); }
+  };
+
+  const saveNotes = async () => {
+    if (!notes.trim()) return;
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE}/appointments/${appt.id}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notes.trim() }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.message || 'Erreur lors de la mise à jour.');
+        return;
+      }
+      onSuccess();
+      onClose();
+    } catch { setError('Erreur réseau.'); }
+    finally { setLoading(false); }
+  };
+
+  const colorClass = STATUS_COLORS[status] ?? STATUS_COLORS.PENDING;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            Détail du rendez-vous
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+
+          {/* Patient info */}
+          <div className="flex items-center gap-3 bg-muted/40 rounded-xl p-3">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
+              {(appt.patient.fullName ?? appt.patient.email ?? 'P')[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground truncate">{appt.patient.fullName ?? 'Patient'}</p>
+              <p className="text-xs text-muted-foreground truncate">{appt.patient.email}</p>
+            </div>
+          </div>
+
+          {/* Appointment info */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Heure</p>
+              <p className="font-medium">{fmtTime(slot.startTime)} → {fmtTime(slot.endTime)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Type</p>
+              <p className="font-medium">{appt.kind?.name ?? 'Consultation'}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground mb-0.5">Statut actuel</p>
+              <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border ${colorClass}`}>
+                {STATUS_LABELS[status] ?? status}
+              </span>
+            </div>
+          </div>
+
+          {/* Status actions */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Changer le statut</p>
+            <div className="flex flex-wrap gap-2">
+              {status !== 'CONFIRMED' && (
+                <button
+                  onClick={() => changeStatus('CONFIRMED')}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 transition-colors"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Confirmer
+                </button>
+              )}
+              {status !== 'COMPLETED' && (
+                <button
+                  onClick={() => changeStatus('COMPLETED')}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:opacity-50 transition-colors"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Terminé
+                </button>
+              )}
+              {status !== 'NO_SHOW' && (
+                <button
+                  onClick={() => changeStatus('NO_SHOW')}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-500 disabled:opacity-50 transition-colors"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Absent
+                </button>
+              )}
+              {status !== 'CANCELLED' && (
+                <button
+                  onClick={() => changeStatus('CANCELLED')}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Annuler
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Ajouter une note</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Motif, instructions, observations…"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <button
+              onClick={saveNotes}
+              disabled={loading || !notes.trim()}
+              className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              Enregistrer la note
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MultiAgendaPage() {
@@ -451,6 +638,9 @@ export default function MultiAgendaPage() {
   const [bookingDoctorId, setBookingDoctorId] = useState('');
 
   const openBooking = (doctorId = '') => { setBookingDoctorId(doctorId); setBookingOpen(true); };
+
+  // Appointment detail modal
+  const [detailSlot, setDetailSlot] = useState<Slot | null>(null);
 
   const loadDoctors = useCallback(async () => {
     const res = await fetch(`${API_BASE}/facility-managers/me/doctors`, {
@@ -629,7 +819,7 @@ export default function MultiAgendaPage() {
                       <p className="text-xs text-muted-foreground">Pas de RDV</p>
                     </div>
                   ) : (slots[doc.id] ?? []).map((slot, i) => (
-                    <SlotBlock key={i} slot={slot} />
+                    <SlotBlock key={i} slot={slot} onClick={() => slot.appointment && setDetailSlot(slot)} />
                   ))}
                 </div>
               </div>
@@ -648,6 +838,16 @@ export default function MultiAgendaPage() {
           managerId={managerId}
           onClose={() => setBookingOpen(false)}
           onSuccess={() => loadSlots(doctors, date)}
+        />
+      )}
+
+      {/* Appointment detail / edit modal */}
+      {detailSlot?.appointment && (
+        <AppointmentDetailModal
+          slot={detailSlot}
+          token={token}
+          onClose={() => setDetailSlot(null)}
+          onSuccess={() => { loadSlots(doctors, date); setDetailSlot(null); }}
         />
       )}
     </div>
