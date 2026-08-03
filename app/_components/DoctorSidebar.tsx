@@ -20,6 +20,8 @@ import {
   Video,
   LayoutDashboard,
   History,
+  BarChart2,
+  FileQuestion,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -29,10 +31,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3
 // roles autorisés par item (undefined = tous les rôles pro)
 const NAV_ITEMS_DOCTOR = [
   { label: 'Planning',     href: '/planning',            icon: Calendar,       roles: undefined },
+  { label: 'Statistiques', href: '/stats',              icon: BarChart2,      roles: ['DOCTOR'] },
+  { label: 'Formulaires', href: '/questionnaires',      icon: FileQuestion,   roles: ['DOCTOR'] },
   { label: 'Notes',        href: '/medical-notes',       icon: FileText,       roles: ['DOCTOR'] },
   { label: 'Tâches',       href: '/tasks',               icon: CheckSquare,    roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Patients',     href: '/patients',            icon: Users,          roles: undefined },
   { label: 'Réservations', href: '/reservations',        icon: CalendarCheck,  roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: "Liste d'att.", href: '/liste-attente',       icon: Clock,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Équipe',       href: '/team',                icon: Building2,      roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Facturation',  href: '/billing',             icon: Receipt,        roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Activité',     href: '/activity',            icon: Activity,       roles: ['DOCTOR', 'FACILITY_MANAGER'] },

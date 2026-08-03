@@ -13,6 +13,8 @@ interface AppointmentKind {
   durationMins: number;
   color: string | null;
   doctorId: string | null;
+  requiresPrePayment: boolean;
+  price: number | null;
 }
 
 const PRESET_COLORS = [
@@ -42,6 +44,7 @@ export default function ConsultationTypesPage() {
 
   const [formData, setFormData] = useState({
     name: '', description: '', isTelemedicine: false, durationMins: 30, color: PRESET_COLORS[0],
+    requiresPrePayment: false, price: '' as string,
   });
 
   const authedFetch = (path: string, init?: RequestInit) => {
@@ -64,14 +67,19 @@ export default function ConsultationTypesPage() {
   const openCreate = () => {
     setEditingKind(null);
     setFieldErrors({});
-    setFormData({ name: '', description: '', isTelemedicine: false, durationMins: 30, color: PRESET_COLORS[0] });
+    setFormData({ name: '', description: '', isTelemedicine: false, durationMins: 30, color: PRESET_COLORS[0], requiresPrePayment: false, price: '' });
     setIsModalOpen(true);
   };
 
   const openEdit = (kind: AppointmentKind) => {
     setEditingKind(kind);
     setFieldErrors({});
-    setFormData({ name: kind.name, description: kind.description || '', isTelemedicine: kind.isTelemedicine, durationMins: kind.durationMins, color: kind.color || PRESET_COLORS[0] });
+    setFormData({
+      name: kind.name, description: kind.description || '', isTelemedicine: kind.isTelemedicine,
+      durationMins: kind.durationMins, color: kind.color || PRESET_COLORS[0],
+      requiresPrePayment: kind.requiresPrePayment ?? false,
+      price: kind.price != null ? String(kind.price) : '',
+    });
     setIsModalOpen(true);
   };
 
@@ -86,10 +94,14 @@ export default function ConsultationTypesPage() {
     if (hasErrors(errors)) return;
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        price: formData.price !== '' ? Number(formData.price) : null,
+      };
       if (editingKind) {
-        await authedFetch(`/appointment-kinds/${editingKind.id}`, { method: 'PATCH', body: JSON.stringify(formData) });
+        await authedFetch(`/appointment-kinds/${editingKind.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       } else {
-        await authedFetch('/appointment-kinds', { method: 'POST', body: JSON.stringify(formData) });
+        await authedFetch('/appointment-kinds', { method: 'POST', body: JSON.stringify(payload) });
       }
       setIsModalOpen(false);
       fetchKinds();
@@ -161,6 +173,9 @@ export default function ConsultationTypesPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{kind.durationMins} min</span>
+                    {kind.price != null && (
+                      <span className="text-amber-600 font-medium">{Number(kind.price).toLocaleString('fr-FR')} FCFA</span>
+                    )}
                     {kind.description && <span className="truncate">{kind.description}</span>}
                   </div>
                 </div>
@@ -294,6 +309,34 @@ export default function ConsultationTypesPage() {
                   <p className="text-xs text-violet-600 mt-0.5">Permet de démarrer une visioconférence</p>
                 </div>
               </label>
+
+              <label className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer hover:bg-amber-100/60 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.requiresPrePayment}
+                  onChange={(e) => setFormData({ ...formData, requiresPrePayment: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500"
+                />
+                <div>
+                  <div className="text-sm font-medium text-amber-900">Pré-paiement obligatoire</div>
+                  <p className="text-xs text-amber-600 mt-0.5">Le patient paye en ligne lors de la réservation</p>
+                </div>
+              </label>
+
+              {formData.requiresPrePayment && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Prix (FCFA) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className={INPUT}
+                    placeholder="Ex: 15000"
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)}
