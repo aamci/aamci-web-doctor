@@ -46,6 +46,7 @@ export default function Login() {
   const [regErr, setRegErr] = useState<string | null>(null);
   const [regSuccess, setRegSuccess] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
+  const [regConsentAccepted, setRegConsentAccepted] = useState(false);
 
   useEffect(() => {
     const s = typeof window !== 'undefined' ? localStorage.getItem('login_email') : null;
@@ -117,12 +118,13 @@ export default function Login() {
     setRegErr(null);
     if (!regName || !regEmail || !regPassword) { setRegErr('Tous les champs sont obligatoires.'); return; }
     if (regPassword.length < 8) { setRegErr('Le mot de passe doit contenir au moins 8 caractères.'); return; }
+    if (!regConsentAccepted) { setRegErr('Vous devez accepter la politique de confidentialité pour créer un compte.'); return; }
     setRegLoading(true);
     try {
       const r = await callApi('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: regEmail, password: regPassword, fullName: regName, role: 'DOCTOR' }),
+        body: JSON.stringify({ email: regEmail, password: regPassword, fullName: regName, role: 'DOCTOR', consentedToTerms: true }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setRegErr(Array.isArray(d.message) ? d.message.join(', ') : d.message || `Erreur ${r.status}.`); return; }
@@ -446,12 +448,21 @@ export default function Login() {
                       )}
                     </button>
 
-                    <p className="text-slate-600 text-[11px] text-center">
-                      En créant un compte, vous acceptez nos{' '}
-                      <a href="/conditions-utilisation" target="_blank" className="text-teal-600 hover:underline">conditions d&apos;utilisation</a>
-                      {' '}et notre{' '}
-                      <a href="/politique-confidentialite" target="_blank" className="text-teal-600 hover:underline">politique de confidentialité</a>.
-                    </p>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={regConsentAccepted}
+                        onChange={(e) => setRegConsentAccepted(e.target.checked)}
+                        className="mt-0.5 w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 accent-teal-500 shrink-0"
+                      />
+                      <span className="text-[11px] text-slate-400 leading-relaxed">
+                        J&apos;ai lu et j&apos;accepte les{' '}
+                        <a href="/conditions-utilisation" target="_blank" className="text-teal-400 hover:underline">conditions d&apos;utilisation</a>
+                        {' '}et la{' '}
+                        <a href="/politique-confidentialite" target="_blank" className="text-teal-400 hover:underline">politique de confidentialité</a>.{' '}
+                        <span className="text-red-400">*</span>
+                      </span>
+                    </label>
                   </form>
                 </>
               )}

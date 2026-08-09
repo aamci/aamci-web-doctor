@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   User,
   Mail,
@@ -20,9 +21,11 @@ import {
   Award,
   ChevronRight,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from './_lib/api';
 import { useToast } from './_lib/useToast';
+import { useAuth } from '../_providers/AuthProvider';
 
 type UserType = {
   id: string;
@@ -75,7 +78,11 @@ export default function AccountClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const { toast } = useToast();
+  const { logout } = useAuth();
+  const router = useRouter();
 
   // Form states
   const [formData, setFormData] = useState({
@@ -294,6 +301,19 @@ export default function AccountClient() {
       toast('Erreur lors du changement de mot de passe', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'SUPPRIMER') return;
+    setDeleteLoading(true);
+    try {
+      await api.delete('/auth/account');
+      await logout();
+      router.replace('/auth/login');
+    } catch {
+      toast('Suppression impossible. Veuillez réessayer.', 'error');
+      setDeleteLoading(false);
     }
   };
 
@@ -920,6 +940,7 @@ export default function AccountClient() {
 
               {/* Security Tab */}
               {activeTab === 'securite' && (
+                <>
                 <div className="space-y-6 max-w-md">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -971,6 +992,47 @@ export default function AccountClient() {
                     Changer le mot de passe
                   </button>
                 </div>
+
+                {/* Privacy policy link */}
+                <div className="pt-2">
+                  <a
+                    href="/politique-confidentialite"
+                    target="_blank"
+                    className="text-sm text-teal-600 hover:underline"
+                  >
+                    Consulter notre politique de confidentialité →
+                  </a>
+                </div>
+
+                {/* Danger zone */}
+                <div className="mt-8 border border-red-200 rounded-xl p-6 bg-red-50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <h3 className="font-semibold text-red-700">Zone dangereuse</h3>
+                  </div>
+                  <p className="text-sm text-red-600 mb-4">
+                    La suppression de votre compte est irréversible. Toutes vos données (patients, rendez-vous, disponibilités, ordonnances) seront définitivement effacées.
+                  </p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tapez <span className="font-mono font-bold text-red-600">SUPPRIMER</span> pour confirmer :
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder="SUPPRIMER"
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                  />
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirm !== 'SUPPRIMER' || deleteLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                    Supprimer mon compte
+                  </button>
+                </div>
+                </>
               )}
             </div>
           </div>

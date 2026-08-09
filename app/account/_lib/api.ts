@@ -37,5 +37,6 @@ export const api = {
   get: (p: string) => _request(p, { method: 'GET' }),
   post: (p: string, body?: any) => _request(p, { method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) }),
   put: (p: string, body?: any) => _request(p, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: (p: string) => _request(p, { method: 'DELETE' }),
   upload: (p: string, form: FormData) => _request(p, { method: 'POST', body: form }),
 };
