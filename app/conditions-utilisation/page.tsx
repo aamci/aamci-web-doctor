@@ -73,7 +73,7 @@ Vous conservez la propriété de vos ordonnances, comptes-rendus et notes médic
             title: '9. Droit applicable',
             content: `Les présentes CGU sont soumises au droit gabonais. Tout litige relève de la compétence exclusive des tribunaux de Libreville.
 
-Contact : pro@ibogha.ga`,
+Contact : contact@ibogha241.ga`,
           },
         ].map((section) => (
           <div key={section.title} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
