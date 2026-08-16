@@ -32,6 +32,8 @@ stages:
 
 build:web-pro:
   stage: build
+  tags:
+    - docker
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -54,6 +56,8 @@ build:web-pro:
 
 build:web-pro:preprod:
   stage: build
+  tags:
+    - docker
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -76,6 +80,8 @@ build:web-pro:preprod:
 
 deploy:web-pro:
   stage: deploy
+  tags:
+    - docker
   image: alpine:3.19
   needs: ["build:web-pro"]
   rules:
@@ -93,6 +99,8 @@ deploy:web-pro:
 
 deploy:web-pro:preprod:
   stage: deploy
+  tags:
+    - docker
   image: alpine:3.19
   needs: ["build:web-pro:preprod"]
   rules:
