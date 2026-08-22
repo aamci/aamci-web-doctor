@@ -37,6 +37,9 @@ export default function Login() {
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [tempToken, setTempToken] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   // Register state
   const [regName, setRegName] = useState('');
@@ -84,6 +87,11 @@ export default function Login() {
         return;
       }
       const d = await r.json();
+      if (d?.requiresTwoFactor) {
+        setTempToken(d.tempToken);
+        setTwoFactorStep(true);
+        return;
+      }
       if (d?.success && d?.token) {
         localStorage.setItem('token', d.token);
         remember ? localStorage.setItem('login_email', email) : localStorage.removeItem('login_email');
@@ -91,6 +99,35 @@ export default function Login() {
         router.replace('/planning');
       } else {
         setErr('Réponse inattendue du serveur.');
+      }
+    } catch (e: any) {
+      setErr(e?.message || 'Erreur réseau');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleTwoFactor() {
+    setErr(null);
+    setLoading(true);
+    try {
+      const r = await callApi('/auth/2fa-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tempToken, code: twoFactorCode }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setErr(d.message || 'Code invalide.');
+        return;
+      }
+      const d = await r.json();
+      if (d?.token) {
+        localStorage.setItem('token', d.token);
+        remember ? localStorage.setItem('login_email', email) : localStorage.removeItem('login_email');
+        await setAuthToken();
+        router.replace('/planning');
       }
     } catch (e: any) {
       setErr(e?.message || 'Erreur réseau');
@@ -248,8 +285,48 @@ export default function Login() {
             </button>
           </div>
 
+          {/* ── 2FA step ── */}
+          {twoFactorStep && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500/10 text-2xl">🔐</div>
+                <p className="text-sm font-medium text-white">Vérification en deux étapes</p>
+                <p className="mt-1 text-xs text-slate-400">Entrez le code de votre application d'authentification</p>
+              </div>
+              {err && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" /><span>{err}</span>
+                </div>
+              )}
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-center text-2xl tracking-[0.5em] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                autoFocus
+                autoComplete="one-time-code"
+              />
+              <button
+                type="button"
+                disabled={loading || twoFactorCode.length !== 6}
+                onClick={() => void handleTwoFactor()}
+                className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
+              >
+                {loading ? 'Vérification…' : 'Vérifier le code'}
+              </button>
+              <button type="button" onClick={() => { setTwoFactorStep(false); setTwoFactorCode(''); setErr(null); }}
+                className="w-full text-center text-xs text-slate-400 hover:text-white">
+                ← Retour à la connexion
+              </button>
+            </div>
+          )}
+
           {/* ── Login form ── */}
-          {tab === 'login' && (
+          {!twoFactorStep && tab === 'login' && (
             <>
               {err && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm mb-4 flex items-start gap-3">
