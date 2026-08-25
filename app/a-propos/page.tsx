@@ -74,13 +74,13 @@ export default function AProposProPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Link
-              href="/auth/register"
+              href={"/auth/register" as never}
               className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl transition-colors"
             >
               Rejoindre la plateforme
             </Link>
             <Link
-              href="/auth/login"
+              href={"/auth/login" as never}
               className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold rounded-xl border border-slate-700 transition-colors"
             >
               Se connecter
@@ -113,7 +113,7 @@ export default function AProposProPage() {
           <h2 className="text-2xl font-bold text-white">Rejoignez Ibogha241 Pro</h2>
           <p className="text-slate-400">Inscription gratuite. Votre cabinet numérique opérationnel en moins de 10 minutes.</p>
           <Link
-            href="/auth/register"
+            href={"/auth/register" as never}
             className="inline-block px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl transition-colors"
           >
             Créer mon compte professionnel
@@ -125,9 +125,9 @@ export default function AProposProPage() {
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600">
           <p>© {new Date().getFullYear()} Ibogha241 — Gabon</p>
           <div className="flex gap-5">
-            <Link href="/politique-confidentialite" className="hover:text-slate-400 transition-colors">Confidentialité</Link>
-            <Link href="/conditions-utilisation" className="hover:text-slate-400 transition-colors">CGU</Link>
-            <Link href="/support" className="hover:text-slate-400 transition-colors">Support</Link>
+            <Link href={"/politique-confidentialite" as never} className="hover:text-slate-400 transition-colors">Confidentialité</Link>
+            <Link href={"/conditions-utilisation" as never} className="hover:text-slate-400 transition-colors">CGU</Link>
+            <Link href={"/support" as never} className="hover:text-slate-400 transition-colors">Support</Link>
           </div>
         </div>
       </footer>
