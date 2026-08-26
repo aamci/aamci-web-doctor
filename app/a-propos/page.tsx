@@ -115,10 +115,10 @@ const plans = [
 ];
 
 const addons = [
-  { label: 'Téléconsultation vidéo', price: 8000, desc: 'Consultations vidéo intégrées' },
-  { label: 'Gestion d\'équipe', price: 10000, desc: 'Assistants et secrétaires médicaux' },
-  { label: 'Priorité recherche', price: 5000, desc: 'En tête des résultats de recherche' },
-  { label: 'Correspondances', price: 4000, desc: 'Échanges entre professionnels de santé' },
+  { label: 'Téléconsultation vidéo', price: 15000, desc: 'Consultations vidéo intégrées' },
+  { label: 'Gestion d\'équipe', price: 20000, desc: 'Assistants et secrétaires médicaux' },
+  { label: 'Priorité recherche', price: 10000, desc: 'En tête des résultats de recherche' },
+  { label: 'Correspondances', price: 8000, desc: 'Échanges entre professionnels de santé' },
 ];
 
 export default function AProposProPage() {
