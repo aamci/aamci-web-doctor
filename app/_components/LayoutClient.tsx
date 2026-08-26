@@ -7,7 +7,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  const fullScreenPages    = ['/planning'];
+  const fullScreenPages    = ['/planning', '/a-propos', '/support'];
   const fullScreenPrefixes = ['/patients/'];
   const isFullScreen = fullScreenPages.includes(pathname)
     || fullScreenPrefixes.some((p) => pathname.startsWith(p));
@@ -30,7 +30,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }
 
   return (
-    <main className={`min-h-screen pt-16 bg-gray-50 transition-all ${user ? 'ml-20' : ''}`}>
+    <main className={`min-h-screen pt-16 transition-all ${isFullScreen ? '' : 'bg-gray-50'} ${user ? 'ml-20' : ''}`}>
       {isFullScreen ? (
         children
       ) : (

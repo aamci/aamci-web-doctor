@@ -1,4 +1,4 @@
-import { Calendar, Users, BarChart2, FileText, Video, Wallet, Shield, Smartphone } from 'lucide-react';
+import { Calendar, Users, BarChart2, FileText, Video, Wallet, Shield, Smartphone, Check, X, Zap, Crown, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = {
@@ -49,6 +49,78 @@ const features = [
   },
 ];
 
+const plans = [
+  {
+    key: 'FREE',
+    label: 'Gratuit',
+    price: 0,
+    icon: Star,
+    color: 'border-slate-700',
+    iconBg: 'bg-slate-800',
+    iconColor: 'text-slate-300',
+    buttonClass: 'bg-slate-700 hover:bg-slate-600 text-white',
+    included: [
+      '5 rendez-vous / mois',
+      '1 type de consultation',
+      'Profil public',
+      'Application mobile',
+    ],
+    excluded: [
+      'Messagerie patients',
+      'Ordonnances',
+      'Statistiques',
+      'Options avancées',
+    ],
+  },
+  {
+    key: 'STARTER',
+    label: 'Starter',
+    price: 20000,
+    icon: Zap,
+    color: 'border-blue-500 ring-1 ring-blue-500/30',
+    iconBg: 'bg-blue-900/40',
+    iconColor: 'text-blue-400',
+    badge: 'Populaire',
+    buttonClass: 'bg-blue-500 hover:bg-blue-400 text-white',
+    included: [
+      '50 rendez-vous / mois',
+      '3 types de consultation',
+      'Messagerie patients',
+      'Ordonnances numériques',
+      'Statistiques',
+      'Application mobile',
+    ],
+    excluded: [],
+  },
+  {
+    key: 'PRO',
+    label: 'Pro',
+    price: 50000,
+    icon: Crown,
+    color: 'border-violet-500 ring-1 ring-violet-500/30',
+    iconBg: 'bg-violet-900/40',
+    iconColor: 'text-violet-400',
+    buttonClass: 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-400 hover:to-purple-500 text-white',
+    included: [
+      'Rendez-vous illimités',
+      'Types de consultation illimités',
+      'Messagerie patients',
+      'Ordonnances numériques',
+      'Statistiques avancées',
+      'Support prioritaire',
+      'Application mobile',
+    ],
+    excluded: [],
+  },
+];
+
+const addons = [
+  { label: 'Téléconsultation vidéo', price: 8000, desc: 'Consultations vidéo intégrées' },
+  { label: 'Gestion d\'équipe', price: 10000, desc: 'Assistants et secrétaires médicaux' },
+  { label: 'Priorité recherche', price: 5000, desc: 'En tête des résultats de recherche' },
+  { label: 'Correspondances', price: 4000, desc: 'Échanges entre professionnels de santé' },
+];
+
 export default function AProposProPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -90,12 +162,13 @@ export default function AProposProPage() {
       </section>
 
       {/* Features */}
-      <section className="py-14 px-4">
+      <section className="py-14 px-4 bg-slate-900/50">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-10">Conçu pour les praticiens</h2>
+          <h2 className="text-2xl font-bold text-white text-center mb-2">Conçu pour les praticiens</h2>
+          <p className="text-slate-500 text-center text-sm mb-10">Tous les outils dont vous avez besoin pour exercer sereinement</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {features.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+              <div key={title} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 hover:border-slate-700 transition-colors">
                 <div className="w-9 h-9 rounded-lg bg-teal-900/40 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-teal-400" />
                 </div>
@@ -103,6 +176,91 @@ export default function AProposProPage() {
                 <p className="text-slate-500 text-xs leading-relaxed">{desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-white mb-3">Tarifs simples et transparents</h2>
+            <p className="text-slate-400 max-w-lg mx-auto">Commencez gratuitement, évoluez selon vos besoins. Aucune surprise, aucun engagement.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            {plans.map((plan) => {
+              const PlanIcon = plan.icon;
+              return (
+                <div
+                  key={plan.key}
+                  className={`relative rounded-2xl border bg-slate-900 p-7 flex flex-col gap-5 ${plan.color}`}
+                >
+                  {plan.badge && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      {plan.badge}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${plan.iconBg}`}>
+                      <PlanIcon className={`w-5 h-5 ${plan.iconColor}`} />
+                    </div>
+                    <div className="font-bold text-white">{plan.label}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-3xl font-extrabold text-white">
+                      {plan.price === 0 ? 'Gratuit' : `${plan.price.toLocaleString('fr-FR')} FCFA`}
+                    </div>
+                    {plan.price > 0 && <div className="text-xs text-slate-500 mt-0.5">par mois · sans engagement</div>}
+                  </div>
+
+                  <ul className="flex flex-col gap-2 flex-1">
+                    {plan.included.map(f => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-slate-300">
+                        <Check className="w-4 h-4 text-teal-400 mt-0.5 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                    {plan.excluded.map(f => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
+                        <X className="w-4 h-4 mt-0.5 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link
+                    href={"/auth/register" as never}
+                    className={`text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${plan.buttonClass}`}
+                  >
+                    {plan.price === 0 ? 'Démarrer gratuitement' : `Choisir ${plan.label}`}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add-ons */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-7">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+              <div>
+                <h3 className="font-bold text-white">Options complémentaires</h3>
+                <p className="text-slate-500 text-sm mt-0.5">Disponibles avec Starter ou Pro</p>
+              </div>
+              <span className="text-xs text-slate-600 border border-slate-700 rounded-lg px-3 py-1.5">Ajoutables à tout moment</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {addons.map(a => (
+                <div key={a.label} className="flex items-center justify-between gap-4 py-3 border-b border-slate-800/60 last:border-0">
+                  <div>
+                    <div className="text-sm font-medium text-slate-200">{a.label}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{a.desc}</div>
+                  </div>
+                  <div className="text-sm font-semibold text-teal-400 shrink-0">+{a.price.toLocaleString('fr-FR')} FCFA/mois</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

@@ -22,6 +22,7 @@ import {
   History,
   BarChart2,
   FileQuestion,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '../_providers/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -40,6 +41,7 @@ const NAV_ITEMS_DOCTOR = [
   { label: "Liste d'att.", href: '/liste-attente',       icon: Clock,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Équipe',       href: '/team',                icon: Building2,      roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Facturation',  href: '/billing',             icon: Receipt,        roles: ['DOCTOR', 'FACILITY_MANAGER'] },
+  { label: 'Abonnement',  href: '/abonnement',          icon: Crown,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Activité',     href: '/activity',            icon: Activity,       roles: ['DOCTOR', 'FACILITY_MANAGER'] },
   { label: 'Messagerie',   href: '/messages',            icon: MessageSquare,  roles: undefined },
   { label: 'Visio',        href: '/teleconsultation',    icon: Video,          roles: ['DOCTOR', 'FACILITY_MANAGER'] },
