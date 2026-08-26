@@ -59,6 +59,7 @@ const plans = [
     iconBg: 'bg-slate-800',
     iconColor: 'text-slate-300',
     buttonClass: 'bg-slate-700 hover:bg-slate-600 text-white',
+    loginHref: '/auth/login?tab=register&redirect=%2Fabonnement%3Fplan%3DFREE',
     included: [
       '5 rendez-vous / mois',
       '1 type de consultation',
@@ -82,6 +83,7 @@ const plans = [
     iconColor: 'text-blue-400',
     badge: 'Populaire',
     buttonClass: 'bg-blue-500 hover:bg-blue-400 text-white',
+    loginHref: '/auth/login?tab=register&redirect=%2Fabonnement%3Fplan%3DSTARTER',
     included: [
       '50 rendez-vous / mois',
       '3 types de consultation',
@@ -101,6 +103,7 @@ const plans = [
     iconBg: 'bg-violet-900/40',
     iconColor: 'text-violet-400',
     buttonClass: 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-400 hover:to-purple-500 text-white',
+    loginHref: '/auth/login?tab=register&redirect=%2Fabonnement%3Fplan%3DPRO',
     included: [
       'Rendez-vous illimités',
       'Types de consultation illimités',
@@ -146,13 +149,13 @@ export default function AProposProPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Link
-              href={"/auth/register" as never}
+              href={"/auth/login?tab=register&redirect=/abonnement" as never}
               className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl transition-colors"
             >
               Rejoindre la plateforme
             </Link>
             <Link
-              href={"/auth/login" as never}
+              href={"/auth/login?redirect=/abonnement" as never}
               className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold rounded-xl border border-slate-700 transition-colors"
             >
               Se connecter
@@ -231,7 +234,7 @@ export default function AProposProPage() {
                   </ul>
 
                   <Link
-                    href={"/auth/register" as never}
+                    href={plan.loginHref as never}
                     className={`text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${plan.buttonClass}`}
                   >
                     {plan.price === 0 ? 'Démarrer gratuitement' : `Choisir ${plan.label}`}
@@ -271,7 +274,7 @@ export default function AProposProPage() {
           <h2 className="text-2xl font-bold text-white">Rejoignez Ibogha241 Pro</h2>
           <p className="text-slate-400">Inscription gratuite. Votre cabinet numérique opérationnel en moins de 10 minutes.</p>
           <Link
-            href={"/auth/register" as never}
+            href={"/auth/login?tab=register&redirect=/abonnement" as never}
             className="inline-block px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl transition-colors"
           >
             Créer mon compte professionnel

@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../_providers/AuthProvider';
 import {
   Eye, EyeOff, Key, Lock, Mail, User,
@@ -22,10 +22,14 @@ async function callApi(p: string, i?: RequestInit) {
   return fetch(u, i);
 }
 
-export default function Login() {
+function LoginInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login: setAuthToken } = useAuth();
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<'login' | 'register'>(
+    searchParams.get('tab') === 'register' ? 'register' : 'login'
+  );
+  const redirectTo = searchParams.get('redirect') || '/planning';
 
   // Login state
   const [email, setEmail] = useState('');
@@ -96,7 +100,7 @@ export default function Login() {
         localStorage.setItem('token', d.token);
         remember ? localStorage.setItem('login_email', email) : localStorage.removeItem('login_email');
         await setAuthToken();
-        router.replace('/planning');
+        router.replace(redirectTo as never);
       } else {
         setErr('Réponse inattendue du serveur.');
       }
@@ -127,7 +131,7 @@ export default function Login() {
         localStorage.setItem('token', d.token);
         remember ? localStorage.setItem('login_email', email) : localStorage.removeItem('login_email');
         await setAuthToken();
-        router.replace('/planning');
+        router.replace(redirectTo as never);
       }
     } catch (e: any) {
       setErr(e?.message || 'Erreur réseau');
@@ -578,5 +582,13 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
   X,
@@ -130,8 +130,9 @@ const ADDON_META: Record<AddOnKey, { label: string; description: string; icon: R
   },
 };
 
-export default function AbonnementPage() {
+function AbonnementInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   useAuth();
   const [sub, setSub] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,6 +160,19 @@ export default function AbonnementPage() {
   }, []);
 
   useEffect(() => { fetchSub(); }, [fetchSub]);
+
+  // Auto-apply plan from URL param (e.g. coming from marketing page)
+  useEffect(() => {
+    const pendingPlan = searchParams.get('plan') as Plan | null;
+    if (!pendingPlan || !sub || sub.plan === pendingPlan) return;
+    if (!['FREE', 'STARTER', 'PRO'].includes(pendingPlan)) return;
+    changePlan(pendingPlan);
+    // Remove the param from URL without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.delete('plan');
+    window.history.replaceState({}, '', url.toString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub]);
 
   const changePlan = async (plan: Plan) => {
     const token = getToken();
@@ -431,6 +445,14 @@ export default function AbonnementPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AbonnementPage() {
+  return (
+    <Suspense>
+      <AbonnementInner />
+    </Suspense>
   );
 }
 
